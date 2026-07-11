@@ -24,4 +24,4 @@ The catalog contains exactly 79 profiles:
 
 These are spectrum/time projections, not conformance-grade I/Q. A profile cannot be labeled `conformance-validated` without an admitted immutable SHA-256 asset.
 
-See [CONTRACTS.md](./CONTRACTS.md) for the closed API, synthesis guarantees, failure algebra, and acceptance evidence. The byte-identical cross-repository composition is [contracts/trio-composition-v1.json](./contracts/trio-composition-v1.json).
+See [CONTRACTS.md](./CONTRACTS.md) for the closed API, synthesis guarantees, failure algebra, and acceptance evidence. The byte-identical cross-repository composition is [contracts/trio-composition-v2.json](./contracts/trio-composition-v2.json).

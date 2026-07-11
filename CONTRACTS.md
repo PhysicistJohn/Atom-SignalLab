@@ -4,7 +4,7 @@ Status: active standalone application
 
 Contract version: `1`
 
-Trio composition: [`trio-composition-v1.json`](./contracts/trio-composition-v1.json)
+Trio composition: [`trio-composition-v2.json`](./contracts/trio-composition-v2.json)
 
 Owner: this repository
 
