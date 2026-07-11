@@ -1,0 +1,36 @@
+{
+  "name": "tinysa-signal-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main/main-process.js",
+  "scripts": {
+    "dev": "npm run build:main && concurrently -k \"vite --port 5174\" \"wait-on http://localhost:5174 && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 electron .\"",
+    "build:main": "tsup src/main-process.ts --format esm --out-dir dist/main --external electron && tsup src/preload.ts --format cjs --out-dir dist/main --external electron",
+    "build": "npm run build:main && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run build && npm test"
+  },
+  "dependencies": {
+    "lucide-react": "1.24.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.13",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.1",
+    "concurrently": "9.2.3",
+    "cross-env": "10.1.0",
+    "electron": "43.1.0",
+    "tsup": "8.5.0",
+    "typescript": "5.9.2",
+    "vite": "8.1.4",
+    "vitest": "4.1.10",
+    "wait-on": "9.0.3"
+  },
+  "engines": { "node": ">=22" }
+}
