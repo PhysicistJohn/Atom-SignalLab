@@ -9,7 +9,7 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v3');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v4');
     expect(canonicalClassificationScenarios).toHaveLength(23);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
@@ -19,6 +19,7 @@ describe('canonical scalar classification corpus', () => {
       expect(item.source.url.startsWith('https://')).toBe(true);
       expect(item.recommendedSpanHz).toBeGreaterThanOrEqual(item.occupiedBandwidthHz);
       expect(item.disclosure).toMatch(/not .*conformance/i);
+      expect(item.allowedObservableClasses).toContain(item.truthClass);
     }
   });
 
@@ -177,6 +178,7 @@ describe('canonical scalar classification corpus', () => {
       });
       expect(activeDuty(offLine.zeroSpanPowerDbm, -100)).toBe(0);
       expect(scenario.disclosure).toMatch(/cannot prove a shared emitter/i);
+      expect(scenario.allowedObservableClasses).toEqual(['unknown-signal', 'cw-like', 'fm-angle-modulated-like']);
     }
   });
 
@@ -192,6 +194,7 @@ describe('canonical scalar classification corpus', () => {
     expect(peaks.slice(1).map((frequency, index) => frequency - peaks[index]!)).toEqual([110_000, 160_000]);
     expect(activeDuty(observation.zeroSpanPowerDbm, -100)).toBe(0);
     expect(scenario.carrierRasterHz).toBeUndefined();
+    expect(scenario.allowedObservableClasses).toEqual(['unknown-signal', 'cw-like']);
   });
 
   it('fails loudly for unknown scenarios and invalid instrument settings', () => {

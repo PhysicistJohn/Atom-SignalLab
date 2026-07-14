@@ -7,7 +7,7 @@
  * tinySA-class instrument.
  */
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v3' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v4' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -67,6 +67,8 @@ export interface CanonicalSource {
 export interface CanonicalClassificationScenario {
   id: string;
   truthClass: ObservableSignalClass;
+  /** Leaf observations that this scalar projection cannot disambiguate. */
+  allowedObservableClasses: readonly ObservableSignalClass[];
   family: 'analog' | 'geran' | 'e-utra' | 'nr' | 'wlan' | 'bluetooth' | 'unknown';
   label: string;
   centerHz: number;
@@ -187,13 +189,13 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   scenario('unknown-impulsive', 'unknown-signal', 'unknown', 'Impulsive broadband interference hard negative', 1_000_000_000, 20_000_000, 30_000_000, 'impulsive-noise', 'impulsive', TINYSA_SOURCE, { impulseRateHz: 120 }),
   scenario('unknown-regular-cw-comb-4', 'unknown-signal', 'unknown', 'Four independent equal-power CW lines on a regular raster', 915_000_000, 900_000, 2_000_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
     lineCount: 4, lineOffset0Hz: -450_000, lineOffset1Hz: -150_000, lineOffset2Hz: 150_000, lineOffset3Hz: 450_000,
-  }, { carrierRasterHz: 300_000, disclosure: multitoneDisclosure }),
+  }, { carrierRasterHz: 300_000, disclosure: multitoneDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like', 'fm-angle-modulated-like'] }),
   scenario('unknown-regular-cw-comb-5', 'unknown-signal', 'unknown', 'Five independent equal-power CW lines on a regular raster', 915_000_000, 1_200_000, 2_000_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
     lineCount: 5, lineOffset0Hz: -600_000, lineOffset1Hz: -300_000, lineOffset2Hz: 0, lineOffset3Hz: 300_000, lineOffset4Hz: 600_000,
-  }, { carrierRasterHz: 300_000, disclosure: multitoneDisclosure }),
+  }, { carrierRasterHz: 300_000, disclosure: multitoneDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like', 'fm-angle-modulated-like'] }),
   scenario('unknown-irregular-cw-multitone-100-210-370k', 'unknown-signal', 'unknown', 'Three independent CW lines with irregular 110/160 kHz gaps', 915_000_000, 270_000, 500_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
     lineCount: 3, lineOffset0Hz: -150_000, lineOffset1Hz: -40_000, lineOffset2Hz: 120_000,
-  }, { disclosure: multitoneDisclosure }),
+  }, { disclosure: multitoneDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like'] }),
 ]);
 
 const scenarioById = new Map(canonicalClassificationScenarios.map((value) => [value.id, value]));
@@ -276,11 +278,33 @@ function scenario(
   envelopeModel: EnvelopeModel,
   source: CanonicalSource,
   parameters: Readonly<Record<string, number>>,
-  options: Pick<CanonicalClassificationScenario, 'carrierRasterHz' | 'duplex'> & { disclosure?: string } = {},
+  options: Pick<CanonicalClassificationScenario, 'carrierRasterHz' | 'duplex'> & {
+    disclosure?: string;
+    allowedObservableClasses?: readonly ObservableSignalClass[];
+  } = {},
 ): CanonicalClassificationScenario {
   if (recommendedSpanHz < occupiedBandwidthHz) throw new Error(`${id} span does not contain its occupied bandwidth`);
-  const { disclosure = nonConformance, ...metadata } = options;
-  return Object.freeze({ id, truthClass, family, label, centerHz, occupiedBandwidthHz, recommendedSpanHz, spectrumModel, envelopeModel, parameters: Object.freeze({ ...parameters }), source: Object.freeze({ ...source }), disclosure, ...metadata });
+  const { disclosure = nonConformance, allowedObservableClasses = [truthClass], ...metadata } = options;
+  if (!allowedObservableClasses.length || !allowedObservableClasses.includes(truthClass)
+    || allowedObservableClasses.some((value) => !OBSERVABLE_SIGNAL_CLASSES.includes(value))) {
+    throw new Error(`${id} has invalid allowed observable classes`);
+  }
+  return Object.freeze({
+    id,
+    truthClass,
+    allowedObservableClasses: Object.freeze([...new Set(allowedObservableClasses)]),
+    family,
+    label,
+    centerHz,
+    occupiedBandwidthHz,
+    recommendedSpanHz,
+    spectrumModel,
+    envelopeModel,
+    parameters: Object.freeze({ ...parameters }),
+    source: Object.freeze({ ...source }),
+    disclosure,
+    ...metadata,
+  });
 }
 
 function spectrumRelativePowerDb(
