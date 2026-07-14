@@ -9,7 +9,7 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v5');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v6');
     expect(canonicalClassificationScenarios).toHaveLength(34);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
@@ -77,6 +77,42 @@ describe('canonical scalar classification corpus', () => {
     expect(quantile(observation.zeroSpanPowerDbm, 0.95) - quantile(observation.zeroSpanPowerDbm, 0.05)).toBeLessThan(3);
   });
 
+  it('projects analog zero span through the configured tune and RBW response', () => {
+    const common = {
+      lookIndex: 0,
+      zeroSpanPoints: 1_800,
+      zeroSpanSamplePeriodSeconds: 1 / 180_000,
+      noiseFloorDbm: -145,
+      snrDb: 70,
+      seed: 29,
+    };
+    const narrowAm = synthesizeCanonicalObservation('am-dsb-25k', {
+      ...common,
+      actualRbwHz: 2_000,
+      zeroSpanFrequencyHz: 98_000_000,
+    });
+    const wideAm = synthesizeCanonicalObservation('am-dsb-25k', {
+      ...common,
+      actualRbwHz: 100_000,
+      zeroSpanFrequencyHz: 98_000_000,
+    });
+    expect(quantile(narrowAm.zeroSpanPowerDbm, 0.95) - quantile(narrowAm.zeroSpanPowerDbm, 0.05)).toBeLessThan(3);
+    expect(quantile(wideAm.zeroSpanPowerDbm, 0.95) - quantile(wideAm.zeroSpanPowerDbm, 0.05)).toBeGreaterThan(8);
+
+    const discriminatorFm = synthesizeCanonicalObservation('fm-beta-3', {
+      ...common,
+      actualRbwHz: 50_000,
+      zeroSpanFrequencyHz: 98_025_000,
+    });
+    const wideFm = synthesizeCanonicalObservation('fm-beta-3', {
+      ...common,
+      actualRbwHz: 1_000_000,
+      zeroSpanFrequencyHz: 98_000_000,
+    });
+    expect(quantile(discriminatorFm.zeroSpanPowerDbm, 0.95) - quantile(discriminatorFm.zeroSpanPowerDbm, 0.05)).toBeGreaterThan(3);
+    expect(quantile(wideFm.zeroSpanPowerDbm, 0.95) - quantile(wideFm.zeroSpanPowerDbm, 0.05)).toBeLessThan(3);
+  });
+
   it('keeps duplex evidence temporal and differentiates continuous FDD from TDD patterns', () => {
     const common = { lookIndex: 0, zeroSpanPoints: 2_000, zeroSpanSamplePeriodSeconds: 0.0001, noiseFloorDbm: -130, snrDb: 40, seed: 63 };
     const fdd = synthesizeCanonicalObservation('lte-band3-fdd-20m', common);
@@ -87,6 +123,36 @@ describe('canonical scalar classification corpus', () => {
     expect(tddDuty).toBeGreaterThan(0.35);
     expect(tddDuty).toBeLessThan(0.45);
     expect(canonicalClassificationScenario('lte-band38-tdd-10m').parameters.ulDlConfiguration).toBe(0);
+  });
+
+  it('applies TDMA, TDD, and burst schedules during the sequential swept acquisition', () => {
+    const common = {
+      lookIndex: 0,
+      points: 4_501,
+      sweepTimeSeconds: 0.05,
+      actualRbwHz: 20_000,
+      noiseFloorDbm: -145,
+      snrDb: 70,
+      seed: 63,
+    };
+    const duty = (id: string) => {
+      const scenario = canonicalClassificationScenario(id);
+      const observation = synthesizeCanonicalObservation(id, common);
+      const halfBandwidthHz = scenario.occupiedBandwidthHz / 2;
+      const inBand = observation.frequencyHz.flatMap((frequency, index) =>
+        Math.abs(frequency - scenario.centerHz) <= halfBandwidthHz ? [observation.powerDbm[index]!] : []);
+      return activeDuty(inBand, -100);
+    };
+
+    expect(duty('lte-band3-fdd-20m')).toBeGreaterThan(0.98);
+    expect(duty('gsm-900-tdma')).toBeGreaterThan(0.08);
+    expect(duty('gsm-900-tdma')).toBeLessThan(0.18);
+    expect(duty('lte-band38-tdd-10m')).toBeGreaterThan(0.32);
+    expect(duty('lte-band38-tdd-10m')).toBeLessThan(0.48);
+    expect(duty('nr-n78-tdd-40m')).toBeGreaterThan(0.62);
+    expect(duty('nr-n78-tdd-40m')).toBeLessThan(0.78);
+    expect(duty('wifi-ofdm-20m')).toBeGreaterThan(0.2);
+    expect(duty('wifi-ofdm-20m')).toBeLessThan(0.85);
   });
 
   it('models Bluetooth rasters and primary LE advertising centers without claiming decoded PHY', () => {

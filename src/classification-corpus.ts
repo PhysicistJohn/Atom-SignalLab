@@ -7,7 +7,7 @@
  * tinySA-class instrument.
  */
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v5' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v6' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -48,6 +48,7 @@ type SpectrumModel =
 type EnvelopeModel =
   | 'steady'
   | 'sinusoidal-am'
+  | 'receiver-filtered-fm'
   | 'one-of-eight-tdma'
   | 'continuous-ofdm'
   | 'lte-tdd-pattern'
@@ -169,8 +170,12 @@ const exactScalarEquivalenceDisclosure = `${nonConformance} This deliberately in
 
 export const canonicalClassificationScenarios: readonly CanonicalClassificationScenario[] = Object.freeze([
   scenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', 98_000_000, 2_000, 500_000, 'rbw-line', 'steady', TINYSA_SOURCE, { driftHzPerLook: 35 }),
-  scenario('am-dsb-25k', 'am-dsb-full-carrier-like', 'analog', 'DSB full-carrier AM, 25 kHz tone', 98_000_000, 52_000, 500_000, 'am-dsb-full-carrier', 'sinusoidal-am', TINYSA_SOURCE, { modulationFrequencyHz: 25_000, modulationIndex: 0.72 }),
-  scenario('fm-beta-3', 'fm-angle-modulated-like', 'analog', 'Sinusoidal FM, beta 3', 98_000_000, 200_000, 500_000, 'fm-bessel', 'steady', TINYSA_SOURCE, { modulationFrequencyHz: 25_000, deviationHz: 75_000 }),
+  scenario('am-dsb-25k', 'am-dsb-full-carrier-like', 'analog', 'DSB full-carrier AM, 25 kHz tone', 98_000_000, 52_000, 500_000, 'am-dsb-full-carrier', 'sinusoidal-am', TINYSA_SOURCE, { modulationFrequencyHz: 25_000, modulationIndex: 0.72 }, {
+    allowedObservableClasses: ['am-dsb-full-carrier-like', 'cw-like'],
+  }),
+  scenario('fm-beta-3', 'fm-angle-modulated-like', 'analog', 'Sinusoidal FM, beta 3', 98_000_000, 200_000, 500_000, 'fm-bessel', 'receiver-filtered-fm', TINYSA_SOURCE, { modulationFrequencyHz: 25_000, deviationHz: 75_000 }, {
+    allowedObservableClasses: ['fm-angle-modulated-like', 'cw-like'],
+  }),
 
   scenario('gsm-900-tdma', 'gsm-like', 'geran', 'GSM 900 one-timeslot traffic', 947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'one-of-eight-tdma', GSM_SOURCE, { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }, { carrierRasterHz: 200_000, duplex: 'fdd' }),
 
@@ -215,7 +220,12 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   scenario('unknown-stationary-intermittent-2g4', 'unknown-signal', 'unknown', 'Stationary intermittent 2.4 GHz narrowband source', 2_441_000_000, 1_000_000, 84_000_000, 'stationary-burst', 'stationary-bursts', TINYSA_SOURCE, {
     channelWidthHz: 1_000_000, burstPeriodSeconds: 0.0073, burstDuty: 0.58,
   }, { disclosure: stationaryDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like'] }),
-  scenario('unknown-simultaneous-1mhz-raster-2g4', 'unknown-signal', 'unknown', 'Simultaneous full-band 1 MHz raster comb', 2_441_000_000, 79_000_000, 84_000_000, 'simultaneous-raster', 'simultaneous-raster-fixed-tune', TINYSA_SOURCE, {
+  // The 120 MHz acquisition span deliberately retains off-signal reference
+  // cells around the 79 MHz raster. With an 84 MHz span, nearly every cell is
+  // occupied and an unknown uniform gain is scale-confounded with a higher
+  // receiver noise floor; no scale-invariant local detector can honestly
+  // infer presence from that view alone.
+  scenario('unknown-simultaneous-1mhz-raster-2g4', 'unknown-signal', 'unknown', 'Simultaneous full-band 1 MHz raster comb', 2_441_000_000, 79_000_000, 120_000_000, 'simultaneous-raster', 'simultaneous-raster-fixed-tune', TINYSA_SOURCE, {
     firstCenterHz: 2_402_000_000, channelCount: 79, channelSpacingHz: 1_000_000, channelWidthHz: 180_000,
   }, { carrierRasterHz: 1_000_000, disclosure: multitoneDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like', 'fm-angle-modulated-like'] }),
   scenario('unknown-interleaved-four-channel-2g4', 'unknown-signal', 'unknown', 'Four time-interleaved independent 2.4 GHz sources', 2_441_000_000, 62_000_000, 84_000_000, 'interleaved-channels', 'interleaved-fixed-tune', TINYSA_SOURCE, {
@@ -231,10 +241,10 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
     lineCount: 3, lineOffset0Hz: -25_000, lineOffset1Hz: 0, lineOffset2Hz: 25_000,
     lineLevel0Db: 10 * Math.log10(0.72 ** 2 / 4), lineLevel1Db: 0, lineLevel2Db: 10 * Math.log10(0.72 ** 2 / 4),
     modulationFrequencyHz: 25_000, modulationIndex: 0.72,
-  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'am-dsb-full-carrier-like'] }),
-  scenario('unknown-independent-fm-equivalent-bessel-comb', 'unknown-signal', 'unknown', 'Independent Bessel-weighted lines exactly scalar-equivalent to the FM scenario', 98_000_000, 200_000, 500_000, 'fm-bessel', 'steady', TINYSA_SOURCE, {
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'am-dsb-full-carrier-like', 'cw-like'] }),
+  scenario('unknown-independent-fm-equivalent-bessel-comb', 'unknown-signal', 'unknown', 'Independent Bessel-weighted lines exactly scalar-equivalent to the FM scenario', 98_000_000, 200_000, 500_000, 'fm-bessel', 'receiver-filtered-fm', TINYSA_SOURCE, {
     modulationFrequencyHz: 25_000, deviationHz: 75_000,
-  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'fm-angle-modulated-like'] }),
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'fm-angle-modulated-like', 'cw-like'] }),
   scenario('unknown-generic-ofdm-20m', 'unknown-signal', 'unknown', 'Generic 20 MHz OFDM exactly matching the fitted LTE/NR scalar projection', 1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', TINYSA_SOURCE, {
     subcarrierSpacingHz: 15_000,
   }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'lte-fdd-like', 'nr-fdd-like'] }),
@@ -364,6 +374,11 @@ function spectrumRelativePowerDb(
   timeSeconds: number,
   configuration: CanonicalInstrumentConfiguration,
 ): number {
+  // A swept analyzer observes different frequencies at different times.  The
+  // traffic schedule must therefore gate the spectrum sample itself; applying
+  // TDMA/TDD/CSMA only to zero span would incorrectly turn every bursty source
+  // into a continuously occupied channel during a sweep.
+  if (!sweptTrafficActive(scenario, timeSeconds, configuration.seed)) return Number.NEGATIVE_INFINITY;
   const offsetHz = frequencyHz - scenario.centerHz;
   switch (scenario.spectrumModel) {
     case 'rbw-line': {
@@ -457,40 +472,26 @@ function envelopeRelativePowerDb(
 ): number {
   switch (scenario.envelopeModel) {
     case 'steady': return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds);
-    case 'sinusoidal-am': {
-      const modulationIndex = requiredParameter(scenario, 'modulationIndex');
-      const modulationFrequencyHz = requiredParameter(scenario, 'modulationFrequencyHz');
-      const amplitude = Math.max(1e-6, 1 + modulationIndex * Math.cos(2 * Math.PI * modulationFrequencyHz * timeSeconds));
-      return 20 * Math.log10(amplitude);
-    }
+    case 'sinusoidal-am': return receiverFilteredAmPowerDb(scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
+    case 'receiver-filtered-fm': return receiverFilteredFmPowerDb(scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
     case 'one-of-eight-tdma': {
-      const slot = requiredParameter(scenario, 'slotSeconds');
-      return Math.floor(timeSeconds / slot) % 8 === 0 ? 0 : Number.NEGATIVE_INFINITY;
+      return gsmTrafficActive(scenario, timeSeconds) ? 0 : Number.NEGATIVE_INFINITY;
     }
     case 'continuous-ofdm': return -0.7 + 0.55 * deterministicTexture(timeSeconds * 2_000, configuration.seed);
     case 'lte-tdd-pattern': {
-      const subframe = requiredParameter(scenario, 'subframeSeconds');
-      const index = Math.floor(timeSeconds / subframe) % 10;
-      const configurationIndex = requiredParameter(scenario, 'ulDlConfiguration');
-      // TS 36.211 Table 4.2-2 configuration 0: D S U U U D S U U U.
-      // This detected-power heuristic treats the special subframe as having
-      // downlink energy; it does not model DwPTS/GP/UpPTS symbol detail.
-      if (configurationIndex !== 0) throw new Error(`${scenario.id} supports only LTE UL/DL configuration 0`);
-      return 'DSUUUDSUUU'[index] !== 'U'
+      return lteTddDownlinkActive(scenario, timeSeconds)
         ? -0.5 + 0.4 * deterministicTexture(timeSeconds * 2_000, configuration.seed)
         : Number.NEGATIVE_INFINITY;
     }
     case 'nr-tdd-pattern': {
-      const slot = requiredParameter(scenario, 'slotSeconds');
-      const index = Math.floor(timeSeconds / slot) % 10;
-      return index <= 6 ? -0.5 + 0.45 * deterministicTexture(timeSeconds * 4_000, configuration.seed) : Number.NEGATIVE_INFINITY;
+      return nrTddDownlinkActive(scenario, timeSeconds)
+        ? -0.5 + 0.45 * deterministicTexture(timeSeconds * 4_000, configuration.seed)
+        : Number.NEGATIVE_INFINITY;
     }
     case 'csma-bursts': {
-      const coordinate = timeSeconds * 1_000;
-      const frame = Math.floor(coordinate / 2.7);
-      const phase = coordinate - frame * 2.7;
-      const duration = 0.25 + 1.9 * pseudoUniform(frame, 7, configuration.seed);
-      return phase < duration ? -0.5 + 0.7 * deterministicTexture(timeSeconds * 3_000, configuration.seed) : Number.NEGATIVE_INFINITY;
+      return csmaTrafficActive(timeSeconds, configuration.seed)
+        ? -0.5 + 0.7 * deterministicTexture(timeSeconds * 3_000, configuration.seed)
+        : Number.NEGATIVE_INFINITY;
     }
     case 'classic-slots': {
       const slot = requiredParameter(scenario, 'slotSeconds');
@@ -543,6 +544,113 @@ function envelopeRelativePowerDb(
     }
     case 'impulsive': return pseudoUniform(Math.floor(timeSeconds * 50_000), 17, configuration.seed) < 0.08 ? 0 : Number.NEGATIVE_INFINITY;
   }
+}
+
+function sweptTrafficActive(
+  scenario: CanonicalClassificationScenario,
+  timeSeconds: number,
+  seed: number,
+): boolean {
+  switch (scenario.envelopeModel) {
+    case 'one-of-eight-tdma': return gsmTrafficActive(scenario, timeSeconds);
+    case 'lte-tdd-pattern': return lteTddDownlinkActive(scenario, timeSeconds);
+    case 'nr-tdd-pattern': return nrTddDownlinkActive(scenario, timeSeconds);
+    case 'csma-bursts': return csmaTrafficActive(timeSeconds, seed);
+    default: return true;
+  }
+}
+
+function gsmTrafficActive(scenario: CanonicalClassificationScenario, timeSeconds: number): boolean {
+  const slot = requiredParameter(scenario, 'slotSeconds');
+  return Math.floor(timeSeconds / slot) % 8 === 0;
+}
+
+function lteTddDownlinkActive(scenario: CanonicalClassificationScenario, timeSeconds: number): boolean {
+  const configurationIndex = requiredParameter(scenario, 'ulDlConfiguration');
+  if (configurationIndex !== 0) throw new Error(`${scenario.id} supports only LTE UL/DL configuration 0`);
+  const subframe = requiredParameter(scenario, 'subframeSeconds');
+  const index = Math.floor(timeSeconds / subframe) % 10;
+  // TS 36.211 Table 4.2-2 configuration 0: D S U U U D S U U U.
+  // This coarse downlink observation treats S as active DwPTS energy and does
+  // not model the DwPTS/GP/UpPTS symbol split.
+  return 'DSUUUDSUUU'[index] !== 'U';
+}
+
+function nrTddDownlinkActive(scenario: CanonicalClassificationScenario, timeSeconds: number): boolean {
+  const slot = requiredParameter(scenario, 'slotSeconds');
+  const index = Math.floor(timeSeconds / slot) % 10;
+  // This is an explicitly heuristic 7-DL/3-UL slot pattern, not an inference
+  // that every NR deployment uses one standardized configuration.
+  return index <= 6;
+}
+
+function csmaTrafficActive(timeSeconds: number, seed: number): boolean {
+  const coordinate = timeSeconds * 1_000;
+  const frame = Math.floor(coordinate / 2.7);
+  const phase = coordinate - frame * 2.7;
+  const duration = 0.25 + 1.9 * pseudoUniform(frame, 7, seed);
+  return phase < duration;
+}
+
+function receiverFilteredAmPowerDb(
+  scenario: CanonicalClassificationScenario,
+  timeSeconds: number,
+  tuneFrequencyHz: number,
+  rbwHz: number,
+): number {
+  const modulationFrequencyHz = requiredParameter(scenario, 'modulationFrequencyHz');
+  const modulationIndex = requiredParameter(scenario, 'modulationIndex');
+  return receiverFilteredTonePowerDb([
+    { offsetHz: -modulationFrequencyHz, amplitude: modulationIndex / 2 },
+    { offsetHz: 0, amplitude: 1 },
+    { offsetHz: modulationFrequencyHz, amplitude: modulationIndex / 2 },
+  ], scenario.centerHz, timeSeconds, tuneFrequencyHz, rbwHz, modulationFrequencyHz);
+}
+
+function receiverFilteredFmPowerDb(
+  scenario: CanonicalClassificationScenario,
+  timeSeconds: number,
+  tuneFrequencyHz: number,
+  rbwHz: number,
+): number {
+  const modulationFrequencyHz = requiredParameter(scenario, 'modulationFrequencyHz');
+  const beta = requiredParameter(scenario, 'deviationHz') / modulationFrequencyHz;
+  const tones = Array.from({ length: 21 }, (_value, index) => index - 10)
+    .map((order) => ({ offsetHz: order * modulationFrequencyHz, amplitude: besselJ(order, beta) }))
+    .filter((tone) => Math.abs(tone.amplitude) >= 1e-5);
+  return receiverFilteredTonePowerDb(
+    tones,
+    scenario.centerHz,
+    timeSeconds,
+    tuneFrequencyHz,
+    rbwHz,
+    modulationFrequencyHz,
+  );
+}
+
+function receiverFilteredTonePowerDb(
+  tones: readonly { offsetHz: number; amplitude: number }[],
+  centerHz: number,
+  timeSeconds: number,
+  tuneFrequencyHz: number,
+  rbwHz: number,
+  fundamentalHz: number,
+): number {
+  let real = 0;
+  let imaginary = 0;
+  for (const tone of tones) {
+    // gaussianFilterDb is the detected-power response. Convert to its real,
+    // zero-phase voltage response before coherently summing the passed tones.
+    const responseAmplitude = 10 ** (gaussianFilterDb(
+      centerHz + tone.offsetHz - tuneFrequencyHz,
+      rbwHz,
+    ) / 20);
+    const order = tone.offsetHz / fundamentalHz;
+    const phase = 2 * Math.PI * order * fundamentalHz * timeSeconds;
+    real += tone.amplitude * responseAmplitude * Math.cos(phase);
+    imaginary += tone.amplitude * responseAmplitude * Math.sin(phase);
+  }
+  return 10 * Math.log10(Math.max(1e-12, real * real + imaginary * imaginary));
 }
 
 function multitoneOffsets(scenario: CanonicalClassificationScenario): readonly number[] {
