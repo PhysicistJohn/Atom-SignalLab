@@ -85,6 +85,8 @@ export interface CanonicalInstrumentConfiguration {
   sweepTimeSeconds: number;
   zeroSpanPoints: number;
   zeroSpanSamplePeriodSeconds: number;
+  /** Fixed analyzer tune for the detected-power capture. Defaults to the scenario center. */
+  zeroSpanFrequencyHz?: number;
   noiseFloorDbm: number;
   snrDb: number;
   seed: number;
@@ -212,7 +214,12 @@ export function synthesizeCanonicalObservation(
   });
   const zeroSpanPowerDbm = Array.from({ length: configuration.zeroSpanPoints }, (_, index) => {
     const timeSeconds = (configuration.lookIndex * configuration.zeroSpanPoints + index) * configuration.zeroSpanSamplePeriodSeconds;
-    const relativeSignalDb = envelopeRelativePowerDb(scenario, timeSeconds, configuration);
+    const relativeSignalDb = envelopeRelativePowerDb(
+      scenario,
+      timeSeconds,
+      configuration.zeroSpanFrequencyHz ?? scenario.centerHz,
+      configuration,
+    );
     const noiseDbm = configuration.noiseFloorDbm + periodogramNoiseDb(index, configuration.lookIndex + 10_000, configuration.seed ^ 0x68bc21eb);
     if (!Number.isFinite(relativeSignalDb)) return noiseDbm;
     return combineDbm(noiseDbm, configuration.noiseFloorDbm + configuration.snrDb + relativeSignalDb);
@@ -228,7 +235,7 @@ export function synthesizeCanonicalObservation(
     powerDbm,
     sweepTimeSeconds: configuration.sweepTimeSeconds,
     actualRbwHz: configuration.actualRbwHz,
-    zeroSpanFrequencyHz: scenario.centerHz,
+    zeroSpanFrequencyHz: configuration.zeroSpanFrequencyHz ?? scenario.centerHz,
     zeroSpanPowerDbm,
     zeroSpanSamplePeriodSeconds: configuration.zeroSpanSamplePeriodSeconds,
     source: structuredClone(scenario.source),
@@ -322,6 +329,7 @@ function spectrumRelativePowerDb(
 function envelopeRelativePowerDb(
   scenario: CanonicalClassificationScenario,
   timeSeconds: number,
+  tuneFrequencyHz: number,
   configuration: CanonicalInstrumentConfiguration,
 ): number {
   switch (scenario.envelopeModel) {
@@ -357,14 +365,18 @@ function envelopeRelativePowerDb(
     case 'classic-slots': {
       const slot = requiredParameter(scenario, 'slotSeconds');
       const index = Math.floor(timeSeconds / slot);
-      return index % 3 !== 2 ? -0.4 + 0.25 * deterministicTexture(index, configuration.seed) : Number.NEGATIVE_INFINITY;
+      const hopCenterHz = classicHopCenter(timeSeconds, configuration.seed);
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - hopCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      return index % 3 !== 2 && receiverResponseDb > -60
+        ? -0.4 + 0.25 * deterministicTexture(index, configuration.seed) + receiverResponseDb
+        : Number.NEGATIVE_INFINITY;
     }
     case 'ble-advertising-events': {
       const interval = requiredParameter(scenario, 'advertisingIntervalSeconds');
-      const event = Math.floor(timeSeconds / interval);
-      const phase = timeSeconds - event * interval;
-      const jitter = pseudoUniform(event, 19, configuration.seed) * 0.010;
-      return phase >= jitter && phase < jitter + 0.0014 ? -0.35 : Number.NEGATIVE_INFINITY;
+      const packetCenterHz = bleAdvertisingCenter(timeSeconds, interval, configuration.seed);
+      if (packetCenterHz === undefined) return Number.NEGATIVE_INFINITY;
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - packetCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'fsk-steady': return -0.4 + 0.25 * Math.sin(2 * Math.PI * 1_700 * timeSeconds);
     case 'chirp-sweep': return -0.8 + 0.7 * Math.sin(2 * Math.PI * 250 * timeSeconds);
@@ -478,4 +490,3 @@ function validateInstrument(value: CanonicalInstrumentConfiguration): void {
   if (value.actualRbwHz <= 0 || value.sweepTimeSeconds <= 0 || value.zeroSpanSamplePeriodSeconds <= 0) throw new Error('Canonical acquisition intervals and RBW must be positive');
   if (!Number.isInteger(value.seed) || !Number.isInteger(value.lookIndex) || value.lookIndex < 0) throw new Error('Canonical seed/look index must be non-negative integers');
 }
-

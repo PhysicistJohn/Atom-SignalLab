@@ -102,6 +102,36 @@ describe('canonical scalar classification corpus', () => {
     expect(activeFrequencies.every((frequency) => [2_402_000_000, 2_426_000_000, 2_480_000_000].some((center) => Math.abs(frequency - center) < 1_500_000))).toBe(true);
   });
 
+  it('conditions Bluetooth zero-span power on the fixed analyzer tune instead of a follow-hop envelope', () => {
+    const common = {
+      lookIndex: 0,
+      zeroSpanPoints: 1_800,
+      zeroSpanSamplePeriodSeconds: 1 / 18_000,
+      actualRbwHz: 300_000,
+      noiseFloorDbm: -130,
+      snrDb: 55,
+      seed: 119,
+    };
+    const leAtAdvertisingChannel = synthesizeCanonicalObservation('bluetooth-le-advertising', {
+      ...common,
+      zeroSpanFrequencyHz: 2_426_000_000,
+    });
+    const leBetweenAdvertisingChannels = synthesizeCanonicalObservation('bluetooth-le-advertising', {
+      ...common,
+      zeroSpanFrequencyHz: 2_441_000_000,
+    });
+    expect(activeDuty(leAtAdvertisingChannel.zeroSpanPowerDbm, -100)).toBeGreaterThan(0);
+    expect(activeDuty(leBetweenAdvertisingChannels.zeroSpanPowerDbm, -100)).toBe(0);
+
+    const classicFixedChannel = synthesizeCanonicalObservation('bluetooth-classic-connected', {
+      ...common,
+      zeroSpanFrequencyHz: 2_441_000_000,
+    });
+    const classicDuty = activeDuty(classicFixedChannel.zeroSpanPowerDbm, -100);
+    expect(classicDuty).toBeGreaterThan(0);
+    expect(classicDuty).toBeLessThan(0.1);
+  });
+
   it('fails loudly for unknown scenarios and invalid instrument settings', () => {
     expect(() => canonicalClassificationScenario('missing')).toThrow(/unknown canonical/i);
     expect(() => synthesizeCanonicalObservation('cw-rbw-line', { lookIndex: 0, points: 2 })).toThrow(/at least 16/i);
