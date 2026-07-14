@@ -7,7 +7,7 @@
  * tinySA-class instrument.
  */
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v2' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v3' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -170,7 +170,16 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   scenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz', 5_210_000_000, 76_600_000, 100_000_000, 'ofdm-channel', 'csma-bursts', WIFI_SOURCE, { subcarrierSpacingHz: 312_500 }, { carrierRasterHz: 5_000_000 }),
 
   scenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR/EDR connected hopping', 2_441_000_000, 79_000_000, 84_000_000, 'classic-hop', 'classic-slots', BLUETOOTH_SOURCE, { channelWidthHz: 1_000_000, slotSeconds: 0.000625, hopRateHz: 1_600 }, { carrierRasterHz: 1_000_000 }),
-  scenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising', 2_441_000_000, 80_000_000, 84_000_000, 'ble-advertising', 'ble-advertising-events', BLUETOOTH_SOURCE, { channelWidthHz: 2_000_000, advertisingIntervalSeconds: 0.02, packetSpacingSeconds: 0.0015 }, { carrierRasterHz: 2_000_000 }),
+  scenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising', 2_441_000_000, 80_000_000, 84_000_000, 'ble-advertising', 'ble-advertising-events', BLUETOOTH_SOURCE, {
+    channelWidthHz: 2_000_000,
+    advertisingIntervalSeconds: 0.02,
+    // Scenario schedule: start-to-start spacing for the three primary-channel
+    // packets. This is deliberately separate from their on-air duration.
+    packetSpacingSeconds: 0.0015,
+    // Full-length legacy LE 1M advertising packet: 1-byte preamble + 4-byte
+    // access address + 2-byte header + 37-byte payload + 3-byte CRC = 376 bits.
+    packetDurationSeconds: 0.000376,
+  }, { carrierRasterHz: 2_000_000 }),
 
   scenario('unknown-narrow-fsk', 'unknown-signal', 'unknown', 'Proprietary narrow FSK hard negative', 433_920_000, 45_000, 500_000, 'fsk-pair', 'fsk-steady', TINYSA_SOURCE, { deviationHz: 18_000 }),
   scenario('unknown-chirp', 'unknown-signal', 'unknown', 'Swept chirp hard negative', 915_000_000, 5_000_000, 10_000_000, 'chirp', 'chirp-sweep', TINYSA_SOURCE, { chirpPeriodSeconds: 0.004 }),
@@ -318,7 +327,13 @@ function spectrumRelativePowerDb(
       return gaussianOccupiedChannelDb(frequencyHz - hop, requiredParameter(scenario, 'channelWidthHz'));
     }
     case 'ble-advertising': {
-      const center = bleAdvertisingCenter(timeSeconds, requiredParameter(scenario, 'advertisingIntervalSeconds'), requiredParameter(scenario, 'packetSpacingSeconds'), configuration.seed);
+      const center = bleAdvertisingCenter(
+        timeSeconds,
+        requiredParameter(scenario, 'advertisingIntervalSeconds'),
+        requiredParameter(scenario, 'packetSpacingSeconds'),
+        requiredParameter(scenario, 'packetDurationSeconds'),
+        configuration.seed,
+      );
       return center === undefined ? Number.NEGATIVE_INFINITY : gaussianOccupiedChannelDb(frequencyHz - center, requiredParameter(scenario, 'channelWidthHz'));
     }
     case 'fsk-pair': {
@@ -389,7 +404,13 @@ function envelopeRelativePowerDb(
     }
     case 'ble-advertising-events': {
       const interval = requiredParameter(scenario, 'advertisingIntervalSeconds');
-      const packetCenterHz = bleAdvertisingCenter(timeSeconds, interval, requiredParameter(scenario, 'packetSpacingSeconds'), configuration.seed);
+      const packetCenterHz = bleAdvertisingCenter(
+        timeSeconds,
+        interval,
+        requiredParameter(scenario, 'packetSpacingSeconds'),
+        requiredParameter(scenario, 'packetDurationSeconds'),
+        configuration.seed,
+      );
       if (packetCenterHz === undefined) return Number.NEGATIVE_INFINITY;
       const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - packetCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
       return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
@@ -445,12 +466,25 @@ function classicHopCenter(timeSeconds: number, seed: number): number {
   return 2_402_000_000 + channel * 1_000_000;
 }
 
-function bleAdvertisingCenter(timeSeconds: number, intervalSeconds: number, packetSpacingSeconds: number, seed: number): number | undefined {
+function bleAdvertisingCenter(
+  timeSeconds: number,
+  intervalSeconds: number,
+  packetSpacingSeconds: number,
+  packetDurationSeconds: number,
+  seed: number,
+): number | undefined {
+  if (packetDurationSeconds <= 0 || packetDurationSeconds > packetSpacingSeconds) {
+    throw new Error('BLE advertising packet duration must be positive and no longer than the packet start spacing');
+  }
   const event = Math.floor(timeSeconds / intervalSeconds);
   const phase = timeSeconds - event * intervalSeconds;
   const jitter = pseudoUniform(event, 43, seed) * 0.010;
-  const packet = Math.floor((phase - jitter) / packetSpacingSeconds);
+  const eventPhase = phase - jitter;
+  if (eventPhase < 0) return undefined;
+  const packet = Math.floor(eventPhase / packetSpacingSeconds);
   if (packet < 0 || packet > 2) return undefined;
+  const packetPhase = eventPhase - packet * packetSpacingSeconds;
+  if (packetPhase >= packetDurationSeconds) return undefined;
   return [2_402_000_000, 2_426_000_000, 2_480_000_000][packet];
 }
 

@@ -9,7 +9,7 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v2');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v3');
     expect(canonicalClassificationScenarios).toHaveLength(23);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
@@ -90,6 +90,7 @@ describe('canonical scalar classification corpus', () => {
     expect(classic.parameters.hopRateHz).toBe(1_600);
     expect(le.carrierRasterHz).toBe(2_000_000);
     expect(le.parameters.packetSpacingSeconds).toBe(0.0015);
+    expect(le.parameters.packetDurationSeconds).toBe(0.000376);
     const observations = Array.from({ length: 12 }, (_, lookIndex) => synthesizeCanonicalObservation(le.id, {
       lookIndex,
       points: 901,
@@ -132,6 +133,27 @@ describe('canonical scalar classification corpus', () => {
     const classicDuty = activeDuty(classicFixedChannel.zeroSpanPowerDbm, -100);
     expect(classicDuty).toBeGreaterThan(0);
     expect(classicDuty).toBeLessThan(0.1);
+  });
+
+  it('models BLE packet duration separately from primary-channel packet spacing', () => {
+    const samplePeriodSeconds = 10e-6;
+    const observation = synthesizeCanonicalObservation('bluetooth-le-advertising', {
+      lookIndex: 0,
+      zeroSpanPoints: 3_000,
+      zeroSpanSamplePeriodSeconds: samplePeriodSeconds,
+      zeroSpanFrequencyHz: 2_426_000_000,
+      actualRbwHz: 300_000,
+      noiseFloorDbm: -130,
+      snrDb: 55,
+      seed: 119,
+    });
+    const active = observation.zeroSpanPowerDbm.map((powerDbm) => powerDbm > -100);
+    const longestRunSamples = active.reduce((state, value) => ({
+      current: value ? state.current + 1 : 0,
+      longest: Math.max(state.longest, value ? state.current + 1 : 0),
+    }), { current: 0, longest: 0 }).longest;
+    expect(longestRunSamples * samplePeriodSeconds).toBeGreaterThanOrEqual(0.00036);
+    expect(longestRunSamples * samplePeriodSeconds).toBeLessThanOrEqual(0.00039);
   });
 
   it('canonizes regular independent-carrier combs without claiming one emitter', () => {
