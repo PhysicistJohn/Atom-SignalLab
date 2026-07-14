@@ -24,4 +24,20 @@ The catalog contains exactly 79 profiles:
 
 These are spectrum/time projections, not conformance-grade I/Q. A profile cannot be labeled `conformance-validated` without an admitted immutable SHA-256 asset.
 
+## Canonical classification corpus
+
+`src/classification-corpus.ts` is separate from the 79-profile UI catalog. It
+canonizes deterministic scalar observations for Bayesian detector/classifier
+development, including CW, physical DSB full-carrier AM sideband ratios,
+Bessel-series FM, GSM, LTE FDD/TDD, NR FDD/TDD, Wi-Fi DSSS/OFDM, Bluetooth
+Classic/LE, and explicit hard negatives. Every scenario records truth class,
+parameters, source clause, seed, acquisition settings, and a non-conformance
+disclosure.
+
+The corpus intentionally emits only swept power and detected-power zero span.
+It does not expose hidden I/Q or selected-profile state to a classifier. Its
+physics/standards-derived projections verify inference code and observable
+equivalence behavior; real-world probability calibration still requires
+session-grouped physical captures.
+
 See [CONTRACTS.md](./CONTRACTS.md) for the closed API, synthesis guarantees, failure algebra, and acceptance evidence. The byte-identical cross-repository composition is [contracts/trio-composition-v2.json](./contracts/trio-composition-v2.json).
