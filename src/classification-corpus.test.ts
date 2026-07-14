@@ -9,8 +9,8 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v6');
-    expect(canonicalClassificationScenarios).toHaveLength(34);
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v7');
+    expect(canonicalClassificationScenarios).toHaveLength(35);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
     expect([...OBSERVABLE_SIGNAL_CLASSES].every((item) => represented.has(item))).toBe(true);
@@ -147,6 +147,7 @@ describe('canonical scalar classification corpus', () => {
     expect(duty('lte-band3-fdd-20m')).toBeGreaterThan(0.98);
     expect(duty('gsm-900-tdma')).toBeGreaterThan(0.08);
     expect(duty('gsm-900-tdma')).toBeLessThan(0.18);
+    expect(duty('gsm-900-loaded-bcch')).toBeGreaterThan(0.98);
     expect(duty('lte-band38-tdd-10m')).toBeGreaterThan(0.32);
     expect(duty('lte-band38-tdd-10m')).toBeLessThan(0.48);
     expect(duty('nr-n78-tdd-40m')).toBeGreaterThan(0.62);

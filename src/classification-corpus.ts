@@ -7,7 +7,7 @@
  * tinySA-class instrument.
  */
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v6' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v7' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -50,6 +50,7 @@ type EnvelopeModel =
   | 'sinusoidal-am'
   | 'receiver-filtered-fm'
   | 'one-of-eight-tdma'
+  | 'continuous-gsm-loaded'
   | 'continuous-ofdm'
   | 'lte-tdd-pattern'
   | 'nr-tdd-pattern'
@@ -178,6 +179,11 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   }),
 
   scenario('gsm-900-tdma', 'gsm-like', 'geran', 'GSM 900 one-timeslot traffic', 947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'one-of-eight-tdma', GSM_SOURCE, { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }, { carrierRasterHz: 200_000, duplex: 'fdd' }),
+  scenario('gsm-900-loaded-bcch', 'gsm-like', 'geran', 'GSM 900 loaded BCCH/dummy-burst carrier', 947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'continuous-gsm-loaded', GSM_SOURCE, { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }, {
+    carrierRasterHz: 200_000,
+    duplex: 'fdd',
+    disclosure: `${nonConformance} This loaded downlink scenario models continuous slot occupancy from traffic, control, or dummy bursts; it does not claim that every GSM carrier is continuous.`,
+  }),
 
   scenario('lte-band3-fdd-5m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 5 MHz', 1_842_500_000, 4_500_000, 10_000_000, 'ofdm-channel', 'continuous-ofdm', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }, { carrierRasterHz: 100_000, duplex: 'fdd' }),
   scenario('lte-band3-fdd-20m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 20 MHz', 1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }, { carrierRasterHz: 100_000, duplex: 'fdd' }),
@@ -477,6 +483,7 @@ function envelopeRelativePowerDb(
     case 'one-of-eight-tdma': {
       return gsmTrafficActive(scenario, timeSeconds) ? 0 : Number.NEGATIVE_INFINITY;
     }
+    case 'continuous-gsm-loaded': return -0.35 + 0.25 * deterministicTexture(timeSeconds * 1_733, configuration.seed);
     case 'continuous-ofdm': return -0.7 + 0.55 * deterministicTexture(timeSeconds * 2_000, configuration.seed);
     case 'lte-tdd-pattern': {
       return lteTddDownlinkActive(scenario, timeSeconds)
