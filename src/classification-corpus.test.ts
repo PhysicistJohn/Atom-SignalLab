@@ -9,11 +9,12 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v1');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v2');
+    expect(canonicalClassificationScenarios).toHaveLength(23);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
     expect([...OBSERVABLE_SIGNAL_CLASSES].every((item) => represented.has(item))).toBe(true);
-    expect(canonicalClassificationScenarios.filter((item) => item.truthClass === 'unknown-signal').length).toBeGreaterThanOrEqual(4);
+    expect(canonicalClassificationScenarios.filter((item) => item.truthClass === 'unknown-signal')).toHaveLength(7);
     for (const item of canonicalClassificationScenarios) {
       expect(item.source.url.startsWith('https://')).toBe(true);
       expect(item.recommendedSpanHz).toBeGreaterThanOrEqual(item.occupiedBandwidthHz);
@@ -132,6 +133,44 @@ describe('canonical scalar classification corpus', () => {
     expect(classicDuty).toBeLessThan(0.1);
   });
 
+  it('canonizes regular independent-carrier combs without claiming one emitter', () => {
+    for (const [id, lineCount, expectedSpacingHz, onLineOffsetHz] of [
+      ['unknown-regular-cw-comb-4', 4, 300_000, 150_000],
+      ['unknown-regular-cw-comb-5', 5, 300_000, 0],
+    ] as const) {
+      const scenario = canonicalClassificationScenario(id);
+      const observation = synthesizeCanonicalObservation(id, {
+        lookIndex: 0, points: 4_001, actualRbwHz: 5_000, noiseFloorDbm: -145, snrDb: 70, seed: 811,
+        zeroSpanPoints: 900, zeroSpanSamplePeriodSeconds: 1 / 9_000, zeroSpanFrequencyHz: scenario.centerHz + onLineOffsetHz,
+      });
+      const peaks = strongLocalPeakFrequencies(observation.frequencyHz, observation.powerDbm, -100);
+      expect(peaks).toHaveLength(lineCount);
+      expect(peaks.slice(1).map((frequency, index) => frequency - peaks[index]!))
+        .toEqual(Array(lineCount - 1).fill(expectedSpacingHz));
+      expect(activeDuty(observation.zeroSpanPowerDbm, -100)).toBe(1);
+      const offLine = synthesizeCanonicalObservation(id, {
+        lookIndex: 0, actualRbwHz: 5_000, noiseFloorDbm: -145, snrDb: 70, seed: 811,
+        zeroSpanPoints: 900, zeroSpanSamplePeriodSeconds: 1 / 9_000, zeroSpanFrequencyHz: scenario.centerHz + 900_000,
+      });
+      expect(activeDuty(offLine.zeroSpanPowerDbm, -100)).toBe(0);
+      expect(scenario.disclosure).toMatch(/cannot prove a shared emitter/i);
+    }
+  });
+
+  it('canonizes the irregular 100/210/370 kHz span coordinates as an unknown hard negative', () => {
+    const id = 'unknown-irregular-cw-multitone-100-210-370k';
+    const scenario = canonicalClassificationScenario(id);
+    const observation = synthesizeCanonicalObservation(id, {
+      lookIndex: 0, points: 4_001, actualRbwHz: 2_000, noiseFloorDbm: -145, snrDb: 70, seed: 919,
+      zeroSpanPoints: 900, zeroSpanSamplePeriodSeconds: 1 / 9_000, zeroSpanFrequencyHz: scenario.centerHz,
+    });
+    const peaks = strongLocalPeakFrequencies(observation.frequencyHz, observation.powerDbm, -100);
+    expect(peaks.map((frequency) => frequency - (scenario.centerHz - scenario.recommendedSpanHz / 2))).toEqual([100_000, 210_000, 370_000]);
+    expect(peaks.slice(1).map((frequency, index) => frequency - peaks[index]!)).toEqual([110_000, 160_000]);
+    expect(activeDuty(observation.zeroSpanPowerDbm, -100)).toBe(0);
+    expect(scenario.carrierRasterHz).toBeUndefined();
+  });
+
   it('fails loudly for unknown scenarios and invalid instrument settings', () => {
     expect(() => canonicalClassificationScenario('missing')).toThrow(/unknown canonical/i);
     expect(() => synthesizeCanonicalObservation('cw-rbw-line', { lookIndex: 0, points: 2 })).toThrow(/at least 16/i);
@@ -146,6 +185,14 @@ function nearestPower(frequencyHz: readonly number[], powerDbm: readonly number[
 
 function activeDuty(values: readonly number[], thresholdDbm: number): number {
   return values.filter((value) => value >= thresholdDbm).length / values.length;
+}
+
+function strongLocalPeakFrequencies(frequencyHz: readonly number[], powerDbm: readonly number[], thresholdDbm: number): readonly number[] {
+  return frequencyHz.filter((_frequency, index) => index > 0
+    && index < frequencyHz.length - 1
+    && powerDbm[index]! >= thresholdDbm
+    && powerDbm[index]! > powerDbm[index - 1]!
+    && powerDbm[index]! >= powerDbm[index + 1]!);
 }
 
 function quantile(values: readonly number[], probability: number): number {

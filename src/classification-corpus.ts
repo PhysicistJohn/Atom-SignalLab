@@ -7,7 +7,7 @@
  * tinySA-class instrument.
  */
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v1' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v2' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -38,6 +38,7 @@ type SpectrumModel =
   | 'ble-advertising'
   | 'fsk-pair'
   | 'chirp'
+  | 'multitone-lines'
   | 'impulsive-noise';
 
 type EnvelopeModel =
@@ -52,6 +53,7 @@ type EnvelopeModel =
   | 'ble-advertising-events'
   | 'fsk-steady'
   | 'chirp-sweep'
+  | 'multitone-fixed-tune'
   | 'impulsive';
 
 export interface CanonicalSource {
@@ -145,6 +147,7 @@ const BLUETOOTH_SOURCE: CanonicalSource = {
 };
 
 const nonConformance = 'Deterministic scalar instrument projection for inference testing; it is not a bit-exact, protocol-decodable, or conformance I/Q waveform.';
+const multitoneDisclosure = `${nonConformance} Simultaneous regular lines are association-compatible, but scalar power cannot prove a shared emitter, oscillator, modulation process, or message identity.`;
 
 export const canonicalClassificationScenarios: readonly CanonicalClassificationScenario[] = Object.freeze([
   scenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', 98_000_000, 2_000, 500_000, 'rbw-line', 'steady', TINYSA_SOURCE, { driftHzPerLook: 35 }),
@@ -173,6 +176,15 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   scenario('unknown-chirp', 'unknown-signal', 'unknown', 'Swept chirp hard negative', 915_000_000, 5_000_000, 10_000_000, 'chirp', 'chirp-sweep', TINYSA_SOURCE, { chirpPeriodSeconds: 0.004 }),
   scenario('unknown-802154', 'unknown-signal', 'unknown', 'IEEE 802.15.4-like hard negative', 2_425_000_000, 2_000_000, 10_000_000, 'gaussian-channel', 'csma-bursts', WIFI_SOURCE, { symbolRateHz: 62_500 }, { carrierRasterHz: 5_000_000 }),
   scenario('unknown-impulsive', 'unknown-signal', 'unknown', 'Impulsive broadband interference hard negative', 1_000_000_000, 20_000_000, 30_000_000, 'impulsive-noise', 'impulsive', TINYSA_SOURCE, { impulseRateHz: 120 }),
+  scenario('unknown-regular-cw-comb-4', 'unknown-signal', 'unknown', 'Four independent equal-power CW lines on a regular raster', 915_000_000, 900_000, 2_000_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
+    lineCount: 4, lineOffset0Hz: -450_000, lineOffset1Hz: -150_000, lineOffset2Hz: 150_000, lineOffset3Hz: 450_000,
+  }, { carrierRasterHz: 300_000, disclosure: multitoneDisclosure }),
+  scenario('unknown-regular-cw-comb-5', 'unknown-signal', 'unknown', 'Five independent equal-power CW lines on a regular raster', 915_000_000, 1_200_000, 2_000_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
+    lineCount: 5, lineOffset0Hz: -600_000, lineOffset1Hz: -300_000, lineOffset2Hz: 0, lineOffset3Hz: 300_000, lineOffset4Hz: 600_000,
+  }, { carrierRasterHz: 300_000, disclosure: multitoneDisclosure }),
+  scenario('unknown-irregular-cw-multitone-100-210-370k', 'unknown-signal', 'unknown', 'Three independent CW lines with irregular 110/160 kHz gaps', 915_000_000, 270_000, 500_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
+    lineCount: 3, lineOffset0Hz: -150_000, lineOffset1Hz: -40_000, lineOffset2Hz: 120_000,
+  }, { disclosure: multitoneDisclosure }),
 ]);
 
 const scenarioById = new Map(canonicalClassificationScenarios.map((value) => [value.id, value]));
@@ -255,10 +267,11 @@ function scenario(
   envelopeModel: EnvelopeModel,
   source: CanonicalSource,
   parameters: Readonly<Record<string, number>>,
-  options: Pick<CanonicalClassificationScenario, 'carrierRasterHz' | 'duplex'> = {},
+  options: Pick<CanonicalClassificationScenario, 'carrierRasterHz' | 'duplex'> & { disclosure?: string } = {},
 ): CanonicalClassificationScenario {
   if (recommendedSpanHz < occupiedBandwidthHz) throw new Error(`${id} span does not contain its occupied bandwidth`);
-  return Object.freeze({ id, truthClass, family, label, centerHz, occupiedBandwidthHz, recommendedSpanHz, spectrumModel, envelopeModel, parameters: Object.freeze({ ...parameters }), source: Object.freeze({ ...source }), disclosure: nonConformance, ...options });
+  const { disclosure = nonConformance, ...metadata } = options;
+  return Object.freeze({ id, truthClass, family, label, centerHz, occupiedBandwidthHz, recommendedSpanHz, spectrumModel, envelopeModel, parameters: Object.freeze({ ...parameters }), source: Object.freeze({ ...source }), disclosure, ...metadata });
 }
 
 function spectrumRelativePowerDb(
@@ -319,6 +332,9 @@ function spectrumRelativePowerDb(
       const instantaneousHz = scenario.centerHz - scenario.occupiedBandwidthHz / 2 + phase * scenario.occupiedBandwidthHz;
       return gaussianFilterDb(frequencyHz - instantaneousHz, Math.max(configuration.actualRbwHz, scenario.occupiedBandwidthHz / 80));
     }
+    case 'multitone-lines':
+      return combineRelativeDb(multitoneOffsets(scenario).map((lineOffsetHz) =>
+        gaussianFilterDb(offsetHz - lineOffsetHz, configuration.actualRbwHz)));
     case 'impulsive-noise': {
       const active = pseudoUniform(Math.floor(timeSeconds * 1_000_000), configuration.lookIndex, configuration.seed) < 0.22;
       return active && Math.abs(offsetHz) <= scenario.occupiedBandwidthHz / 2 ? -2.5 * Math.abs(offsetHz) / (scenario.occupiedBandwidthHz / 2) : Number.NEGATIVE_INFINITY;
@@ -380,8 +396,19 @@ function envelopeRelativePowerDb(
     }
     case 'fsk-steady': return -0.4 + 0.25 * Math.sin(2 * Math.PI * 1_700 * timeSeconds);
     case 'chirp-sweep': return -0.8 + 0.7 * Math.sin(2 * Math.PI * 250 * timeSeconds);
+    case 'multitone-fixed-tune': {
+      const receiverResponseDb = combineRelativeDb(multitoneOffsets(scenario).map((lineOffsetHz) =>
+        gaussianFilterDb(tuneFrequencyHz - (scenario.centerHz + lineOffsetHz), configuration.actualRbwHz)));
+      return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
+    }
     case 'impulsive': return pseudoUniform(Math.floor(timeSeconds * 50_000), 17, configuration.seed) < 0.08 ? 0 : Number.NEGATIVE_INFINITY;
   }
+}
+
+function multitoneOffsets(scenario: CanonicalClassificationScenario): readonly number[] {
+  const count = requiredParameter(scenario, 'lineCount');
+  if (!Number.isInteger(count) || count < 1 || count > 16) throw new Error(`${scenario.id} has invalid multitone lineCount`);
+  return Array.from({ length: count }, (_value, index) => requiredParameter(scenario, `lineOffset${index}Hz`));
 }
 
 function gaussianFilterDb(offsetHz: number, rbwHz: number): number {

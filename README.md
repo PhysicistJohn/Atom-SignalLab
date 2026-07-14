@@ -34,6 +34,11 @@ Classic/LE, and explicit hard negatives. Every scenario records truth class,
 parameters, source clause, seed, acquisition settings, and a non-conformance
 disclosure.
 
+The hard-negative set includes independent regular and irregular CW groups.
+Their simultaneous scalar lines may be compatible with a regular-component
+association, but that observation cannot establish a shared emitter,
+oscillator, modulation process, or message identity.
+
 The corpus intentionally emits only swept power and detected-power zero span.
 It does not expose hidden I/Q or selected-profile state to a classifier. Its
 physics/standards-derived projections verify inference code and observable
