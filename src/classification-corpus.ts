@@ -7,7 +7,7 @@
  * tinySA-class instrument.
  */
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v4' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v5' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -36,6 +36,10 @@ type SpectrumModel =
   | 'dsss-channel'
   | 'classic-hop'
   | 'ble-advertising'
+  | 'stationary-burst'
+  | 'simultaneous-raster'
+  | 'interleaved-channels'
+  | 'proprietary-fhss'
   | 'fsk-pair'
   | 'chirp'
   | 'multitone-lines'
@@ -51,6 +55,10 @@ type EnvelopeModel =
   | 'csma-bursts'
   | 'classic-slots'
   | 'ble-advertising-events'
+  | 'stationary-bursts'
+  | 'simultaneous-raster-fixed-tune'
+  | 'interleaved-fixed-tune'
+  | 'proprietary-fhss-fixed-tune'
   | 'fsk-steady'
   | 'chirp-sweep'
   | 'multitone-fixed-tune'
@@ -101,7 +109,7 @@ export interface CanonicalScalarObservation {
   corpusVersion: typeof CLASSIFICATION_CORPUS_VERSION;
   scenarioId: string;
   truthClass: ObservableSignalClass;
-  qualification: 'physics-derived-scalar-projection' | 'standards-derived-scalar-projection';
+  qualification: 'physics-derived-scalar-projection' | 'standards-parameterized-heuristic-scalar-projection';
   seed: number;
   lookIndex: number;
   frequencyHz: readonly number[];
@@ -142,6 +150,11 @@ const WIFI_SOURCE: CanonicalSource = {
   clause: 'DSSS/HR-DSSS and OFDM PHY channelization', revision: '2024',
   url: 'https://standards.ieee.org/ieee/802.11/10548/',
 };
+const IEEE_802154_SOURCE: CanonicalSource = {
+  organization: 'IEEE', specification: 'IEEE 802.15.4-2024',
+  clause: '2450 MHz O-QPSK PHY channelization', revision: '2024',
+  url: 'https://standards.ieee.org/ieee/802.15.4/11011/',
+};
 const BLUETOOTH_SOURCE: CanonicalSource = {
   organization: 'Bluetooth SIG', specification: 'Bluetooth Core Specification',
   clause: 'BR/EDR and LE radio physical layers and baseband/link-layer timing', revision: '6.3',
@@ -150,6 +163,9 @@ const BLUETOOTH_SOURCE: CanonicalSource = {
 
 const nonConformance = 'Deterministic scalar instrument projection for inference testing; it is not a bit-exact, protocol-decodable, or conformance I/Q waveform.';
 const multitoneDisclosure = `${nonConformance} Simultaneous regular lines are association-compatible, but scalar power cannot prove a shared emitter, oscillator, modulation process, or message identity.`;
+const agileEquivalenceDisclosure = `${nonConformance} The observed frequency-agile scalar activity is also compatible with Bluetooth, proprietary FHSS, a scanning interferer, or time-interleaved independent sources; it cannot prove protocol or emitter identity.`;
+const stationaryDisclosure = `${nonConformance} Intermittence at one fixed center is negative evidence for frequency agility, but its scalar line may remain CW-like.`;
+const exactScalarEquivalenceDisclosure = `${nonConformance} This deliberately independent source model produces the same admitted scalar observables as a fitted known scenario, so the measurement cannot establish waveform or protocol identity.`;
 
 export const canonicalClassificationScenarios: readonly CanonicalClassificationScenario[] = Object.freeze([
   scenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', 98_000_000, 2_000, 500_000, 'rbw-line', 'steady', TINYSA_SOURCE, { driftHzPerLook: 35 }),
@@ -160,7 +176,7 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
 
   scenario('lte-band3-fdd-5m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 5 MHz', 1_842_500_000, 4_500_000, 10_000_000, 'ofdm-channel', 'continuous-ofdm', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }, { carrierRasterHz: 100_000, duplex: 'fdd' }),
   scenario('lte-band3-fdd-20m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 20 MHz', 1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }, { carrierRasterHz: 100_000, duplex: 'fdd' }),
-  scenario('lte-band38-tdd-10m', 'lte-tdd-like', 'e-utra', 'LTE Band 38 TDD, 10 MHz', 2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', 'lte-tdd-pattern', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }, { carrierRasterHz: 100_000, duplex: 'tdd' }),
+  scenario('lte-band38-tdd-10m', 'lte-tdd-like', 'e-utra', 'LTE Band 38 TDD, 10 MHz · UL/DL config 0', 2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', 'lte-tdd-pattern', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001, ulDlConfiguration: 0 }, { carrierRasterHz: 100_000, duplex: 'tdd' }),
 
   scenario('nr-n3-fdd-20m', 'nr-fdd-like', 'nr', 'NR n3 FDD, 20 MHz', 1_840_000_000, 19_080_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', NR_SOURCE, { subcarrierSpacingHz: 15_000, slotSeconds: 0.001 }, { carrierRasterHz: 5_000, duplex: 'fdd' }),
   scenario('nr-n78-tdd-40m', 'nr-tdd-like', 'nr', 'NR n78 TDD, 40 MHz', 3_500_000_000, 38_160_000, 60_000_000, 'ofdm-channel', 'nr-tdd-pattern', NR_SOURCE, { subcarrierSpacingHz: 30_000, slotSeconds: 0.0005 }, { carrierRasterHz: 15_000, duplex: 'tdd' }),
@@ -185,7 +201,7 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
 
   scenario('unknown-narrow-fsk', 'unknown-signal', 'unknown', 'Proprietary narrow FSK hard negative', 433_920_000, 45_000, 500_000, 'fsk-pair', 'fsk-steady', TINYSA_SOURCE, { deviationHz: 18_000 }),
   scenario('unknown-chirp', 'unknown-signal', 'unknown', 'Swept chirp hard negative', 915_000_000, 5_000_000, 10_000_000, 'chirp', 'chirp-sweep', TINYSA_SOURCE, { chirpPeriodSeconds: 0.004 }),
-  scenario('unknown-802154', 'unknown-signal', 'unknown', 'IEEE 802.15.4-like hard negative', 2_425_000_000, 2_000_000, 10_000_000, 'gaussian-channel', 'csma-bursts', WIFI_SOURCE, { symbolRateHz: 62_500 }, { carrierRasterHz: 5_000_000 }),
+  scenario('unknown-802154', 'unknown-signal', 'unknown', 'IEEE 802.15.4-like hard negative', 2_425_000_000, 2_000_000, 10_000_000, 'gaussian-channel', 'csma-bursts', IEEE_802154_SOURCE, { symbolRateHz: 62_500 }, { carrierRasterHz: 5_000_000 }),
   scenario('unknown-impulsive', 'unknown-signal', 'unknown', 'Impulsive broadband interference hard negative', 1_000_000_000, 20_000_000, 30_000_000, 'impulsive-noise', 'impulsive', TINYSA_SOURCE, { impulseRateHz: 120 }),
   scenario('unknown-regular-cw-comb-4', 'unknown-signal', 'unknown', 'Four independent equal-power CW lines on a regular raster', 915_000_000, 900_000, 2_000_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
     lineCount: 4, lineOffset0Hz: -450_000, lineOffset1Hz: -150_000, lineOffset2Hz: 150_000, lineOffset3Hz: 450_000,
@@ -196,6 +212,41 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   scenario('unknown-irregular-cw-multitone-100-210-370k', 'unknown-signal', 'unknown', 'Three independent CW lines with irregular 110/160 kHz gaps', 915_000_000, 270_000, 500_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
     lineCount: 3, lineOffset0Hz: -150_000, lineOffset1Hz: -40_000, lineOffset2Hz: 120_000,
   }, { disclosure: multitoneDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like'] }),
+  scenario('unknown-stationary-intermittent-2g4', 'unknown-signal', 'unknown', 'Stationary intermittent 2.4 GHz narrowband source', 2_441_000_000, 1_000_000, 84_000_000, 'stationary-burst', 'stationary-bursts', TINYSA_SOURCE, {
+    channelWidthHz: 1_000_000, burstPeriodSeconds: 0.0073, burstDuty: 0.58,
+  }, { disclosure: stationaryDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like'] }),
+  scenario('unknown-simultaneous-1mhz-raster-2g4', 'unknown-signal', 'unknown', 'Simultaneous full-band 1 MHz raster comb', 2_441_000_000, 79_000_000, 84_000_000, 'simultaneous-raster', 'simultaneous-raster-fixed-tune', TINYSA_SOURCE, {
+    firstCenterHz: 2_402_000_000, channelCount: 79, channelSpacingHz: 1_000_000, channelWidthHz: 180_000,
+  }, { carrierRasterHz: 1_000_000, disclosure: multitoneDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like', 'fm-angle-modulated-like'] }),
+  scenario('unknown-interleaved-four-channel-2g4', 'unknown-signal', 'unknown', 'Four time-interleaved independent 2.4 GHz sources', 2_441_000_000, 62_000_000, 84_000_000, 'interleaved-channels', 'interleaved-fixed-tune', TINYSA_SOURCE, {
+    channelWidthHz: 1_000_000, channel0Hz: 2_410_300_000, channel1Hz: 2_428_700_000, channel2Hz: 2_453_400_000, channel3Hz: 2_471_600_000,
+  }, { disclosure: agileEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'bluetooth-classic-like', 'bluetooth-le-like'] }),
+  scenario('unknown-proprietary-off-raster-fhss-2g4', 'unknown-signal', 'unknown', 'Proprietary off-raster 2.4 GHz FHSS', 2_441_000_000, 76_000_000, 84_000_000, 'proprietary-fhss', 'proprietary-fhss-fixed-tune', TINYSA_SOURCE, {
+    channelWidthHz: 1_200_000, firstCenterHz: 2_404_350_000, channelCount: 29, channelSpacingHz: 2_550_000,
+  }, { disclosure: agileEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'bluetooth-classic-like', 'bluetooth-le-like'] }),
+  scenario('unknown-instrument-spur-rbw-line', 'unknown-signal', 'unknown', 'Receiver/instrument spur indistinguishable from a CW line', 98_000_000, 2_000, 500_000, 'rbw-line', 'steady', TINYSA_SOURCE, {
+    driftHzPerLook: 35,
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like'] }),
+  scenario('unknown-independent-am-equivalent-three-tone', 'unknown-signal', 'unknown', 'Three coherent independent lines exactly scalar-equivalent to the AM scenario', 98_000_000, 52_000, 500_000, 'multitone-lines', 'sinusoidal-am', TINYSA_SOURCE, {
+    lineCount: 3, lineOffset0Hz: -25_000, lineOffset1Hz: 0, lineOffset2Hz: 25_000,
+    lineLevel0Db: 10 * Math.log10(0.72 ** 2 / 4), lineLevel1Db: 0, lineLevel2Db: 10 * Math.log10(0.72 ** 2 / 4),
+    modulationFrequencyHz: 25_000, modulationIndex: 0.72,
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'am-dsb-full-carrier-like'] }),
+  scenario('unknown-independent-fm-equivalent-bessel-comb', 'unknown-signal', 'unknown', 'Independent Bessel-weighted lines exactly scalar-equivalent to the FM scenario', 98_000_000, 200_000, 500_000, 'fm-bessel', 'steady', TINYSA_SOURCE, {
+    modulationFrequencyHz: 25_000, deviationHz: 75_000,
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'fm-angle-modulated-like'] }),
+  scenario('unknown-generic-ofdm-20m', 'unknown-signal', 'unknown', 'Generic 20 MHz OFDM exactly matching the fitted LTE/NR scalar projection', 1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', TINYSA_SOURCE, {
+    subcarrierSpacingHz: 15_000,
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'lte-fdd-like', 'nr-fdd-like'] }),
+  scenario('unknown-generic-tdd-ofdm-10m', 'unknown-signal', 'unknown', 'Generic TDD OFDM exactly matching LTE UL/DL configuration 0 scalar power', 2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', 'lte-tdd-pattern', TINYSA_SOURCE, {
+    subcarrierSpacingHz: 15_000, subframeSeconds: 0.001, ulDlConfiguration: 0,
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'lte-tdd-like'] }),
+  scenario('unknown-generic-ofdm-80m', 'unknown-signal', 'unknown', 'Generic 80 MHz OFDM exactly matching the Wi-Fi scalar projection', 5_210_000_000, 76_600_000, 100_000_000, 'ofdm-channel', 'csma-bursts', TINYSA_SOURCE, {
+    subcarrierSpacingHz: 312_500,
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'wifi-ofdm-like'] }),
+  scenario('unknown-proprietary-dsss-22m', 'unknown-signal', 'unknown', 'Proprietary 22 MHz DSSS exactly matching the HR-DSSS scalar projection', 2_437_000_000, 22_000_000, 30_000_000, 'dsss-channel', 'csma-bursts', TINYSA_SOURCE, {
+    chipRateHz: 11_000_000,
+  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'wifi-hr-dsss-like'] }),
 ]);
 
 const scenarioById = new Map(canonicalClassificationScenarios.map((value) => [value.id, value]));
@@ -251,7 +302,7 @@ export function synthesizeCanonicalObservation(
     corpusVersion: CLASSIFICATION_CORPUS_VERSION,
     scenarioId: scenario.id,
     truthClass: scenario.truthClass,
-    qualification: scenario.source.organization === 'TinySA SignalLab' ? 'physics-derived-scalar-projection' : 'standards-derived-scalar-projection',
+    qualification: scenario.source.organization === 'TinySA SignalLab' ? 'physics-derived-scalar-projection' : 'standards-parameterized-heuristic-scalar-projection',
     seed: configuration.seed,
     lookIndex: configuration.lookIndex,
     frequencyHz,
@@ -347,6 +398,7 @@ function spectrumRelativePowerDb(
     case 'dsss-channel':
       return dsssChannelDb(offsetHz, scenario.occupiedBandwidthHz);
     case 'classic-hop': {
+      if (!classicSlotActive(timeSeconds)) return Number.NEGATIVE_INFINITY;
       const hop = classicHopCenter(timeSeconds, configuration.seed);
       return gaussianOccupiedChannelDb(frequencyHz - hop, requiredParameter(scenario, 'channelWidthHz'));
     }
@@ -360,6 +412,22 @@ function spectrumRelativePowerDb(
       );
       return center === undefined ? Number.NEGATIVE_INFINITY : gaussianOccupiedChannelDb(frequencyHz - center, requiredParameter(scenario, 'channelWidthHz'));
     }
+    case 'stationary-burst': {
+      const period = requiredParameter(scenario, 'burstPeriodSeconds');
+      const duty = requiredParameter(scenario, 'burstDuty');
+      return periodicBurstActive(timeSeconds, period, duty)
+        ? gaussianOccupiedChannelDb(offsetHz, requiredParameter(scenario, 'channelWidthHz'))
+        : Number.NEGATIVE_INFINITY;
+    }
+    case 'simultaneous-raster': {
+      const centers = rasterCenters(scenario);
+      const nearest = centers.reduce((best, center) => Math.abs(frequencyHz - center) < Math.abs(frequencyHz - best) ? center : best, centers[0]!);
+      return gaussianFilterDb(frequencyHz - nearest, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+    }
+    case 'interleaved-channels':
+      return gaussianOccupiedChannelDb(frequencyHz - interleavedCenter(scenario, configuration.lookIndex), requiredParameter(scenario, 'channelWidthHz'));
+    case 'proprietary-fhss':
+      return gaussianOccupiedChannelDb(frequencyHz - proprietaryFhssCenter(scenario, configuration.lookIndex, configuration.seed), requiredParameter(scenario, 'channelWidthHz'));
     case 'fsk-pair': {
       const deviationHz = requiredParameter(scenario, 'deviationHz');
       const state = Math.sin(2 * Math.PI * 1_700 * timeSeconds) >= 0 ? 1 : -1;
@@ -372,8 +440,8 @@ function spectrumRelativePowerDb(
       return gaussianFilterDb(frequencyHz - instantaneousHz, Math.max(configuration.actualRbwHz, scenario.occupiedBandwidthHz / 80));
     }
     case 'multitone-lines':
-      return combineRelativeDb(multitoneOffsets(scenario).map((lineOffsetHz) =>
-        gaussianFilterDb(offsetHz - lineOffsetHz, configuration.actualRbwHz)));
+      return combineRelativeDb(multitoneOffsets(scenario).map((lineOffsetHz, index) =>
+        multitoneLevelDb(scenario, index) + gaussianFilterDb(offsetHz - lineOffsetHz, configuration.actualRbwHz)));
     case 'impulsive-noise': {
       const active = pseudoUniform(Math.floor(timeSeconds * 1_000_000), configuration.lookIndex, configuration.seed) < 0.22;
       return active && Math.abs(offsetHz) <= scenario.occupiedBandwidthHz / 2 ? -2.5 * Math.abs(offsetHz) / (scenario.occupiedBandwidthHz / 2) : Number.NEGATIVE_INFINITY;
@@ -403,7 +471,14 @@ function envelopeRelativePowerDb(
     case 'lte-tdd-pattern': {
       const subframe = requiredParameter(scenario, 'subframeSeconds');
       const index = Math.floor(timeSeconds / subframe) % 10;
-      return index <= 5 ? -0.5 + 0.4 * deterministicTexture(timeSeconds * 2_000, configuration.seed) : Number.NEGATIVE_INFINITY;
+      const configurationIndex = requiredParameter(scenario, 'ulDlConfiguration');
+      // TS 36.211 Table 4.2-2 configuration 0: D S U U U D S U U U.
+      // This detected-power heuristic treats the special subframe as having
+      // downlink energy; it does not model DwPTS/GP/UpPTS symbol detail.
+      if (configurationIndex !== 0) throw new Error(`${scenario.id} supports only LTE UL/DL configuration 0`);
+      return 'DSUUUDSUUU'[index] !== 'U'
+        ? -0.5 + 0.4 * deterministicTexture(timeSeconds * 2_000, configuration.seed)
+        : Number.NEGATIVE_INFINITY;
     }
     case 'nr-tdd-pattern': {
       const slot = requiredParameter(scenario, 'slotSeconds');
@@ -422,7 +497,7 @@ function envelopeRelativePowerDb(
       const index = Math.floor(timeSeconds / slot);
       const hopCenterHz = classicHopCenter(timeSeconds, configuration.seed);
       const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - hopCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
-      return index % 3 !== 2 && receiverResponseDb > -60
+      return classicSlotActive(timeSeconds) && receiverResponseDb > -60
         ? -0.4 + 0.25 * deterministicTexture(index, configuration.seed) + receiverResponseDb
         : Number.NEGATIVE_INFINITY;
     }
@@ -439,11 +514,31 @@ function envelopeRelativePowerDb(
       const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - packetCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
       return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
+    case 'stationary-bursts': {
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - scenario.centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      return periodicBurstActive(timeSeconds, requiredParameter(scenario, 'burstPeriodSeconds'), requiredParameter(scenario, 'burstDuty'))
+        && receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
+    }
+    case 'simultaneous-raster-fixed-tune': {
+      const receiverResponseDb = combineRelativeDb(rasterCenters(scenario).map((centerHz) =>
+        gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')))));
+      return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
+    }
+    case 'interleaved-fixed-tune': {
+      const centerHz = interleavedCenter(scenario, configuration.lookIndex);
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
+    }
+    case 'proprietary-fhss-fixed-tune': {
+      const centerHz = proprietaryFhssCenter(scenario, configuration.lookIndex, configuration.seed);
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
+    }
     case 'fsk-steady': return -0.4 + 0.25 * Math.sin(2 * Math.PI * 1_700 * timeSeconds);
     case 'chirp-sweep': return -0.8 + 0.7 * Math.sin(2 * Math.PI * 250 * timeSeconds);
     case 'multitone-fixed-tune': {
-      const receiverResponseDb = combineRelativeDb(multitoneOffsets(scenario).map((lineOffsetHz) =>
-        gaussianFilterDb(tuneFrequencyHz - (scenario.centerHz + lineOffsetHz), configuration.actualRbwHz)));
+      const receiverResponseDb = combineRelativeDb(multitoneOffsets(scenario).map((lineOffsetHz, index) =>
+        multitoneLevelDb(scenario, index) + gaussianFilterDb(tuneFrequencyHz - (scenario.centerHz + lineOffsetHz), configuration.actualRbwHz)));
       return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'impulsive': return pseudoUniform(Math.floor(timeSeconds * 50_000), 17, configuration.seed) < 0.08 ? 0 : Number.NEGATIVE_INFINITY;
@@ -454,6 +549,10 @@ function multitoneOffsets(scenario: CanonicalClassificationScenario): readonly n
   const count = requiredParameter(scenario, 'lineCount');
   if (!Number.isInteger(count) || count < 1 || count > 16) throw new Error(`${scenario.id} has invalid multitone lineCount`);
   return Array.from({ length: count }, (_value, index) => requiredParameter(scenario, `lineOffset${index}Hz`));
+}
+
+function multitoneLevelDb(scenario: CanonicalClassificationScenario, index: number): number {
+  return scenario.parameters[`lineLevel${index}Db`] ?? 0;
 }
 
 function gaussianFilterDb(offsetHz: number, rbwHz: number): number {
@@ -490,6 +589,11 @@ function classicHopCenter(timeSeconds: number, seed: number): number {
   return 2_402_000_000 + channel * 1_000_000;
 }
 
+function classicSlotActive(timeSeconds: number): boolean {
+  const slot = Math.floor(timeSeconds / 0.000625);
+  return slot % 3 !== 2;
+}
+
 function bleAdvertisingCenter(
   timeSeconds: number,
   intervalSeconds: number,
@@ -500,16 +604,72 @@ function bleAdvertisingCenter(
   if (packetDurationSeconds <= 0 || packetDurationSeconds > packetSpacingSeconds) {
     throw new Error('BLE advertising packet duration must be positive and no longer than the packet start spacing');
   }
-  const event = Math.floor(timeSeconds / intervalSeconds);
-  const phase = timeSeconds - event * intervalSeconds;
-  const jitter = pseudoUniform(event, 43, seed) * 0.010;
-  const eventPhase = phase - jitter;
+  const starts = bleAdvertisingEventStartsThrough(timeSeconds, intervalSeconds, seed);
+  const event = greatestIndexAtOrBefore(starts, timeSeconds);
+  if (event < 0) return undefined;
+  const eventPhase = timeSeconds - starts[event]!;
   if (eventPhase < 0) return undefined;
   const packet = Math.floor(eventPhase / packetSpacingSeconds);
   if (packet < 0 || packet > 2) return undefined;
   const packetPhase = eventPhase - packet * packetSpacingSeconds;
   if (packetPhase >= packetDurationSeconds) return undefined;
   return [2_402_000_000, 2_426_000_000, 2_480_000_000][packet];
+}
+
+const bleEventStartCache = new Map<string, number[]>();
+
+function bleAdvertisingEventStartsThrough(timeSeconds: number, intervalSeconds: number, seed: number): readonly number[] {
+  if (!(intervalSeconds > 0)) throw new Error('BLE advertising interval must be positive');
+  const key = `${intervalSeconds}:${seed}`;
+  const starts = bleEventStartCache.get(key) ?? [0];
+  while (starts.at(-1)! <= timeSeconds) {
+    const event = starts.length - 1;
+    const advertisingDelaySeconds = pseudoUniform(event, 43, seed) * 0.010;
+    starts.push(starts.at(-1)! + intervalSeconds + advertisingDelaySeconds);
+  }
+  bleEventStartCache.set(key, starts);
+  return starts;
+}
+
+function greatestIndexAtOrBefore(values: readonly number[], target: number): number {
+  let low = 0;
+  let high = values.length - 1;
+  let result = -1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    if (values[middle]! <= target) {
+      result = middle;
+      low = middle + 1;
+    } else high = middle - 1;
+  }
+  return result;
+}
+
+function periodicBurstActive(timeSeconds: number, periodSeconds: number, duty: number): boolean {
+  if (!(periodSeconds > 0) || !(duty > 0 && duty < 1)) throw new Error('Periodic burst geometry is invalid');
+  const phase = ((timeSeconds % periodSeconds) + periodSeconds) % periodSeconds;
+  return phase < periodSeconds * duty;
+}
+
+function rasterCenters(scenario: CanonicalClassificationScenario): readonly number[] {
+  const count = requiredParameter(scenario, 'channelCount');
+  if (!Number.isInteger(count) || count < 2 || count > 128) throw new Error(`${scenario.id} has invalid channelCount`);
+  const firstCenterHz = requiredParameter(scenario, 'firstCenterHz');
+  const spacingHz = requiredParameter(scenario, 'channelSpacingHz');
+  return Array.from({ length: count }, (_value, index) => firstCenterHz + index * spacingHz);
+}
+
+function interleavedCenter(scenario: CanonicalClassificationScenario, lookIndex: number): number {
+  const centers = [0, 1, 2, 3].map((index) => requiredParameter(scenario, `channel${index}Hz`));
+  // A non-monotone order prevents this adversarial schedule from looking like
+  // a simple chirp while preserving exactly one independent source per sweep.
+  return centers[[0, 2, 1, 3][lookIndex % 4]!]!;
+}
+
+function proprietaryFhssCenter(scenario: CanonicalClassificationScenario, lookIndex: number, seed: number): number {
+  const centers = rasterCenters(scenario);
+  const channel = Math.floor(pseudoUniform(lookIndex, 97, seed ^ 0x51f15e) * centers.length);
+  return centers[channel]!;
 }
 
 function besselJ(order: number, value: number): number {

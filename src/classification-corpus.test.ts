@@ -9,17 +9,21 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v4');
-    expect(canonicalClassificationScenarios).toHaveLength(23);
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v5');
+    expect(canonicalClassificationScenarios).toHaveLength(34);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
     expect([...OBSERVABLE_SIGNAL_CLASSES].every((item) => represented.has(item))).toBe(true);
-    expect(canonicalClassificationScenarios.filter((item) => item.truthClass === 'unknown-signal')).toHaveLength(7);
+    expect(canonicalClassificationScenarios.filter((item) => item.truthClass === 'unknown-signal')).toHaveLength(18);
     for (const item of canonicalClassificationScenarios) {
       expect(item.source.url.startsWith('https://')).toBe(true);
       expect(item.recommendedSpanHz).toBeGreaterThanOrEqual(item.occupiedBandwidthHz);
       expect(item.disclosure).toMatch(/not .*conformance/i);
       expect(item.allowedObservableClasses).toContain(item.truthClass);
+      if (item.source.organization !== 'TinySA SignalLab') {
+        expect(synthesizeCanonicalObservation(item.id, { lookIndex: 0 }).qualification)
+          .toBe('standards-parameterized-heuristic-scalar-projection');
+      }
     }
   });
 
@@ -80,8 +84,9 @@ describe('canonical scalar classification corpus', () => {
     const fddDuty = activeDuty(fdd.zeroSpanPowerDbm, -100);
     const tddDuty = activeDuty(tdd.zeroSpanPowerDbm, -100);
     expect(fddDuty).toBeGreaterThan(0.98);
-    expect(tddDuty).toBeGreaterThan(0.5);
-    expect(tddDuty).toBeLessThan(0.7);
+    expect(tddDuty).toBeGreaterThan(0.35);
+    expect(tddDuty).toBeLessThan(0.45);
+    expect(canonicalClassificationScenario('lte-band38-tdd-10m').parameters.ulDlConfiguration).toBe(0);
   });
 
   it('models Bluetooth rasters and primary LE advertising centers without claiming decoded PHY', () => {
@@ -157,6 +162,94 @@ describe('canonical scalar classification corpus', () => {
     expect(longestRunSamples * samplePeriodSeconds).toBeLessThanOrEqual(0.00039);
   });
 
+  it('accumulates the specified 0–10 ms advertising delay between BLE events', () => {
+    const samplePeriodSeconds = 50e-6;
+    const observation = synthesizeCanonicalObservation('bluetooth-le-advertising', {
+      lookIndex: 0,
+      zeroSpanPoints: 10_000,
+      zeroSpanSamplePeriodSeconds: samplePeriodSeconds,
+      zeroSpanFrequencyHz: 2_402_000_000,
+      actualRbwHz: 300_000,
+      noiseFloorDbm: -130,
+      snrDb: 55,
+      seed: 119,
+    });
+    const active = observation.zeroSpanPowerDbm.map((powerDbm) => powerDbm > -100);
+    const starts = active.flatMap((value, index) => value && (index === 0 || !active[index - 1]) ? [index * samplePeriodSeconds] : []);
+    const gaps = starts.slice(1).map((start, index) => start - starts[index]!);
+    expect(gaps.length).toBeGreaterThan(10);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(0.0199);
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(0.0301);
+  });
+
+  it('canonizes stationary, simultaneous, interleaved, and proprietary 2.4 GHz association nulls', () => {
+    const stationary = canonicalClassificationScenario('unknown-stationary-intermittent-2g4');
+    const simultaneous = canonicalClassificationScenario('unknown-simultaneous-1mhz-raster-2g4');
+    const interleaved = canonicalClassificationScenario('unknown-interleaved-four-channel-2g4');
+    const fhss = canonicalClassificationScenario('unknown-proprietary-off-raster-fhss-2g4');
+    expect(stationary.allowedObservableClasses).toEqual(['unknown-signal', 'cw-like']);
+    expect(simultaneous.allowedObservableClasses).toEqual(['unknown-signal', 'cw-like', 'fm-angle-modulated-like']);
+    expect(interleaved.allowedObservableClasses).toEqual(['unknown-signal', 'bluetooth-classic-like', 'bluetooth-le-like']);
+    expect(fhss.allowedObservableClasses).toEqual(['unknown-signal', 'bluetooth-classic-like', 'bluetooth-le-like']);
+    expect(interleaved.disclosure).toMatch(/cannot prove protocol or emitter identity/i);
+    expect(fhss.disclosure).toMatch(/cannot prove protocol or emitter identity/i);
+
+    const peakCenters = (id: string) => Array.from({ length: 12 }, (_, lookIndex) => {
+      const observation = synthesizeCanonicalObservation(id, {
+        lookIndex, points: 901, sweepTimeSeconds: 0.05, actualRbwHz: 200_000,
+        noiseFloorDbm: -130, snrDb: 55, seed: 991,
+      });
+      return observation.frequencyHz[maximumIndex(observation.powerDbm)]!;
+    });
+    const stationaryActiveCenters = Array.from({ length: 24 }, (_, lookIndex) => synthesizeCanonicalObservation(stationary.id, {
+      lookIndex, points: 901, sweepTimeSeconds: 0.05, actualRbwHz: 200_000,
+      noiseFloorDbm: -130, snrDb: 55, seed: 991,
+    })).filter((observation) => Math.max(...observation.powerDbm) > -100)
+      .map((observation) => observation.frequencyHz[maximumIndex(observation.powerDbm)]!);
+    expect(stationaryActiveCenters.length).toBeGreaterThan(3);
+    expect(stationaryActiveCenters.every((frequency) => Math.abs(frequency - stationary.centerHz) <= 1_000_000)).toBe(true);
+    expect(new Set(peakCenters(interleaved.id).map((frequency) => Math.round(frequency / 1_000_000))).size).toBe(4);
+    const fhssCenters = peakCenters(fhss.id);
+    expect(new Set(fhssCenters.map((frequency) => Math.round(frequency / 1_000_000))).size).toBeGreaterThan(3);
+    expect(fhssCenters.some((frequency) => Math.abs((frequency - 2_402_000_000) % 1_000_000) > 100_000)).toBe(true);
+
+    const comb = synthesizeCanonicalObservation(simultaneous.id, {
+      lookIndex: 0, points: 4_201, actualRbwHz: 100_000, noiseFloorDbm: -140, snrDb: 60, seed: 991,
+    });
+    expect(strongLocalPeakFrequencies(comb.frequencyHz, comb.powerDbm, -100).length).toBeGreaterThan(60);
+  });
+
+  it('attributes the 802.15.4 hard negative to the 802.15.4 standard', () => {
+    const scenario = canonicalClassificationScenario('unknown-802154');
+    expect(scenario.source.specification).toBe('IEEE 802.15.4-2024');
+    expect(scenario.source.url).toContain('802.15.4');
+  });
+
+  it('canonizes exact scalar-equivalence nulls for CW, AM, FM, cellular OFDM, and Wi-Fi', () => {
+    const pairs = [
+      ['cw-rbw-line', 'unknown-instrument-spur-rbw-line'],
+      ['am-dsb-25k', 'unknown-independent-am-equivalent-three-tone'],
+      ['fm-beta-3', 'unknown-independent-fm-equivalent-bessel-comb'],
+      ['lte-band3-fdd-20m', 'unknown-generic-ofdm-20m'],
+      ['lte-band38-tdd-10m', 'unknown-generic-tdd-ofdm-10m'],
+      ['wifi-ofdm-80m', 'unknown-generic-ofdm-80m'],
+      ['wifi-hr-dsss-11m', 'unknown-proprietary-dsss-22m'],
+    ] as const;
+    for (const [knownId, nullId] of pairs) {
+      const configuration = {
+        lookIndex: 3, seed: 4_019, snrDb: 24, actualRbwHz: 100_000,
+        points: 450, sweepTimeSeconds: 0.05, zeroSpanPoints: 450, zeroSpanSamplePeriodSeconds: 1 / 9_000,
+      };
+      const known = synthesizeCanonicalObservation(knownId, configuration);
+      const scalarNull = synthesizeCanonicalObservation(nullId, configuration);
+      expect(scalarNull.frequencyHz).toEqual(known.frequencyHz);
+      expect(maximumAbsoluteDifference(scalarNull.powerDbm, known.powerDbm)).toBeLessThan(1e-10);
+      expect(maximumAbsoluteDifference(scalarNull.zeroSpanPowerDbm, known.zeroSpanPowerDbm)).toBeLessThan(1e-10);
+      expect(canonicalClassificationScenario(nullId).allowedObservableClasses.length).toBeGreaterThan(1);
+      expect(canonicalClassificationScenario(nullId).disclosure).toMatch(/same admitted scalar observables/i);
+    }
+  });
+
   it('canonizes regular independent-carrier combs without claiming one emitter', () => {
     for (const [id, lineCount, expectedSpacingHz, onLineOffsetHz] of [
       ['unknown-regular-cw-comb-4', 4, 300_000, 150_000],
@@ -225,4 +318,12 @@ function quantile(values: readonly number[], probability: number): number {
   const ordered = [...values].sort((left, right) => left - right);
   const index = Math.round((ordered.length - 1) * probability);
   return ordered[index]!;
+}
+
+function maximumIndex(values: readonly number[]): number {
+  return values.reduce((best, value, index) => value > values[best]! ? index : best, 0);
+}
+
+function maximumAbsoluteDifference(left: readonly number[], right: readonly number[]): number {
+  return Math.max(...left.map((value, index) => Math.abs(value - right[index]!)));
 }

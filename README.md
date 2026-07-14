@@ -29,15 +29,26 @@ These are spectrum/time projections, not conformance-grade I/Q. A profile cannot
 `src/classification-corpus.ts` is separate from the 79-profile UI catalog. It
 canonizes deterministic scalar observations for Bayesian detector/classifier
 development, including CW, physical DSB full-carrier AM sideband ratios,
-Bessel-series FM, GSM, LTE FDD/TDD, NR FDD/TDD, Wi-Fi DSSS/OFDM, Bluetooth
-Classic/LE, and explicit hard negatives. Every scenario records truth class,
-parameters, source clause, seed, acquisition settings, and a non-conformance
-disclosure.
+Bessel-series FM, standards-parameterized heuristic projections of GSM, LTE
+FDD/TDD, NR FDD/TDD, Wi-Fi DSSS/OFDM and Bluetooth Classic/LE, plus explicit
+hard negatives. These hand-built power projections are not standards-derived
+waveforms. Every scenario records truth class, parameters, source clause,
+seed, acquisition settings, and a non-conformance disclosure.
 
-The hard-negative set includes independent regular and irregular CW groups.
-Their simultaneous scalar lines may be compatible with a regular-component
-association, but that observation cannot establish a shared emitter,
-oscillator, modulation process, or message identity.
+The hard-negative set includes independent regular and irregular CW groups,
+stationary intermittent 2.4 GHz activity, a simultaneous full-band raster,
+four time-interleaved independent sources, and proprietary off-raster FHSS.
+The latter two are deliberately declared observationally compatible with the
+Bluetooth activity leaf: scalar frequency agility cannot establish protocol
+or emitter identity. Simultaneous lines likewise cannot establish a shared
+emitter, oscillator, modulation process, or message identity.
+
+The v5 corpus also contains byte-for-byte scalar-equivalence null pairs: a
+receiver spur versus CW, coherent independent tones versus DSB-FC AM, an
+independent Bessel-weighted comb versus FM, generic OFDM versus LTE/NR or
+Wi-Fi-shaped projections, and proprietary DSSS versus HR-DSSS. A classifier
+is correct—not mistaken—when it returns the declared equivalence class for
+either member of one of these pairs.
 
 The corpus intentionally emits only swept power and detected-power zero span.
 It does not expose hidden I/Q or selected-profile state to a classifier. Its
