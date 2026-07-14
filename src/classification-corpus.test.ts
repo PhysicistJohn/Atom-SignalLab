@@ -89,6 +89,7 @@ describe('canonical scalar classification corpus', () => {
     expect(classic.carrierRasterHz).toBe(1_000_000);
     expect(classic.parameters.hopRateHz).toBe(1_600);
     expect(le.carrierRasterHz).toBe(2_000_000);
+    expect(le.parameters.packetSpacingSeconds).toBe(0.0015);
     const observations = Array.from({ length: 12 }, (_, lookIndex) => synthesizeCanonicalObservation(le.id, {
       lookIndex,
       points: 901,
