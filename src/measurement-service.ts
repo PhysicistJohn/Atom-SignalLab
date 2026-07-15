@@ -189,6 +189,7 @@ export class AtomizerMeasurementService {
       profile: this.#profile,
       points: request.points,
       sweepIndex: sequence - 1,
+      samplePeriodSeconds: request.samplePeriodSeconds,
       channel: this.#channel,
     });
     return detectedPowerMeasurementSchema.parse({

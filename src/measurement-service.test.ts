@@ -71,7 +71,7 @@ describe('Atomizer high-level measurement source contract', () => {
       claims: MEASUREMENT_BRIDGE_CLAIMS,
     });
     expect(initial.identity.catalogSha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(initial.profiles).toHaveLength(79);
+    expect(initial.profiles).toHaveLength(88);
 
     expect(() => service.configureChannel({ channel: { model: 'awgn', noiseFloorDbm: -999, seed: 1, fadingRateHz: 2 } })).toThrow();
     expect(service.status().configurationRevision).toBe(initial.configurationRevision);
@@ -125,6 +125,21 @@ describe('Atomizer high-level measurement source contract', () => {
       expect(keys).not.toContain('firmwareRevision');
       expect(keys).not.toContain('usbIdentityVerified');
     }
+  });
+
+  it('uses and publishes the exact admitted detected-power sample period', () => {
+    const requestedPeriod = 1 / 3_200;
+    const hiddenLegacyPeriod = 1 / 9_000;
+    const requested = deterministicService();
+    const legacy = deterministicService();
+    requested.selectProfile({ profile: 'am' });
+    legacy.selectProfile({ profile: 'am' });
+
+    const measured = requested.acquireDetectedPower({ points: 450, samplePeriodSeconds: requestedPeriod });
+    const legacyClock = legacy.acquireDetectedPower({ points: 450, samplePeriodSeconds: hiddenLegacyPeriod });
+
+    expect(measured.samplePeriodSeconds).toBe(requestedPeriod);
+    expect(measured.powerDbm).not.toEqual(legacyClock.powerDbm);
   });
 
   it('closes explicitly and never substitutes a fresh session after shutdown', () => {

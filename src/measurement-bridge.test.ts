@@ -88,6 +88,45 @@ describe('bounded NDJSON measurement bridge', () => {
     expect(JSON.parse(unterminatedCapture.lines[1]!)).toMatchObject({ ok: false, error: { code: 'LINE_TERMINATOR_REQUIRED' } });
   });
 
+  it('publishes a non-default detected-power interval and its interval-controlled samples exactly', async () => {
+    const requestedPeriod = 1 / 3_200;
+    const hiddenLegacyPeriod = 1 / 9_000;
+    const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    service.selectProfile({ profile: 'am' });
+    const expectedService = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    expectedService.selectProfile({ profile: 'am' });
+    const expected = expectedService.acquireDetectedPower({ points: 450, samplePeriodSeconds: requestedPeriod });
+    const legacyService = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    legacyService.selectProfile({ profile: 'am' });
+    const legacy = legacyService.acquireDetectedPower({ points: 450, samplePeriodSeconds: hiddenLegacyPeriod });
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const capture = captureLines(output);
+    const bridge = new AtomizerNdjsonMeasurementBridge(service, { input, output, diagnostics: () => undefined });
+    const running = bridge.run();
+    await capture.waitFor(1);
+
+    input.write(`${JSON.stringify(request('acquire_detected_power', 'non-default-period', {
+      points: 450,
+      samplePeriodSeconds: requestedPeriod,
+    }))}\n`);
+    await capture.waitFor(2);
+    const response = measurementBridgeResponseSchema.parse(JSON.parse(capture.lines[1]!));
+    expect(response).toMatchObject({
+      ok: true,
+      requestId: 'non-default-period',
+      result: { kind: 'detected-power-timeseries', samplePeriodSeconds: requestedPeriod },
+    });
+    if (!response.ok || response.result.kind !== 'detected-power-timeseries') {
+      throw new Error('Expected a detected-power bridge response');
+    }
+    expect(response.result.powerDbm).toEqual(expected.powerDbm);
+    expect(response.result.powerDbm).not.toEqual(legacy.powerDbm);
+
+    input.end(`${JSON.stringify(request('shutdown', 'timing-shutdown', {}))}\n`);
+    await running;
+  });
+
   it('makes an uncertain execution timeout terminal before any later state mutation can dispatch', async () => {
     const base = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
     const calls: string[] = [];
