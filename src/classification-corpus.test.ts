@@ -9,14 +9,16 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v8');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v9');
     expect(canonicalClassificationScenarios).toHaveLength(35);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
     expect([...OBSERVABLE_SIGNAL_CLASSES].every((item) => represented.has(item))).toBe(true);
     expect(canonicalClassificationScenarios.filter((item) => item.truthClass === 'unknown-signal')).toHaveLength(18);
     for (const item of canonicalClassificationScenarios) {
-      expect(item.source.url.startsWith('https://')).toBe(true);
+      expect(item.source.references.length).toBeGreaterThan(0);
+      expect(item.source.references.every((reference) => reference.url.startsWith('https://'))).toBe(true);
+      expect(new Set(item.source.references.map((reference) => reference.url)).size).toBe(item.source.references.length);
       expect(item.recommendedSpanHz).toBeGreaterThanOrEqual(item.occupiedBandwidthHz);
       expect(item.disclosure).toMatch(/not .*conformance/i);
       expect(item.allowedObservableClasses).toContain(item.truthClass);
@@ -288,8 +290,31 @@ describe('canonical scalar classification corpus', () => {
 
   it('attributes the 802.15.4 hard negative to the 802.15.4 standard', () => {
     const scenario = canonicalClassificationScenario('unknown-802154');
-    expect(scenario.source.specification).toBe('IEEE 802.15.4-2024');
-    expect(scenario.source.url).toContain('802.15.4');
+    expect(scenario.source.references).toHaveLength(1);
+    expect(scenario.source.references[0]?.specification).toBe('IEEE 802.15.4-2024');
+    expect(scenario.source.references[0]?.url).toContain('802.15.4');
+  });
+
+  it('pins every multi-document standards basis independently', () => {
+    expect(canonicalClassificationScenario('gsm-900-loaded-bcch').source.references.map((reference) => [
+      reference.specification, reference.revision,
+    ])).toEqual([
+      ['TS 45.002', '18.0.0'],
+      ['TS 45.005', '19.0.0'],
+    ]);
+    expect(canonicalClassificationScenario('lte-band3-fdd-20m').source.references.map((reference) => [
+      reference.specification, reference.revision,
+    ])).toEqual([
+      ['TS 36.101', '19.5.0'],
+      ['TS 36.211', '19.3.0'],
+    ]);
+    expect(canonicalClassificationScenario('nr-n78-tdd-100m').source.references.map((reference) => [
+      reference.specification, reference.revision,
+    ])).toEqual([
+      ['TS 38.104', '19.4.0'],
+      ['TS 38.211', '19.3.0'],
+    ]);
+    expect(canonicalClassificationScenario('bluetooth-classic-connected').source.references).toHaveLength(4);
   });
 
   it('canonizes exact scalar-equivalence nulls for CW, AM, FM, cellular OFDM, and Wi-Fi', () => {

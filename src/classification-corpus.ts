@@ -14,7 +14,7 @@ import {
   type CanonizedKnownScenarioId,
 } from './waveforms.js';
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v8' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v9' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -73,12 +73,38 @@ type EnvelopeModel =
   | 'multitone-fixed-tune'
   | 'impulsive';
 
-export interface CanonicalSource {
-  organization: 'TinySA SignalLab' | '3GPP' | 'IEEE' | 'Bluetooth SIG';
+export interface CanonicalSourceReference {
   specification: string;
   clause: string;
   revision: string;
   url: string;
+}
+
+export interface CanonicalSource {
+  organization: 'TinySA SignalLab' | '3GPP' | 'IEEE' | 'Bluetooth SIG';
+  /** One independently versioned reference per normative or analytic document. */
+  references: readonly CanonicalSourceReference[];
+}
+
+function canonicalSource(
+  organization: CanonicalSource['organization'],
+  references: readonly CanonicalSourceReference[],
+): CanonicalSource {
+  if (!references.length) throw new Error(`${organization} source requires at least one document reference`);
+  const keys = new Set<string>();
+  const admitted = references.map((reference) => {
+    for (const [field, value] of Object.entries(reference)) {
+      if (typeof value !== 'string' || value.trim() !== value || value.length === 0) {
+        throw new Error(`${organization} source reference ${field} must be a non-empty canonical string`);
+      }
+    }
+    if (!reference.url.startsWith('https://')) throw new Error(`${organization} source reference must use HTTPS`);
+    const key = `${reference.specification}\u0000${reference.revision}\u0000${reference.url}`;
+    if (keys.has(key)) throw new Error(`${organization} source contains a duplicate document reference`);
+    keys.add(key);
+    return Object.freeze({ ...reference });
+  });
+  return Object.freeze({ organization, references: Object.freeze(admitted) });
 }
 
 export interface CanonicalClassificationScenario {
@@ -132,43 +158,98 @@ export interface CanonicalScalarObservation {
   disclosure: string;
 }
 
-const TINYSA_SOURCE: CanonicalSource = {
-  organization: 'TinySA SignalLab',
-  specification: 'Analytic RF waveform definitions',
-  clause: 'CW, DSB full-carrier AM, sinusoidal FM and hard-negative models',
-  revision: '1',
-  url: 'https://tinysa.org/wiki/',
-};
-const GSM_SOURCE: CanonicalSource = {
-  organization: '3GPP', specification: 'TS 45.002 / TS 45.005',
-  clause: 'TDMA frame/slot structure and 200 kHz radio-channel spacing', revision: '19.0.0',
-  url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00.00_60/ts_145005v190000p.pdf',
-};
-const LTE_SOURCE: CanonicalSource = {
-  organization: '3GPP', specification: 'TS 36.101 / TS 36.211',
-  clause: 'Operating bands, transmission bandwidths and frame structure', revision: '18.5.0',
-  url: 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136101/18.05.00_60/ts_136101v180500p.pdf',
-};
-const NR_SOURCE: CanonicalSource = {
-  organization: '3GPP', specification: 'TS 38.104 / TS 38.211',
-  clause: 'FR1 operating bands, channel bandwidths, numerology and frame structure', revision: '18.12.0',
-  url: 'https://www.etsi.org/deliver/etsi_ts/138100_138199/138104/18.12.00_60/ts_138104v181200p.pdf',
-};
-const WIFI_SOURCE: CanonicalSource = {
-  organization: 'IEEE', specification: 'IEEE 802.11-2024',
-  clause: 'DSSS/HR-DSSS and OFDM PHY channelization', revision: '2024',
-  url: 'https://standards.ieee.org/ieee/802.11/10548/',
-};
-const IEEE_802154_SOURCE: CanonicalSource = {
-  organization: 'IEEE', specification: 'IEEE 802.15.4-2024',
-  clause: '2450 MHz O-QPSK PHY channelization', revision: '2024',
-  url: 'https://standards.ieee.org/ieee/802.15.4/11011/',
-};
-const BLUETOOTH_SOURCE: CanonicalSource = {
-  organization: 'Bluetooth SIG', specification: 'Bluetooth Core Specification',
-  clause: 'BR/EDR and LE radio physical layers and baseband/link-layer timing', revision: '6.3',
-  url: 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/index-en.html',
-};
+const TINYSA_SOURCE = canonicalSource('TinySA SignalLab', [
+  {
+    specification: 'Analytic RF waveform definitions',
+    clause: 'CW, DSB full-carrier AM, sinusoidal FM and hard-negative models',
+    revision: '1',
+    url: 'https://tinysa.org/wiki/',
+  },
+]);
+const GSM_SOURCE = canonicalSource('3GPP', [
+  {
+    specification: 'TS 45.002',
+    clause: '4.3 and 5.5: timeslots and TDMA frame sequence',
+    revision: '18.0.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145002/18.00.00_60/ts_145002v180000p.pdf',
+  },
+  {
+    specification: 'TS 45.005',
+    clause: 'GSM 900 operating bands and 200 kHz RF channel raster',
+    revision: '19.0.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00.00_60/ts_145005v190000p.pdf',
+  },
+]);
+const LTE_SOURCE = canonicalSource('3GPP', [
+  {
+    specification: 'TS 36.101',
+    clause: '5.5 and 5.6: operating bands and transmission bandwidth configuration',
+    revision: '19.5.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136101/19.05.00_60/ts_136101v190500p.pdf',
+  },
+  {
+    specification: 'TS 36.211',
+    clause: '4 and 6: frame structure, resource grid and OFDM physical channels',
+    revision: '19.3.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/136200_136299/136211/19.03.00_60/ts_136211v190300p.pdf',
+  },
+]);
+const NR_SOURCE = canonicalSource('3GPP', [
+  {
+    specification: 'TS 38.104',
+    clause: '5.2 and 5.3: FR1 operating bands and channel bandwidths',
+    revision: '19.4.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/138100_138199/138104/19.04.00_60/ts_138104v190400p.pdf',
+  },
+  {
+    specification: 'TS 38.211',
+    clause: '4.2 through 4.4: numerologies, frame structure and resource grids',
+    revision: '19.3.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/138200_138299/138211/19.03.00_60/ts_138211v190300p.pdf',
+  },
+]);
+const WIFI_SOURCE = canonicalSource('IEEE', [
+  {
+    specification: 'IEEE 802.11-2024',
+    clause: 'DSSS/HR-DSSS and OFDM PHY channelization',
+    revision: '2024',
+    url: 'https://standards.ieee.org/ieee/802.11/10548/',
+  },
+]);
+const IEEE_802154_SOURCE = canonicalSource('IEEE', [
+  {
+    specification: 'IEEE 802.15.4-2024',
+    clause: '2450 MHz O-QPSK PHY channelization',
+    revision: '2024',
+    url: 'https://standards.ieee.org/ieee/802.15.4/11011/',
+  },
+]);
+const BLUETOOTH_SOURCE = canonicalSource('Bluetooth SIG', [
+  {
+    specification: 'Bluetooth Core 6.3, Vol 2, Part A',
+    clause: 'BR/EDR radio physical layer, Sections 1 through 3',
+    revision: '6.3',
+    url: 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/br-edr-controller/radio-physical-layer-specification.html',
+  },
+  {
+    specification: 'Bluetooth Core 6.3, Vol 2, Part B',
+    clause: 'BR/EDR baseband physical channels, packets and slot timing',
+    revision: '6.3',
+    url: 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/br-edr-controller/baseband-specification.html',
+  },
+  {
+    specification: 'Bluetooth Core 6.3, Vol 6, Part A',
+    clause: 'LE radio physical layer, Sections 1 through 3',
+    revision: '6.3',
+    url: 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/radio-physical-layer-specification.html',
+  },
+  {
+    specification: 'Bluetooth Core 6.3, Vol 6, Part B',
+    clause: 'LE physical channels, advertising events and link-layer timing',
+    revision: '6.3',
+    url: 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/link-layer-specification.html',
+  },
+]);
 
 const nonConformance = 'Deterministic scalar instrument projection for inference testing; it is not a bit-exact, protocol-decodable, or conformance I/Q waveform.';
 const multitoneDisclosure = `${nonConformance} Simultaneous regular lines are association-compatible, but scalar power cannot prove a shared emitter, oscillator, modulation process, or message identity.`;
@@ -420,7 +501,7 @@ function scenario(
     spectrumModel,
     envelopeModel,
     parameters: Object.freeze({ ...parameters }),
-    source: Object.freeze({ ...source }),
+    source: canonicalSource(source.organization, source.references),
     disclosure,
     ...metadata,
   });

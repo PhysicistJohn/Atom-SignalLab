@@ -149,6 +149,7 @@ Every local API request settles exactly once as a validated new status or an exp
 - Seeded AWGN is repeatable and evolves by sweep.
 - Rayleigh fading is reproducible and measurably frequency-selective.
 - Every public canonized observable profile is byte-identical to its shared corpus source under equal geometry, seed, SNR, and look index.
+- Every corpus source carries one immutable HTTPS reference per independently versioned document; combined specification names, aggregate revisions, duplicate references, and partial provenance URLs are rejected.
 - LTE/NR FDD/TDD and Bluetooth BR/EDR/LE profiles are explicit selectable capabilities with non-conformance and observable-equivalence disclosures.
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.

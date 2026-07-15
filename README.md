@@ -44,15 +44,17 @@ These are spectrum/time projections, not conformance-grade I/Q. A profile cannot
 
 `src/waveforms.ts` owns the executable definitions and synthesis kernel shared
 by the public canonized observable profiles and `src/classification-corpus.ts`.
-Corpus v8 canonizes deterministic scalar observations for Bayesian
+Corpus v9 canonizes deterministic scalar observations for Bayesian
 detector/classifier development, including CW, physical DSB full-carrier AM
 sideband ratios, Bessel-series FM, standards-parameterized heuristic
 projections of GSM, LTE FDD/TDD, NR FDD/TDD, Wi-Fi DSSS/OFDM and Bluetooth
 Classic/LE, plus corpus-only explicit hard negatives. These hand-built power
 projections are not conformance waveforms. Every scenario records truth class,
-parameters, source clause, seed, acquisition settings, and a non-conformance
-disclosure. Live profile identity remains status-only and never enters the
-shared measurement evidence or classifier.
+parameters, seed, acquisition settings, and a non-conformance disclosure. Its
+source provenance is an ordered per-document reference list: independently
+versioned 3GPP specifications never share an invented aggregate revision or a
+URL that resolves only half of the stated basis. Live profile identity remains
+status-only and never enters the shared measurement evidence or classifier.
 
 The hard-negative set includes independent regular and irregular CW groups,
 stationary intermittent 2.4 GHz activity, a simultaneous full-band raster,
@@ -62,7 +64,7 @@ Bluetooth activity leaf: scalar frequency agility cannot establish protocol
 or emitter identity. Simultaneous lines likewise cannot establish a shared
 emitter, oscillator, modulation process, or message identity.
 
-The v8 corpus also contains byte-for-byte scalar-equivalence null pairs: a
+The v9 corpus also contains byte-for-byte scalar-equivalence null pairs: a
 receiver spur versus CW, coherent independent tones versus DSB-FC AM, an
 independent Bessel-weighted comb versus FM, generic OFDM versus LTE/NR or
 Wi-Fi-shaped projections, and proprietary DSSS versus HR-DSSS. A classifier
