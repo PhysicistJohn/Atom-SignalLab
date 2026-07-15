@@ -18,7 +18,7 @@ The public source boundary is `src/contracts.ts`:
 
 - `SignalLabApi.version = 1`.
 - `status()` returns immutable current state.
-- `select(profile)` accepts one of exactly 88 profile IDs.
+- `select(profile)` accepts one of exactly 34 profile IDs.
 - `configureChannel(config)` accepts the closed AWGN/Rayleigh schema.
 - `subscribe(listener)` delivers status changes and returns explicit unsubscription.
 - `SignalLabStimulusIntent` is reserved for a future Firmware-owned sink.
@@ -51,12 +51,12 @@ With no persisted Atomizer preference, `signal-lab` is Atomizer's factory defaul
 |---|---:|---|
 | Tone | 1 | Visual |
 | Analog AM/FM | 2 | Visual |
-| GERAN canonized observable + EDGE normal-burst projections | 7 | Standards-derived |
-| E-UTRA canonized FDD/TDD + Release 19 E-TM/sE-TM/N-TM projections | 27 | Standards-derived |
-| NR canonized FDD/TDD + Release 19 FR1/N-TM/SBFD projections | 43 | Standards-derived |
+| GERAN canonized observable + GERAN/EDGE burst projections | 7 | Standards-derived |
+| E-UTRA-family canonized FDD/TDD + retained full-allocation E-TM + isolated N-TM component projections | 10 | Standards-derived |
+| NR-family canonized FDD/TDD + retained full-allocation FR1 test-model projections | 6 | Standards-derived |
 | IEEE 802.11 canonized HR-DSSS/OFDM + 802.11ax HE PPDU projections | 6 | Standards-derived |
 | Bluetooth BR/EDR + LE canonized observable projections | 2 | Standards-derived |
-| Total | 88 | Closed |
+| Total | 34 | Closed |
 
 Every descriptor carries a stable ID, label, family/model, center, occupied bandwidth, recommended span, resource/timing projection, one normalized source basis with an ordered per-document specification/clause/revision/HTTPS reference list, qualification, and disclosure.
 
@@ -79,12 +79,13 @@ Guarantees:
 - A changed sweep index evolves the live replay.
 - Canonized AM uses the physical DSB full-carrier power ratio and receiver-filtered envelope projection.
 - Canonized FM uses the sinusoidal-FM Bessel-series line-power and receiver-filtered envelope projections; non-line adjacent bins retain the channel noise floor rather than a false occupied pedestal.
+- The 2 kHz CW descriptor width is a nominal display-support floor for a mathematical line, not analyzer RBW or source occupied bandwidth. The 52 kHz AM descriptor width is the 50 kHz outer-sideband spacing plus that nominal 2 kHz display floor. Actual rendered line width follows the per-observation RBW and may extend beyond either nominal display-support field.
 - Canonized detected-power synthesis uses the exact admitted sample period, exact requested integer-Hz receiver tune, and an explicit generator-internal 100 kHz receiver-filter width rather than a hidden clock, profile-center tune, or swept-spectrum bin width. The synthesis width is reproducibility provenance, not an observed or calibrated measurement RBW, and the bridge does not publish it as measurement evidence.
 - Every canonized fixed-frequency profile applies its source-model occupied-band response at that tune; Bluetooth Classic and LE retain their time-varying hopping/advertising-channel receiver responses.
 - Canonized LTE Band 38 is explicitly downlink-only UL/DL configuration 0 with normal-CP special-subframe configuration 7 and `srs-UpPtsAdd` absent. A special subframe contributes downlink energy only during its 21,952-`Ts` DwPTS; its 4,384-`Ts` guard period and 4,384-`Ts` UpPTS are inactive.
 - Canonized NR n78 uses the versioned engineering schedule `nr-tdd-7dl-3ul-engineering-v1`: a valid 5 ms, 30 kHz-SCS `TDD-UL-DL-Pattern` selection with seven complete DL slots and three complete UL slots. It is not an n78 or deployment default.
-- Canonized BLE primary advertising uses a versioned engineering schedule with fixed 37/38/39 center order, 1.5 ms packet-start spacing, fixed 376 us packet duration, a 20 ms interval, and a seeded per-event pseudorandom `advDelay` in `[0, 10 ms)`. These are not universal Bluetooth timing or channel-map requirements.
-- Non-canonized standards-derived zero span uses an explicitly approximate descriptor-bounded occupied-band receiver response. Single-PRB profiles follow their deterministic swept allocation, while frequency-unmapped `survey` zero span fails instead of inventing a center. This remains a visual projection, not a calibrated filter or conformance waveform.
+- Canonized BLE primary advertising uses all three primary centers in sequential 37/38/39 order, 1.5 ms packet-start spacing, fixed 376 us packet duration, a 20 ms interval, and a seeded per-event pseudorandom `advDelay` in `[0, 10 ms)`. The sequence is standards-consistent for the modeled legacy all-three-channel event; configured subsets, early event closure, and extended advertising differ. The all-three use, timing, interval, and deterministic delay generator are engineering choices, not universal Bluetooth traffic or PDU behavior.
+- Retained non-canonized standards-derived zero span uses an explicitly approximate descriptor-bounded occupied-band receiver response at the descriptor center. Frequency-unmapped `survey` zero span fails instead of inventing a center. This remains a visual projection, not a calibrated filter or conformance waveform.
 - GSM and WLAN zero-span projections preserve burst behavior.
 - Every accepted profile produces finite, correctly sized spectrum and zero-span arrays or fails.
 
@@ -149,7 +150,7 @@ Every local API request settles exactly once as a validated new status or an exp
 
 `npm run check` must prove:
 
-- Exactly 88 descriptors with family counts `1/2/7/27/43/6/2`.
+- Exactly 34 descriptors with family counts `1/2/7/10/6/6/2`.
 - Every descriptor has a normalized non-empty source basis and valid range.
 - Every profile produces finite spectrum output.
 - Seeded AWGN is repeatable and evolves by sweep.

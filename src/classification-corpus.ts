@@ -18,6 +18,9 @@ import {
   BLE_PRIMARY_ADVERTISING_ENGINEERING_V1,
   LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1,
   LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
+  NR_N78_30_KHZ_RASTER_CENTER_HZ,
+  NR_N78_30_KHZ_RASTER_NREF,
+  NR_N78_CHANNEL_RASTER_HZ,
   NR_TDD_7DL_3UL_ENGINEERING_V1,
   lteTddConfig0Ssp7NormalCpDownlinkActive,
   nrTdd7Dl3UlEngineeringDownlinkActive,
@@ -175,53 +178,95 @@ const agileEquivalenceDisclosure = `${nonConformance} The observed frequency-agi
 const stationaryDisclosure = `${nonConformance} Intermittence at one fixed center is negative evidence for frequency agility, but its scalar line may remain CW-like.`;
 const exactScalarEquivalenceDisclosure = `${nonConformance} This deliberately independent source hypothesis is rendered through the same declared scalar observation operator as a fitted known scenario, so every admitted scalar observable is exactly equal and the measurement cannot establish waveform or protocol identity.`;
 const chirpFragmentDisclosure = `${nonConformance} The swept source can be fragmented by local detection and tracking into observations that are CW-like or FM-like over the admitted finite window; those observable labels do not establish the source modulation or emitter identity.`;
-const lteTddDisclosure = `${nonConformance} This downlink-only scenario explicitly selects UL/DL configuration 0 and normal-CP special-subframe configuration 7 with srs-UpPtsAdd absent; only DwPTS is downlink-active in each special subframe. The special-subframe selection is not implied by Band 38 or UL/DL configuration 0.`;
-const nrTddEngineeringDisclosure = `${nonConformance} Engineering schedule nr-tdd-7dl-3ul-engineering-v1 selects one valid 5 ms TDD-UL-DL-Pattern at 30 kHz SCS with seven complete downlink slots followed by three complete uplink slots. It is a downlink-only SignalLab scenario, not a pattern prescribed for n78 or universal across NR deployments.`;
-const bleEngineeringDisclosure = `${nonConformance} Engineering schedule ble-primary-advertising-engineering-v1 sends one fixed-duration packet on each primary advertising center in the fixed 37, 38, 39 order with 1.5 ms packet-start spacing, a 20 ms advertising interval, and a seeded per-event pseudorandom advDelay in [0, 10 ms). This schedule is an acquisition scenario, not universal Bluetooth timing, channel-map, order, or PDU behavior.`;
+const cwWidthDisclosure = `${nonConformance} The source is a mathematical line passed through the per-observation receiver RBW. The 2 kHz occupiedBandwidthHz field is a nominal display-support floor, not the receiver RBW or source-emission measured/regulatory occupied bandwidth; rendered spectral width varies with the admitted observation RBW.`;
+const amWidthDisclosure = `${nonConformance} The 52 kHz occupiedBandwidthHz field is the 50 kHz separation between the two outer sideband lines plus the same nominal 2 kHz display-support floor used for a mathematical line. It is not the per-observation receiver RBW or measured/regulatory occupied bandwidth; rendered line widths vary with the admitted observation RBW and can extend beyond that nominal field.`;
+const fmWidthDisclosure = `${nonConformance} The 200 kHz occupiedBandwidthHz field is Carson's engineering estimate 2 × (75 kHz + 25 kHz), not exact containment or measured/regulatory occupied bandwidth. The physical Bessel series has nonzero higher-order energy beyond it; the renderer truncates only numerically at n = ±10 and its amplitude threshold. Each retained line is passed through the per-observation receiver RBW, so rendered spectral support is not bounded by that metadata field.`;
+const gsmTdmaEngineeringDisclosure = `${nonConformance} The fixed schedule activates slot 0 once per eight-slot TDMA frame. It is a deterministic SignalLab scalar acquisition schedule, not universal GSM traffic, channel assignment, or protocol likelihood.`;
+const gsmLoadedBcchEngineeringDisclosure = `${nonConformance} This is an engineering scalar loaded-downlink replay using continuous slot occupancy and synthetic texture representing traffic, control, or dummy bursts. TS 45.008 supports the continuous BCCH premise, but the texture is not a decoded GMSK burst sequence; this does not imply every GSM carrier is continuous or provide protocol likelihood.`;
+const lteTddDisclosure = `${nonConformance} This downlink-only scenario explicitly selects UL/DL configuration 0 and normal-CP special-subframe configuration 7 with srs-UpPtsAdd absent; only DwPTS is downlink-active in each special subframe. The special-subframe selection is not implied by Band 38 or UL/DL configuration 0. The 9 MHz field is the 50 × 12 × 15 kHz nominal RB-grid span, not the 10 MHz channel bandwidth or measured 99%-power or regulatory occupied bandwidth.`;
+const nrTddEngineeringDisclosure = `${nonConformance} The ${NR_N78_30_KHZ_RASTER_CENTER_HZ} Hz carrier center is n78 30 kHz-raster NREF ${NR_N78_30_KHZ_RASTER_NREF}. Engineering schedule nr-tdd-7dl-3ul-engineering-v1 selects one valid 5 ms TDD-UL-DL-Pattern at 30 kHz SCS with seven complete downlink slots followed by three complete uplink slots. It is a downlink-only SignalLab scenario, not a pattern prescribed for n78 or universal across NR deployments.`;
+const wifiCsmaEngineeringDisclosure = `${nonConformance} Its seeded CSMA-like on/off envelope is a deterministic SignalLab acquisition schedule, not IEEE 802.11 MAC behavior or protocol likelihood.`;
+const bluetoothClassicEngineeringDisclosure = `${agileEquivalenceDisclosure} The classic-connected engineering schedule selects each hop independently from a uniform seeded pseudorandom sequence over 79 channel centers and uses a fixed two-active-slot/one-idle-slot pattern. It is not the Bluetooth hop-selection kernel, connection state, or universal BR/EDR traffic. The 79 MHz field is the aggregate edge-to-edge support across the 79 modeled 1 MHz channels (78 MHz first-to-last center spacing plus one channel width), not instantaneous occupied bandwidth.`;
+const bleEngineeringDisclosure = `${nonConformance} Engineering schedule ble-primary-advertising-engineering-v1 sends one fixed-duration packet on all three primary advertising centers in sequential 37, 38, 39 order with 1.5 ms packet-start spacing, a 20 ms advertising interval, and a seeded per-event pseudorandom advDelay in [0, 10 ms). That sequence is standards-consistent for the modeled legacy all-three-channel event, but configured subsets, early event closure after a response, and extended advertising differ. The all-three use, spacing, duration, interval, and deterministic delay generator are engineering choices, not universal Bluetooth traffic or PDU behavior. The 80 MHz field is the aggregate primary-advertising-channel support span, not instantaneous occupied bandwidth.`;
 const lteTddExactEquivalenceDisclosure = `${exactScalarEquivalenceDisclosure} Equality is only to the fitted downlink-only UL/DL-configuration-0, normal-CP special-subframe-configuration-7 SignalLab projection, not to every LTE configuration-0 carrier.`;
 
 export const canonicalClassificationScenarios: readonly CanonicalClassificationScenario[] = Object.freeze([
-  canonizedKnownScenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', TINYSA_SOURCE),
+  canonizedKnownScenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', TINYSA_SOURCE, {
+    disclosure: cwWidthDisclosure,
+  }),
   canonizedKnownScenario('am-dsb-25k', 'am-dsb-full-carrier-like', 'analog', 'DSB full-carrier AM, 25 kHz tone', TINYSA_SOURCE, {
     allowedObservableClasses: ['am-dsb-full-carrier-like', 'cw-like'],
+    disclosure: amWidthDisclosure,
   }),
   canonizedKnownScenario('fm-beta-3', 'fm-angle-modulated-like', 'analog', 'Sinusoidal FM, beta 3', TINYSA_SOURCE, {
     allowedObservableClasses: ['fm-angle-modulated-like', 'cw-like'],
+    disclosure: fmWidthDisclosure,
   }),
 
-  canonizedKnownScenario('gsm-900-tdma', 'gsm-like', 'geran', 'GSM 900 one-timeslot traffic', GSM_SOURCE, { carrierRasterHz: 200_000, duplex: 'fdd' }),
+  canonizedKnownScenario('gsm-900-tdma', 'gsm-like', 'geran', 'GSM 900 fixed slot-0 engineering schedule', GSM_SOURCE, {
+    carrierRasterHz: 200_000,
+    duplex: 'fdd',
+    disclosure: gsmTdmaEngineeringDisclosure,
+  }),
   canonizedKnownScenario('gsm-900-loaded-bcch', 'gsm-like', 'geran', 'GSM 900 loaded BCCH/dummy-burst carrier', GSM_SOURCE, {
     carrierRasterHz: 200_000,
     duplex: 'fdd',
-    disclosure: `${nonConformance} This loaded downlink scenario models continuous slot occupancy from traffic, control, or dummy bursts; it does not claim that every GSM carrier is continuous.`,
+    disclosure: gsmLoadedBcchEngineeringDisclosure,
   }),
 
-  canonizedKnownScenario('lte-band3-fdd-5m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 5 MHz', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
-  canonizedKnownScenario('lte-band3-fdd-20m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 20 MHz', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
+  canonizedKnownScenario('lte-band3-fdd-5m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 5 MHz', LTE_SOURCE, {
+    carrierRasterHz: 100_000,
+    duplex: 'fdd',
+    disclosure: `${nonConformance} The 4.5 MHz field is the 25 × 12 × 15 kHz nominal RB-grid span, not the 5 MHz channel bandwidth or measured 99%-power or regulatory occupied bandwidth.`,
+  }),
+  canonizedKnownScenario('lte-band3-fdd-20m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 20 MHz', LTE_SOURCE, {
+    carrierRasterHz: 100_000,
+    duplex: 'fdd',
+    disclosure: `${nonConformance} The 18 MHz field is the 100 × 12 × 15 kHz nominal RB-grid span, not the 20 MHz channel bandwidth or measured 99%-power or regulatory occupied bandwidth.`,
+  }),
   canonizedKnownScenario('lte-band38-tdd-10m', 'lte-tdd-like', 'e-utra', 'LTE Band 38 TDD downlink, 10 MHz · UL/DL config 0 · normal-CP special-subframe config 7', LTE_TDD_SOURCE, {
     carrierRasterHz: 100_000,
     duplex: 'tdd',
     disclosure: lteTddDisclosure,
   }),
 
-  canonizedKnownScenario('nr-n3-fdd-20m', 'nr-fdd-like', 'nr', 'NR n3 FDD, 20 MHz', NR_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
+  canonizedKnownScenario('nr-n3-fdd-20m', 'nr-fdd-like', 'nr', 'NR n3 FDD, 20 MHz', NR_SOURCE, {
+    carrierRasterHz: 100_000,
+    duplex: 'fdd',
+    disclosure: `${nonConformance} The 19.08 MHz field is the 106 × 12 × 15 kHz nominal RB-grid span, not the 20 MHz channel bandwidth or measured 99%-power or regulatory occupied bandwidth.`,
+  }),
   canonizedKnownScenario('nr-n78-tdd-40m', 'nr-tdd-like', 'nr', 'NR n78 TDD downlink, 40 MHz · engineering 7DL/3UL schedule v1', NR_TDD_SOURCE, {
-    carrierRasterHz: 15_000,
+    carrierRasterHz: NR_N78_CHANNEL_RASTER_HZ,
     duplex: 'tdd',
-    disclosure: nrTddEngineeringDisclosure,
+    disclosure: `${nrTddEngineeringDisclosure} The 38.16 MHz field is the 106 × 12 × 30 kHz nominal RB-grid span, not the 40 MHz channel bandwidth or measured 99%-power or regulatory occupied bandwidth.`,
   }),
   canonizedKnownScenario('nr-n78-tdd-100m', 'nr-tdd-like', 'nr', 'NR n78 TDD downlink, 100 MHz · engineering 7DL/3UL schedule v1', NR_TDD_SOURCE, {
-    carrierRasterHz: 15_000,
+    carrierRasterHz: NR_N78_CHANNEL_RASTER_HZ,
     duplex: 'tdd',
-    disclosure: nrTddEngineeringDisclosure,
+    disclosure: `${nrTddEngineeringDisclosure} The 98.28 MHz field is the 273 × 12 × 30 kHz nominal RB-grid span, not the 100 MHz channel bandwidth or measured 99%-power or regulatory occupied bandwidth.`,
   }),
 
-  canonizedKnownScenario('wifi-hr-dsss-11m', 'wifi-hr-dsss-like', 'wlan', '2.4 GHz HR-DSSS channel', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
-  canonizedKnownScenario('wifi-ofdm-20m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 20 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
-  canonizedKnownScenario('wifi-ofdm-40m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 40 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
-  canonizedKnownScenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
+  canonizedKnownScenario('wifi-hr-dsss-11m', 'wifi-hr-dsss-like', 'wlan', '2.4 GHz HR-DSSS · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+    carrierRasterHz: 5_000_000,
+    disclosure: `${wifiCsmaEngineeringDisclosure} The 22 MHz field is an engineering support projection, not normative measured or regulatory occupied bandwidth; the 11 Mchip/s rate is standards-derived.`,
+  }),
+  canonizedKnownScenario('wifi-ofdm-20m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 20 MHz · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+    carrierRasterHz: 5_000_000,
+    disclosure: `${wifiCsmaEngineeringDisclosure} The 16.6 MHz field is an engineering occupied-tone support projection, not normative measured or regulatory occupied bandwidth; 312.5 kHz SCS is standards-derived.`,
+  }),
+  canonizedKnownScenario('wifi-ofdm-40m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 40 MHz · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+    carrierRasterHz: 5_000_000,
+    disclosure: `${wifiCsmaEngineeringDisclosure} The 36.6 MHz field is an engineering occupied-tone support projection, not normative measured or regulatory occupied bandwidth; 312.5 kHz SCS is standards-derived.`,
+  }),
+  canonizedKnownScenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+    carrierRasterHz: 5_000_000,
+    disclosure: `${wifiCsmaEngineeringDisclosure} The 76.6 MHz field is an engineering occupied-tone support projection, not normative measured or regulatory occupied bandwidth; 312.5 kHz SCS is standards-derived.`,
+  }),
 
-  canonizedKnownScenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR/EDR connected hopping', BLUETOOTH_SOURCE, { carrierRasterHz: 1_000_000 }),
+  canonizedKnownScenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR/EDR connected-like engineering hop/slot schedule', BLUETOOTH_SOURCE, {
+    carrierRasterHz: 1_000_000,
+    disclosure: bluetoothClassicEngineeringDisclosure,
+  }),
   canonizedKnownScenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising · engineering schedule v1', BLUETOOTH_SOURCE, {
     carrierRasterHz: 2_000_000,
     disclosure: bleEngineeringDisclosure,
@@ -247,7 +292,7 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
     channelWidthHz: 1_000_000, burstPeriodSeconds: 0.0073, burstDuty: 0.58,
   }, { disclosure: stationaryDisclosure, allowedObservableClasses: ['unknown-signal', 'cw-like'] }),
   // The 120 MHz acquisition span deliberately retains off-signal reference
-  // cells around the 79 MHz raster. With an 84 MHz span, nearly every cell is
+  // cells around the 79-channel, 1 MHz-spaced raster. With an 84 MHz span, nearly every cell is
   // occupied and an unknown uniform gain is scale-confounded with a higher
   // receiver noise floor; no scale-invariant local detector can honestly
   // infer presence from that view alone.

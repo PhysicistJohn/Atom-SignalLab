@@ -53,13 +53,25 @@ export const ANALYTIC_SCALAR_SOURCE = sourceBasis('TinySA SignalLab', [{
 export const GSM_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
   {
     specification: 'TS 45.002',
-    clause: '4.3 and 5.5: timeslots and TDMA frame sequence',
-    revision: '18.0.0',
-    url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145002/18.00.00_60/ts_145002v180000p.pdf',
+    clause: '4.3, 5.2.3.1, and 5.2.6: TDMA timing/frame sequence and GMSK/dummy-burst structures',
+    revision: '19.0.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145002/19.00.00_60/ts_145002v190000p.pdf',
+  },
+  {
+    specification: 'TS 45.004',
+    clause: '2 and 2.1: GMSK modulation format and normal symbol rate',
+    revision: '19.0.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145004/19.00.00_60/ts_145004v190000p.pdf',
+  },
+  {
+    specification: 'TS 45.008',
+    clause: '7.1: BCCH carrier continuous transmission and dummy bursts in otherwise unused time slots',
+    revision: '19.0.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145008/19.00.00_60/ts_145008v190000p.pdf',
   },
   {
     specification: 'TS 45.005',
-    clause: 'GSM 900 operating bands and 200 kHz RF channel raster',
+    clause: 'Clause 2: GSM 900 operating bands and RF-channel arrangement/raster',
     revision: '19.0.0',
     url: 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00.00_60/ts_145005v190000p.pdf',
   },
@@ -127,7 +139,7 @@ export const NR_TDD_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
 
 export const WIFI_OBSERVABLE_SOURCE = sourceBasis('IEEE', [{
   specification: 'IEEE 802.11-2024',
-  clause: 'DSSS/HR-DSSS and OFDM PHY channelization',
+  clause: 'Clauses 15, 16, and 17: DSSS, HR/DSSS, and OFDM PHY definitions and channelization',
   revision: '2024',
   url: 'https://standards.ieee.org/ieee/802.11/10548/',
 }]);
@@ -160,7 +172,7 @@ export const BLUETOOTH_OBSERVABLE_SOURCE = sourceBasis('Bluetooth SIG', [
   },
   {
     specification: 'Bluetooth Core 6.3, Vol 6, Part B',
-    clause: '2.3.1, 4.4.2.1 and 4.4.2.2.1: primary-channel order, advertising events, channel use, advInterval, advDelay and consecutive-PDU timing bounds',
+    clause: '2.3.1 and 4.4.2, including event-specific 4.4.2.1, 4.4.2.2.1 and 4.4.2.4.3: primary-channel use, next-used-channel sequencing, event closure, advInterval, advDelay and timing bounds',
     revision: '6.3',
     url: 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/link-layer-specification.html',
   },

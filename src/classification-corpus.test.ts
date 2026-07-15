@@ -220,6 +220,8 @@ describe('canonical scalar classification corpus', () => {
     const n3 = canonicalClassificationScenario('nr-n3-fdd-20m');
     const n78 = canonicalClassificationScenario('nr-n78-tdd-100m');
     expect(n3.carrierRasterHz).toBe(100_000);
+    expect(n78.centerHz).toBe(3_500_010_000);
+    expect(n78.carrierRasterHz).toBe(30_000);
     expect(n78.parameters).toMatchObject({
       engineeringScheduleVersion: 1,
       referenceSubcarrierSpacingHz: 30_000,
@@ -231,7 +233,66 @@ describe('canonical scalar classification corpus', () => {
       downlinkOnly: 1,
     });
     expect(n78.disclosure).toMatch(/engineering schedule nr-tdd-7dl-3ul-engineering-v1/i);
+    expect(n78.disclosure).toMatch(/3500010000 Hz.*30 kHz-raster NREF 633334/i);
     expect(n78.disclosure).toMatch(/not .*prescribed for n78|not .*universal/i);
+  });
+
+  it('discloses engineering schedules and aggregate support widths without protocol overclaims', () => {
+    const cw = canonicalClassificationScenario('cw-rbw-line');
+    const am = canonicalClassificationScenario('am-dsb-25k');
+    const fm = canonicalClassificationScenario('fm-beta-3');
+    expect(cw.disclosure)
+      .toMatch(/mathematical line.*per-observation receiver RBW.*2 kHz.*nominal display-support floor.*not the receiver RBW.*rendered spectral width varies/i);
+    expect(am.disclosure)
+      .toMatch(/52 kHz.*50 kHz separation.*outer sideband lines.*nominal 2 kHz display-support floor.*not the per-observation receiver RBW.*rendered line widths vary/i);
+    expect(fm.disclosure)
+      .toMatch(/200 kHz.*Carson.*not exact containment.*Bessel series.*higher-order energy.*n = ±10.*amplitude threshold.*per-observation receiver RBW.*not bounded/i);
+
+    for (const [id, gridSpan, resourceBlocks, spacing, channelBandwidth] of [
+      ['lte-band3-fdd-5m', '4.5 MHz', 25, '15 kHz', '5 MHz'],
+      ['lte-band3-fdd-20m', '18 MHz', 100, '15 kHz', '20 MHz'],
+      ['lte-band38-tdd-10m', '9 MHz', 50, '15 kHz', '10 MHz'],
+      ['nr-n3-fdd-20m', '19.08 MHz', 106, '15 kHz', '20 MHz'],
+      ['nr-n78-tdd-40m', '38.16 MHz', 106, '30 kHz', '40 MHz'],
+      ['nr-n78-tdd-100m', '98.28 MHz', 273, '30 kHz', '100 MHz'],
+    ] as const) {
+      const disclosure = canonicalClassificationScenario(id).disclosure;
+      expect(disclosure).toContain(gridSpan);
+      expect(disclosure).toContain(`${resourceBlocks} × 12 × ${spacing} nominal RB-grid span`);
+      expect(disclosure).toMatch(new RegExp(`not the ${channelBandwidth.replace('.', '\\.')} channel bandwidth.*99%-power.*regulatory occupied bandwidth`, 'i'));
+    }
+
+    const gsmTdma = canonicalClassificationScenario('gsm-900-tdma');
+    expect(gsmTdma.label).toMatch(/fixed slot-0 engineering schedule/i);
+    expect(gsmTdma.disclosure)
+      .toMatch(/slot 0 once per eight-slot TDMA frame.*deterministic.*not universal GSM traffic, channel assignment, or protocol likelihood/i);
+    expect(canonicalClassificationScenario('gsm-900-loaded-bcch').disclosure)
+      .toMatch(/engineering scalar loaded-downlink.*continuous slot occupancy.*synthetic texture.*not a decoded GMSK burst sequence.*not imply every GSM carrier.*protocol likelihood/i);
+
+    for (const [id, width, physicalRate] of [
+      ['wifi-hr-dsss-11m', '22 MHz', '11 Mchip/s'],
+      ['wifi-ofdm-20m', '16.6 MHz', '312.5 kHz SCS'],
+      ['wifi-ofdm-40m', '36.6 MHz', '312.5 kHz SCS'],
+      ['wifi-ofdm-80m', '76.6 MHz', '312.5 kHz SCS'],
+    ] as const) {
+      const disclosure = canonicalClassificationScenario(id).disclosure;
+      expect(disclosure).toMatch(/seeded CSMA-like.*deterministic.*not IEEE 802\.11 MAC behavior or protocol likelihood/i);
+      expect(disclosure).toContain(width);
+      expect(disclosure).toContain(physicalRate);
+      expect(disclosure).toMatch(/engineering .*support projection.*not normative measured or regulatory occupied bandwidth/i);
+    }
+
+    const classic = canonicalClassificationScenario('bluetooth-classic-connected');
+    expect(classic.disclosure)
+      .toMatch(/uniform seeded pseudorandom sequence over 79 channel centers.*two-active-slot\/one-idle-slot.*not the Bluetooth hop-selection kernel/i);
+    expect(classic.disclosure)
+      .toMatch(/79 MHz.*aggregate edge-to-edge support.*79 modeled 1 MHz channels.*78 MHz first-to-last center spacing plus one channel width.*not instantaneous occupied bandwidth/i);
+
+    const le = canonicalClassificationScenario('bluetooth-le-advertising');
+    expect(le.disclosure)
+      .toMatch(/sequential 37, 38, 39 order.*standards-consistent.*configured subsets, early event closure.*extended advertising differ/i);
+    expect(le.disclosure)
+      .toMatch(/80 MHz.*aggregate primary-advertising-channel support span, not instantaneous occupied bandwidth/i);
   });
 
   it('models Bluetooth rasters and primary LE advertising centers without claiming decoded PHY', () => {
@@ -250,7 +311,7 @@ describe('canonical scalar classification corpus', () => {
     expect([0, 1, 2].map((index) => le.parameters[`packet${index}CenterHz`]))
       .toEqual([2_402_000_000, 2_426_000_000, 2_480_000_000]);
     expect(le.disclosure).toMatch(/engineering schedule ble-primary-advertising-engineering-v1/i);
-    expect(le.disclosure).toMatch(/not universal Bluetooth timing/i);
+    expect(le.disclosure).toMatch(/sequence is standards-consistent.*engineering choices, not universal Bluetooth traffic/i);
     const observations = Array.from({ length: 12 }, (_, lookIndex) => synthesizeCanonicalObservation(le.id, {
       lookIndex,
       points: 901,
@@ -385,7 +446,9 @@ describe('canonical scalar classification corpus', () => {
     expect(canonicalClassificationScenario('gsm-900-loaded-bcch').source.references.map((reference) => [
       reference.specification, reference.revision,
     ])).toEqual([
-      ['TS 45.002', '18.0.0'],
+      ['TS 45.002', '19.0.0'],
+      ['TS 45.004', '19.0.0'],
+      ['TS 45.008', '19.0.0'],
       ['TS 45.005', '19.0.0'],
     ]);
     expect(canonicalClassificationScenario('lte-band3-fdd-20m').source.references.map((reference) => [

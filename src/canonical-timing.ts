@@ -13,6 +13,15 @@ export const NR_TDD_7DL_3UL_ENGINEERING_V1 =
 export const BLE_PRIMARY_ADVERTISING_ENGINEERING_V1 =
   'ble-primary-advertising-engineering-v1' as const;
 
+/**
+ * TS 38.104 v19.4.0 Tables 5.4.2.1-1 and 5.4.2.3-1.
+ * Above 3 GHz, FREF = 3000 MHz + 15 kHz × (NREF - 600000); the n78
+ * 30 kHz channel raster admits even NREF values from 620000 through 653332.
+ */
+export const NR_N78_30_KHZ_RASTER_NREF = 633_334 as const;
+export const NR_N78_30_KHZ_RASTER_CENTER_HZ = 3_500_010_000 as const;
+export const NR_N78_CHANNEL_RASTER_HZ = 30_000 as const;
+
 const LTE_BASIC_TIME_UNIT_SECONDS = 1 / 30_720_000;
 
 /**

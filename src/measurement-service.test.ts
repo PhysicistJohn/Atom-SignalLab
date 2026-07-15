@@ -85,7 +85,7 @@ describe('Atomizer high-level measurement source contract', () => {
       claims: MEASUREMENT_BRIDGE_CLAIMS,
     });
     expect(initial.identity.catalogSha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(initial.profiles).toHaveLength(88);
+    expect(initial.profiles).toHaveLength(34);
     expect(initial.capabilities).toEqual(MEASUREMENT_CAPABILITIES);
     expect(initial.capabilities.find(({ kind }) => kind === 'detected-power-timeseries')).toEqual({
       kind: 'detected-power-timeseries',

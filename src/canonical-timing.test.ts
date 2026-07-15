@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1,
   LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
+  NR_N78_30_KHZ_RASTER_CENTER_HZ,
+  NR_N78_30_KHZ_RASTER_NREF,
+  NR_N78_CHANNEL_RASTER_HZ,
   NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS,
   NR_TDD_7DL_3UL_ENGINEERING_V1,
   lteTddConfig0Ssp7NormalCpDownlinkActive,
@@ -9,6 +12,15 @@ import {
 } from './canonical-timing.js';
 
 describe('canonized TDD timing models', () => {
+  it('derives the selected n78 center from an admitted even NREF on the 30 kHz channel raster', () => {
+    expect(NR_N78_30_KHZ_RASTER_NREF).toBeGreaterThanOrEqual(620_000);
+    expect(NR_N78_30_KHZ_RASTER_NREF).toBeLessThanOrEqual(653_332);
+    expect(NR_N78_30_KHZ_RASTER_NREF % 2).toBe(0);
+    expect(3_000_000_000 + 15_000 * (NR_N78_30_KHZ_RASTER_NREF - 600_000))
+      .toBe(NR_N78_30_KHZ_RASTER_CENTER_HZ);
+    expect(NR_N78_30_KHZ_RASTER_CENTER_HZ % NR_N78_CHANNEL_RASTER_HZ).toBe(0);
+  });
+
   it('pins LTE config 0 and normal-CP special-subframe config 7 in exact Ts units', () => {
     const parameters = LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS;
     expect(LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1).toBe('lte-tdd-config0-ssp7-normal-cp-downlink-v1');

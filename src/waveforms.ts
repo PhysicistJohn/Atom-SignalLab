@@ -14,6 +14,7 @@ import {
   BLE_PRIMARY_ADVERTISING_ENGINEERING_V1,
   LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1,
   LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
+  NR_N78_30_KHZ_RASTER_CENTER_HZ,
   NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS,
   NR_TDD_7DL_3UL_ENGINEERING_V1,
   lteTddConfig0Ssp7NormalCpDownlinkActive,
@@ -80,8 +81,8 @@ export const CANONIZED_KNOWN_SCENARIOS = Object.freeze({
     ...LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
   }),
   'nr-n3-fdd-20m': knownScenario(1_840_000_000, 19_080_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', { subcarrierSpacingHz: 15_000, slotSeconds: 0.001 }),
-  'nr-n78-tdd-40m': knownScenario(3_500_000_000, 38_160_000, 60_000_000, 'ofdm-channel', NR_TDD_7DL_3UL_ENGINEERING_V1, NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS),
-  'nr-n78-tdd-100m': knownScenario(3_500_000_000, 98_280_000, 120_000_000, 'ofdm-channel', NR_TDD_7DL_3UL_ENGINEERING_V1, NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS),
+  'nr-n78-tdd-40m': knownScenario(NR_N78_30_KHZ_RASTER_CENTER_HZ, 38_160_000, 60_000_000, 'ofdm-channel', NR_TDD_7DL_3UL_ENGINEERING_V1, NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS),
+  'nr-n78-tdd-100m': knownScenario(NR_N78_30_KHZ_RASTER_CENTER_HZ, 98_280_000, 120_000_000, 'ofdm-channel', NR_TDD_7DL_3UL_ENGINEERING_V1, NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS),
   'wifi-hr-dsss-11m': knownScenario(2_437_000_000, 22_000_000, 30_000_000, 'dsss-channel', 'csma-bursts', { chipRateHz: 11_000_000 }),
   'wifi-ofdm-20m': knownScenario(2_437_000_000, 16_600_000, 30_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
   'wifi-ofdm-40m': knownScenario(5_190_000_000, 36_600_000, 60_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
@@ -236,7 +237,7 @@ export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
     });
   }
   if (descriptor === undefined) throw new Error('Survey zero-span synthesis has no absolute-frequency signal model');
-  const receiverResponseDb = legacyReceiverResponseDb(descriptor, input.tuneFrequencyHz, input.sweepIndex);
+  const receiverResponseDb = legacyReceiverResponseDb(descriptor, input.tuneFrequencyHz);
   return Array.from({ length: input.points }, (_, index) => {
     const phase = (index + input.sweepIndex * 3) * Math.PI / 13;
     const normalized = index / Math.max(1, input.points - 1);
@@ -253,23 +254,12 @@ export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
  * Receiver response for standards-derived visual profiles that are not part of
  * the canonized classifier source. This is deliberately a descriptor-bounded
  * occupied-band projection, not a calibrated analyzer filter or conformance
- * waveform. Single-PRB profiles follow the same deterministic allocation
- * position used by their swept-spectrum projection.
+ * waveform.
  */
-function legacyReceiverResponseDb(descriptor: WaveformDescriptor, tuneFrequencyHz: number, sweepIndex: number): number {
-  let signalCenterHz = descriptor.centerHz;
-  let occupiedBandwidthHz = descriptor.occupiedBandwidthHz;
-  if (descriptor.projection.allocation === 'single-prb') {
-    const spacingHz = descriptor.projection.subcarrierSpacingHz;
-    if (spacingHz === undefined) throw new Error(`${descriptor.id} is missing subcarrier spacing`);
-    const fullGridHz = descriptor.family === 'e-utra' ? 18_000_000 : 98_280_000;
-    const positions = [-0.38, -0.19, 0, 0.21, 0.39] as const;
-    signalCenterHz += positions[sweepIndex % positions.length]! * fullGridHz;
-    occupiedBandwidthHz = spacingHz * 12;
-  }
+function legacyReceiverResponseDb(descriptor: WaveformDescriptor, tuneFrequencyHz: number): number {
   return occupiedBandReceiverResponseDb(
-    tuneFrequencyHz - signalCenterHz,
-    occupiedBandwidthHz,
+    tuneFrequencyHz - descriptor.centerHz,
+    descriptor.occupiedBandwidthHz,
     CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
   );
 }
@@ -350,21 +340,7 @@ function cellularProjection(descriptor: WaveformDescriptor, offsetHz: number, bi
   if (descriptor.projection.allocation === 'narrowband') {
     return ofdmProjection(offsetHz, descriptor.occupiedBandwidthHz, -65, spacingHz, sweepIndex, hashText(descriptor.id), textureScale);
   }
-  if (descriptor.projection.allocation === 'single-prb') {
-    const fullGridHz = descriptor.family === 'e-utra' ? 18_000_000 : 98_280_000;
-    const positions = [-0.38, -0.19, 0, 0.21, 0.39];
-    const prbCenterHz = positions[sweepIndex % positions.length]! * fullGridHz;
-    const prbWidthHz = spacingHz * 12;
-    const measuredPrb = ofdmProjection(offsetHz - prbCenterHz, prbWidthHz, -62, spacingHz, sweepIndex, hashText(descriptor.id), textureScale);
-    const physicalChannels = ofdmProjection(offsetHz, fullGridHz, -96, spacingHz, sweepIndex, hashText(`${descriptor.id}:control`), 0.4);
-    return combineDbm(measuredPrb, physicalChannels);
-  }
-  const base = ofdmProjection(offsetHz, descriptor.occupiedBandwidthHz, descriptor.family === 'e-utra' ? -64 : -63, spacingHz, sweepIndex, hashText(descriptor.id), textureScale);
-  if (descriptor.projection.allocation !== 'boosted' || !Number.isFinite(base)) return base;
-  const rbWidthHz = spacingHz * 12;
-  const rbIndex = Math.floor((offsetHz + descriptor.occupiedBandwidthHz / 2) / rbWidthHz);
-  const boost = (rbIndex + sweepIndex) % 4 === 0 ? 3 : -1.25;
-  return base + boost;
+  return ofdmProjection(offsetHz, descriptor.occupiedBandwidthHz, descriptor.family === 'e-utra' ? -64 : -63, spacingHz, sweepIndex, hashText(descriptor.id), textureScale);
 }
 
 function wlanProjection(descriptor: WaveformDescriptor, offsetHz: number, sweepIndex: number): number {
@@ -420,9 +396,7 @@ function zeroSpanSignalDbm(
   if (!descriptor) throw new Error(`Waveform descriptor is missing for ${profile}`);
   if (descriptor.family === 'geran') return ((index + sweepIndex * 7) % 104) < 13 ? -55 : -118;
   if (descriptor.family === 'wlan') return wlanZeroSpan(descriptor.id, index, sweepIndex, phase);
-  const timing = descriptor.projection.timing;
-  if (!transmissionActiveAtSample(timing, index, sweepIndex)) return -118;
-  const allocationOffset = descriptor.projection.allocation === 'single-prb' ? -13 : descriptor.projection.allocation === 'narrowband' ? -8 : 0;
+  const allocationOffset = descriptor.projection.allocation === 'narrowband' ? -8 : 0;
   const texture = 2.2 + modulationTexture(descriptor.projection.modulation) * 0.7;
   return -64 + allocationOffset + texture * smoothNoise(index / 2.5, sweepIndex, hashText(descriptor.id));
 }
@@ -437,19 +411,6 @@ function wlanZeroSpan(profile: SynthesizedSignalProfile, index: number, sweepInd
 
 function transmissionActive(timing: WaveformProjection['timing'], sweepIndex: number): boolean {
   if (timing === 'burst') return sweepIndex % 9 < 7;
-  if (timing === 'sbfd-du') return sweepIndex % 2 === 0;
-  if (timing === 'sbfd-ud') return sweepIndex % 2 === 1;
-  if (timing === 'sbfd-dud') return sweepIndex % 3 !== 1;
-  return true;
-}
-
-function transmissionActiveAtSample(timing: WaveformProjection['timing'], index: number, sweepIndex: number): boolean {
-  const coordinate = index + sweepIndex * 3;
-  if (timing === 'subslot') return coordinate % 14 < 4;
-  if (timing === 'slot') return coordinate % 28 < 14;
-  if (timing === 'sbfd-du') return coordinate % 28 < 14;
-  if (timing === 'sbfd-ud') return coordinate % 28 >= 14;
-  if (timing === 'sbfd-dud') { const symbol = coordinate % 42; return symbol < 14 || symbol >= 28; }
   return true;
 }
 

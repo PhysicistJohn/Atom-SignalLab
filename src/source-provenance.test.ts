@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLUETOOTH_OBSERVABLE_SOURCE,
+  GSM_OBSERVABLE_SOURCE,
   LTE_OBSERVABLE_SOURCE,
   LTE_TDD_OBSERVABLE_SOURCE,
   NR_OBSERVABLE_SOURCE,
@@ -11,6 +12,16 @@ import {
 
 describe('source provenance', () => {
   it('retains one immutable reference per independently versioned document', () => {
+    expect(GSM_OBSERVABLE_SOURCE.references.map((reference) => [reference.specification, reference.revision])).toEqual([
+      ['TS 45.002', '19.0.0'],
+      ['TS 45.004', '19.0.0'],
+      ['TS 45.008', '19.0.0'],
+      ['TS 45.005', '19.0.0'],
+    ]);
+    expect(GSM_OBSERVABLE_SOURCE.references[1]?.clause).toMatch(/GMSK.*symbol rate/i);
+    expect(GSM_OBSERVABLE_SOURCE.references[2]?.clause).toMatch(/7\.1.*BCCH.*continuous.*dummy bursts/i);
+    expect(GSM_OBSERVABLE_SOURCE.references[3]?.clause)
+      .toMatch(/Clause 2.*GSM 900.*RF-channel arrangement\/raster/i);
     expect(LTE_OBSERVABLE_SOURCE.references.map((reference) => [reference.specification, reference.revision])).toEqual([
       ['TS 36.101', '19.5.0'],
       ['TS 36.211', '19.3.0'],
@@ -31,7 +42,8 @@ describe('source provenance', () => {
     expect(NR_TDD_OBSERVABLE_SOURCE.references[2]?.clause).toMatch(/TDD-UL-DL-Pattern/i);
     expect(NR_TDD_OBSERVABLE_SOURCE.references[3]?.clause).toMatch(/11\.1.*slot configuration/i);
     expect(BLUETOOTH_OBSERVABLE_SOURCE.references).toHaveLength(4);
-    expect(BLUETOOTH_OBSERVABLE_SOURCE.references[3]?.clause).toMatch(/2\.3\.1.*4\.4\.2\.1.*4\.4\.2\.2\.1.*advDelay/i);
+    expect(BLUETOOTH_OBSERVABLE_SOURCE.references[3]?.clause)
+      .toMatch(/2\.3\.1.*4\.4\.2.*4\.4\.2\.1.*4\.4\.2\.2\.1.*4\.4\.2\.4\.3.*next-used-channel.*advDelay/i);
     expect(Object.isFrozen(LTE_OBSERVABLE_SOURCE)).toBe(true);
     expect(Object.isFrozen(LTE_OBSERVABLE_SOURCE.references)).toBe(true);
     expect(LTE_OBSERVABLE_SOURCE.references.every(Object.isFrozen)).toBe(true);
