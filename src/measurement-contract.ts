@@ -15,6 +15,7 @@ export const MEASUREMENT_GENERATOR_ARTIFACTS = Object.freeze([
   'measurement-bridge.js',
   'measurement-contract.js',
   'measurement-service.js',
+  'source-provenance.js',
   'waveforms.js',
 ] as const);
 

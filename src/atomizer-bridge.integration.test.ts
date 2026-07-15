@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, readFile, readdir } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { describe, expect, it } from 'vitest';
 import {
@@ -23,6 +23,11 @@ describe('shipped Atomizer measurement bridge executable', () => {
     expect(packageDocument.bin).toEqual({ 'tinysa-signal-lab-atomizer-bridge': 'dist/bridge/atomizer-bridge.js' });
     expect(packageDocument.files).toContain('dist/bridge');
     expect(packageDocument.files).toContain('contracts/signal-lab-measurement-bridge-v1.json');
+    const emittedRuntimeArtifacts = (await readdir(new URL('../dist/bridge/', import.meta.url), { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+      .map((entry) => entry.name)
+      .sort();
+    expect(emittedRuntimeArtifacts).toEqual([...MEASUREMENT_GENERATOR_ARTIFACTS]);
     const metadata = await lstat(executableUrl);
     expect(metadata.isFile()).toBe(true);
     expect(metadata.isSymbolicLink()).toBe(false);
