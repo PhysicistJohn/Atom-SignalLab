@@ -64,10 +64,15 @@ describe('shipped Atomizer measurement bridge executable', () => {
       }));
       expect(spectrum).toMatchObject({ ok: true, requestId: 'spectrum', result: { kind: 'swept-spectrum', points: 33 } });
       const detected = await exchange(child, lines, request('acquire_detected_power', 'detected', {
+        centerFrequencyHz: 98_012_345,
         points: 64,
         samplePeriodSeconds: 0.000_1,
       }));
-      expect(detected).toMatchObject({ ok: true, requestId: 'detected', result: { kind: 'detected-power-timeseries', points: 64 } });
+      expect(detected).toMatchObject({
+        ok: true,
+        requestId: 'detected',
+        result: { kind: 'detected-power-timeseries', centerFrequencyHz: 98_012_345, points: 64 },
+      });
       for (const response of [spectrum, detected]) {
         if (!response.ok) throw new Error('Expected successful measurement');
         expect(deepKeys(response.result)).not.toContain('profile');

@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { sourceBasisSchema } from './source-provenance.js';
 
 export const SIGNAL_LAB_CONTRACT_VERSION = 1 as const;
+export const MIN_MEASUREMENT_FREQUENCY_HZ = 1 as const;
+export const MAX_MEASUREMENT_FREQUENCY_HZ = 17_922_600_000 as const;
+export const MEASUREMENT_FREQUENCY_STEP_HZ = 1 as const;
 export const SYNTHESIZED_SIGNAL_PROFILES = [
   'cw', 'am', 'fm',
   'gsm-900-loaded-bcch',
@@ -54,7 +57,7 @@ export const waveformDescriptorSchema = z.object({
   family: z.enum(['tone', 'analog', 'geran', 'e-utra', 'nr', 'wlan', 'bluetooth']),
   model: z.string().min(1),
   qualification: z.enum(['visual', 'standards-derived', 'conformance-validated']),
-  centerHz: z.number().int().positive().max(17_922_600_000),
+  centerHz: z.number().safe().int().min(MIN_MEASUREMENT_FREQUENCY_HZ).max(MAX_MEASUREMENT_FREQUENCY_HZ),
   occupiedBandwidthHz: z.number().int().positive(),
   recommendedSpanHz: z.number().int().positive(),
   projection: waveformProjectionSchema,

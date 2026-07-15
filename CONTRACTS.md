@@ -38,6 +38,7 @@ Its UTF-8 NDJSON session is closed and bounded:
 - Accepted requests execute serially, each request ID executes at most once, every admitted line receives one response (correlated whenever the bounded input exposes a valid request ID), and neither producer nor consumer retries.
 - Every LF-delimited line and final unterminated fragment—including malformed, duplicate, oversized, and overloaded input—consumes the lifetime session-line budget and a reply obligation. At most 33 reply obligations exist at once; input pauses until blocked stdout releases one.
 - Input chunks, lines, pending replies, queue depth, session lines, execution time, point counts, frequency, sample period, and response size are hard bounded.
+- Detected-power capability declares `minimumFrequencyHz=1`, `maximumFrequencyHz=17922600000`, `frequencyStepHz=1`, and `frequencyUnit=Hz`. Every request supplies one safe-integer `centerFrequencyHz` in that range, synthesis is receiver-filtered at that exact tune, and the result returns the same integer exactly.
 - Every measurement is complete, finite, unit-declared, qualified `synthetic-visual-projection`, and bound to an opaque session/configuration revision and monotonic sequence.
 - Profile/channel changes replace the producer configuration revision. Atomizer invalidates its admitted acquisition configuration before any later acquisition.
 - Selected profile, waveform label, and catalog state appear only in status; measurements never copy them into detector, classifier, or exported-observation evidence.
@@ -78,7 +79,9 @@ Guarantees:
 - A changed sweep index evolves the live replay.
 - Canonized AM uses the physical DSB full-carrier power ratio and receiver-filtered envelope projection.
 - Canonized FM uses the sinusoidal-FM Bessel-series line-power and receiver-filtered envelope projections; non-line adjacent bins retain the channel noise floor rather than a false occupied pedestal.
-- Canonized detected-power synthesis uses the exact admitted sample period rather than a hidden fixed clock.
+- Canonized detected-power synthesis uses both the exact admitted sample period and exact requested integer-Hz receiver tune rather than a hidden clock or profile-center tune.
+- Every canonized fixed-frequency profile applies its source-model occupied-band response at that tune; Bluetooth Classic and LE retain their time-varying hopping/advertising-channel receiver responses.
+- Non-canonized standards-derived zero span uses an explicitly approximate descriptor-bounded occupied-band receiver response. Single-PRB profiles follow their deterministic swept allocation, while frequency-unmapped `survey` zero span fails instead of inventing a center. This remains a visual projection, not a calibrated filter or conformance waveform.
 - GSM and WLAN zero-span projections preserve burst behavior.
 - Every accepted profile produces finite, correctly sized spectrum and zero-span arrays or fails.
 
@@ -153,6 +156,7 @@ Every local API request settles exactly once as a validated new status or an exp
 - LTE/NR FDD/TDD and Bluetooth BR/EDR/LE profiles are explicit selectable capabilities with non-conformance and observable-equivalence disclosures.
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
+- Detected-power requests require a bounded integer-Hz tune, ready advertises the exact 1 Hz grid, results echo the admitted tune, every canonized public profile changes under an out-of-band tune, and non-canonized zero span never silently ignores frequency.
 - Invalid conformance promotion fails.
 - The shipped bridge and public contract interoperate through the exact ready identity and every admitted method.
 - Bridge bounds, duplicate IDs, malformed input, overload, timeout, shutdown and process exit settle once without retry or fallback.

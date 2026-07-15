@@ -90,15 +90,16 @@ describe('bounded NDJSON measurement bridge', () => {
 
   it('publishes a non-default detected-power interval and its interval-controlled samples exactly', async () => {
     const requestedPeriod = 1 / 3_200;
+    const requestedCenterFrequencyHz = 98_025_000;
     const hiddenLegacyPeriod = 1 / 9_000;
     const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
     service.selectProfile({ profile: 'am' });
     const expectedService = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
     expectedService.selectProfile({ profile: 'am' });
-    const expected = expectedService.acquireDetectedPower({ points: 450, samplePeriodSeconds: requestedPeriod });
+    const expected = expectedService.acquireDetectedPower({ centerFrequencyHz: requestedCenterFrequencyHz, points: 450, samplePeriodSeconds: requestedPeriod });
     const legacyService = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
     legacyService.selectProfile({ profile: 'am' });
-    const legacy = legacyService.acquireDetectedPower({ points: 450, samplePeriodSeconds: hiddenLegacyPeriod });
+    const legacy = legacyService.acquireDetectedPower({ centerFrequencyHz: requestedCenterFrequencyHz, points: 450, samplePeriodSeconds: hiddenLegacyPeriod });
     const input = new PassThrough();
     const output = new PassThrough();
     const capture = captureLines(output);
@@ -107,6 +108,7 @@ describe('bounded NDJSON measurement bridge', () => {
     await capture.waitFor(1);
 
     input.write(`${JSON.stringify(request('acquire_detected_power', 'non-default-period', {
+      centerFrequencyHz: requestedCenterFrequencyHz,
       points: 450,
       samplePeriodSeconds: requestedPeriod,
     }))}\n`);
@@ -115,7 +117,11 @@ describe('bounded NDJSON measurement bridge', () => {
     expect(response).toMatchObject({
       ok: true,
       requestId: 'non-default-period',
-      result: { kind: 'detected-power-timeseries', samplePeriodSeconds: requestedPeriod },
+      result: {
+        kind: 'detected-power-timeseries',
+        centerFrequencyHz: requestedCenterFrequencyHz,
+        samplePeriodSeconds: requestedPeriod,
+      },
     });
     if (!response.ok || response.result.kind !== 'detected-power-timeseries') {
       throw new Error('Expected a detected-power bridge response');

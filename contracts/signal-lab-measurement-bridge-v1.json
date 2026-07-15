@@ -61,6 +61,7 @@
     "retry": "none",
     "selectedProfileVisibility": "status-only-never-copied-into-measurement-results",
     "configurationRevision": "opaque-and-replaced-after-every-accepted-configuration-change",
+    "detectedPowerTuning": "required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune",
     "measurementQualification": "synthetic-visual-projection-not-a-conformance-vector"
   },
   "identityHashes": {

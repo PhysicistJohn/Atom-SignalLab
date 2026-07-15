@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_MEASUREMENT_FREQUENCY_HZ,
   MEASUREMENT_BRIDGE_CLAIMS,
+  MEASUREMENT_CAPABILITIES,
   acquireDetectedPowerRequestSchema,
   acquireSpectrumRequestSchema,
   measurementBridgeContractDocumentSchema,
@@ -30,6 +32,7 @@ describe('Atomizer high-level measurement source contract', () => {
       'shutdown',
     ]);
     expect(document.claims).toEqual(MEASUREMENT_BRIDGE_CLAIMS);
+    expect(document.semantics.detectedPowerTuning).toBe('required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune');
     expect(() => measurementBridgeContractDocumentSchema.parse({ ...document, undeclared: true })).toThrow();
     expect(() => measurementBridgeContractDocumentSchema.parse({
       ...document,
@@ -50,9 +53,20 @@ describe('Atomizer high-level measurement source contract', () => {
     expect(() => acquireSpectrumRequestSchema.parse(request('acquire_spectrum', { startHz: 200, stopHz: 100, points: 450 }))).toThrow();
     expect(() => acquireSpectrumRequestSchema.parse({ ...request('acquire_spectrum', { startHz: 100, stopHz: 200, points: 450 }), contractVersion: 2 })).toThrow();
     expect(() => acquireDetectedPowerRequestSchema.parse({
-      ...request('acquire_detected_power', { points: 4_097, samplePeriodSeconds: 0.001 }),
+      ...request('acquire_detected_power', { centerFrequencyHz: 98_000_000, points: 4_097, samplePeriodSeconds: 0.001 }),
       undeclared: true,
     })).toThrow();
+    expect(() => acquireDetectedPowerRequestSchema.parse(request('acquire_detected_power', {
+      points: 128,
+      samplePeriodSeconds: 0.001,
+    }))).toThrow();
+    for (const centerFrequencyHz of [0, 98_000_000.5, MAX_MEASUREMENT_FREQUENCY_HZ + 1]) {
+      expect(() => acquireDetectedPowerRequestSchema.parse(request('acquire_detected_power', {
+        centerFrequencyHz,
+        points: 128,
+        samplePeriodSeconds: 0.001,
+      }))).toThrow();
+    }
   });
 
   it('publishes opaque session/configuration identity and changes revisions only through admitted configuration calls', () => {
@@ -72,6 +86,20 @@ describe('Atomizer high-level measurement source contract', () => {
     });
     expect(initial.identity.catalogSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(initial.profiles).toHaveLength(88);
+    expect(initial.capabilities).toEqual(MEASUREMENT_CAPABILITIES);
+    expect(initial.capabilities.find(({ kind }) => kind === 'detected-power-timeseries')).toEqual({
+      kind: 'detected-power-timeseries',
+      minimumFrequencyHz: 1,
+      maximumFrequencyHz: MAX_MEASUREMENT_FREQUENCY_HZ,
+      frequencyStepHz: 1,
+      frequencyUnit: 'Hz',
+      minimumPoints: 1,
+      maximumPoints: 4_096,
+      minimumSamplePeriodSeconds: 0.000_001,
+      maximumSamplePeriodSeconds: 10,
+      powerUnit: 'dBm',
+      qualification: 'synthetic-visual-projection',
+    });
 
     expect(() => service.configureChannel({ channel: { model: 'awgn', noiseFloorDbm: -999, seed: 1, fadingRateHz: 2 } })).toThrow();
     expect(service.status().configurationRevision).toBe(initial.configurationRevision);
@@ -103,12 +131,14 @@ describe('Atomizer high-level measurement source contract', () => {
     expect(spectrum.configurationRevision).toBe(status.configurationRevision);
 
     const detected = measurementResultSchema.parse(service.acquireDetectedPower({
+      centerFrequencyHz: 98_012_345,
       points: 128,
       samplePeriodSeconds: 0.000_1,
     }));
     expect(detected.kind).toBe('detected-power-timeseries');
     if (detected.kind !== 'detected-power-timeseries') throw new Error('Expected detected power');
     expect(detected.powerDbm).toHaveLength(128);
+    expect(detected.centerFrequencyHz).toBe(98_012_345);
     expect(detected.sequence).toBe(spectrum.sequence + 1);
 
     for (const measurement of [spectrum, detected]) {
@@ -135,8 +165,8 @@ describe('Atomizer high-level measurement source contract', () => {
     requested.selectProfile({ profile: 'am' });
     legacy.selectProfile({ profile: 'am' });
 
-    const measured = requested.acquireDetectedPower({ points: 450, samplePeriodSeconds: requestedPeriod });
-    const legacyClock = legacy.acquireDetectedPower({ points: 450, samplePeriodSeconds: hiddenLegacyPeriod });
+    const measured = requested.acquireDetectedPower({ centerFrequencyHz: 98_000_000, points: 450, samplePeriodSeconds: requestedPeriod });
+    const legacyClock = legacy.acquireDetectedPower({ centerFrequencyHz: 98_000_000, points: 450, samplePeriodSeconds: hiddenLegacyPeriod });
 
     expect(measured.samplePeriodSeconds).toBe(requestedPeriod);
     expect(measured.powerDbm).not.toEqual(legacyClock.powerDbm);

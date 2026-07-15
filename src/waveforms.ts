@@ -1,4 +1,6 @@
 import {
+  MAX_MEASUREMENT_FREQUENCY_HZ,
+  MIN_MEASUREMENT_FREQUENCY_HZ,
   replayChannelConfigurationSchema,
   synthesizedSignalProfileSchema,
   type ReplayChannelConfiguration,
@@ -23,6 +25,7 @@ export interface SpectrumSynthesisInput {
 
 export interface ZeroSpanSynthesisInput {
   profile: ReplayProfile;
+  tuneFrequencyHz: number;
   points: number;
   sweepIndex: number;
   samplePeriodSeconds: number;
@@ -189,6 +192,11 @@ export function synthesizeSpectrum(input: SpectrumSynthesisInput): number[] {
 }
 
 export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
+  if (!Number.isSafeInteger(input.tuneFrequencyHz)
+    || input.tuneFrequencyHz < MIN_MEASUREMENT_FREQUENCY_HZ
+    || input.tuneFrequencyHz > MAX_MEASUREMENT_FREQUENCY_HZ) {
+    throw new Error(`Zero-span synthesis requires a safe-integer tune from ${MIN_MEASUREMENT_FREQUENCY_HZ} through ${MAX_MEASUREMENT_FREQUENCY_HZ} Hz`);
+  }
   if (!Number.isInteger(input.points) || input.points < 1) throw new Error('Zero-span synthesis requires a positive integer point count');
   if (!Number.isInteger(input.sweepIndex) || input.sweepIndex < 0) throw new Error('Zero-span synthesis requires a non-negative integer sweep index');
   if (!Number.isFinite(input.samplePeriodSeconds) || input.samplePeriodSeconds <= 0) throw new Error('Zero-span synthesis requires a finite positive sample period');
@@ -205,11 +213,13 @@ export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
       snrDb: CANONIZED_REPLAY_SNR_DB,
       seed: channel.seed,
       lookIndex: input.sweepIndex,
-      tuneFrequencyHz: descriptor.centerHz,
+      tuneFrequencyHz: input.tuneFrequencyHz,
       centerHz: descriptor.centerHz,
       signalGainDb: canonizedSignalGain(input.points, input.sweepIndex, channel),
     });
   }
+  if (descriptor === undefined) throw new Error('Survey zero-span synthesis has no absolute-frequency signal model');
+  const receiverResponseDb = legacyReceiverResponseDb(descriptor, input.tuneFrequencyHz, input.sweepIndex);
   return Array.from({ length: input.points }, (_, index) => {
     const phase = (index + input.sweepIndex * 3) * Math.PI / 13;
     const normalized = index / Math.max(1, input.points - 1);
@@ -218,8 +228,29 @@ export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
     const fadingDb = channel.model === 'rayleigh'
       ? rayleighFadingDb(index, input.points, input.sweepIndex + normalized, channel)
       : 0;
-    return combineDbm(noiseDbm, signalDbm + fadingDb);
+    return combineDbm(noiseDbm, signalDbm + receiverResponseDb + fadingDb);
   });
+}
+
+/**
+ * Receiver response for standards-derived visual profiles that are not part of
+ * the canonized classifier source. This is deliberately a descriptor-bounded
+ * occupied-band projection, not a calibrated analyzer filter or conformance
+ * waveform. Single-PRB profiles follow the same deterministic allocation
+ * position used by their swept-spectrum projection.
+ */
+function legacyReceiverResponseDb(descriptor: WaveformDescriptor, tuneFrequencyHz: number, sweepIndex: number): number {
+  let signalCenterHz = descriptor.centerHz;
+  let occupiedBandwidthHz = descriptor.occupiedBandwidthHz;
+  if (descriptor.projection.allocation === 'single-prb') {
+    const spacingHz = descriptor.projection.subcarrierSpacingHz;
+    if (spacingHz === undefined) throw new Error(`${descriptor.id} is missing subcarrier spacing`);
+    const fullGridHz = descriptor.family === 'e-utra' ? 18_000_000 : 98_280_000;
+    const positions = [-0.38, -0.19, 0, 0.21, 0.39] as const;
+    signalCenterHz += positions[sweepIndex % positions.length]! * fullGridHz;
+    occupiedBandwidthHz = spacingHz * 12;
+  }
+  return occupiedBandReceiverResponseDb(tuneFrequencyHz - signalCenterHz, occupiedBandwidthHz, CANONIZED_ZERO_SPAN_RBW_HZ);
 }
 
 function canonizedReplayScenarioId(profile: ReplayProfile): CanonizedKnownScenarioId | undefined {
@@ -584,20 +615,28 @@ function canonizedEnvelopeRelativePowerDb(
   configuration: Pick<CanonizedEnvelopeInput, 'actualRbwHz' | 'seed'>,
 ): number {
   switch (scenario.envelopeModel) {
-    case 'steady': return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds);
+    case 'steady': return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds)
+      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
     case 'sinusoidal-am': return canonizedReceiverFilteredAmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
     case 'receiver-filtered-fm': return canonizedReceiverFilteredFmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
-    case 'one-of-eight-tdma': return canonizedGsmTrafficActive(scenarioId, scenario, timeSeconds) ? 0 : Number.NEGATIVE_INFINITY;
-    case 'continuous-gsm-loaded': return -0.35 + 0.25 * canonizedDeterministicTexture(timeSeconds * 1_733, configuration.seed);
-    case 'continuous-ofdm': return -0.7 + 0.55 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed);
+    case 'one-of-eight-tdma': return canonizedGsmTrafficActive(scenarioId, scenario, timeSeconds)
+      ? canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
+      : Number.NEGATIVE_INFINITY;
+    case 'continuous-gsm-loaded': return -0.35 + 0.25 * canonizedDeterministicTexture(timeSeconds * 1_733, configuration.seed)
+      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
+    case 'continuous-ofdm': return -0.7 + 0.55 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed)
+      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
     case 'lte-tdd-pattern': return canonizedLteTddDownlinkActive(scenarioId, scenario, timeSeconds)
       ? -0.5 + 0.4 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed)
+        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
       : Number.NEGATIVE_INFINITY;
     case 'nr-tdd-pattern': return canonizedNrTddDownlinkActive(scenarioId, scenario, timeSeconds)
       ? -0.5 + 0.45 * canonizedDeterministicTexture(timeSeconds * 4_000, configuration.seed)
+        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
       : Number.NEGATIVE_INFINITY;
     case 'csma-bursts': return canonizedCsmaTrafficActive(timeSeconds, configuration.seed)
       ? -0.5 + 0.7 * canonizedDeterministicTexture(timeSeconds * 3_000, configuration.seed)
+        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
       : Number.NEGATIVE_INFINITY;
     case 'classic-slots': {
       const slot = canonizedRequiredParameter(scenarioId, scenario, 'slotSeconds');
@@ -626,6 +665,27 @@ function canonizedEnvelopeRelativePowerDb(
       );
       return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
+  }
+}
+
+function canonizedFixedReceiverResponseDb(
+  scenarioId: CanonizedKnownScenarioId,
+  scenario: CanonizedKnownScenario,
+  tuneFrequencyHz: number,
+  rbwHz: number,
+): number {
+  const offsetHz = tuneFrequencyHz - scenario.centerHz;
+  switch (scenario.spectrumModel) {
+    case 'rbw-line': return canonizedGaussianFilterDb(offsetHz, rbwHz);
+    case 'gaussian-channel': return canonizedGaussianOccupiedChannelDb(offsetHz, Math.max(scenario.occupiedBandwidthHz, rbwHz));
+    case 'ofdm-channel': return occupiedBandReceiverResponseDb(offsetHz, scenario.occupiedBandwidthHz, rbwHz);
+    case 'dsss-channel': return canonizedDsssChannelDb(offsetHz, Math.max(scenario.occupiedBandwidthHz, rbwHz));
+    case 'am-dsb-full-carrier':
+    case 'fm-bessel':
+      throw new Error(`${scenarioId} requires its coherent receiver-filtered envelope model`);
+    case 'classic-hop':
+    case 'ble-advertising':
+      throw new Error(`${scenarioId} requires its time-varying channel receiver model`);
   }
 }
 
@@ -699,6 +759,11 @@ function canonizedReceiverFilteredTonePowerDb(tones: readonly { offsetHz: number
 function canonizedGaussianFilterDb(offsetHz: number, rbwHz: number): number {
   const sigmaHz = Math.max(1, rbwHz / 2.355);
   return -4.342944819 * 0.5 * (offsetHz / sigmaHz) ** 2;
+}
+
+function occupiedBandReceiverResponseDb(offsetHz: number, occupiedBandwidthHz: number, rbwHz: number): number {
+  const distanceOutsideOccupiedBandHz = Math.max(0, Math.abs(offsetHz) - occupiedBandwidthHz / 2);
+  return canonizedGaussianFilterDb(distanceOutsideOccupiedBandHz, rbwHz);
 }
 
 function canonizedGaussianOccupiedChannelDb(offsetHz: number, occupiedBandwidthHz: number): number {

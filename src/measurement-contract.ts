@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+  MAX_MEASUREMENT_FREQUENCY_HZ,
+  MEASUREMENT_FREQUENCY_STEP_HZ,
+  MIN_MEASUREMENT_FREQUENCY_HZ,
   replayChannelConfigurationSchema,
   synthesizedSignalProfileSchema,
   waveformDescriptorSchema,
@@ -19,7 +22,7 @@ export const MEASUREMENT_GENERATOR_ARTIFACTS = Object.freeze([
   'waveforms.js',
 ] as const);
 
-export const MAX_MEASUREMENT_FREQUENCY_HZ = 17_922_600_000 as const;
+export { MAX_MEASUREMENT_FREQUENCY_HZ } from './contracts.js';
 export const MAX_SPECTRUM_POINTS = 4_096 as const;
 export const MAX_DETECTED_POWER_POINTS = 4_096 as const;
 export const MIN_SAMPLE_PERIOD_SECONDS = 0.000_001 as const;
@@ -69,7 +72,7 @@ export type MeasurementSourceIdentity = z.infer<typeof measurementSourceIdentity
 
 export const sweptSpectrumCapabilitySchema = z.object({
   kind: z.literal('swept-spectrum'),
-  minimumFrequencyHz: z.literal(1),
+  minimumFrequencyHz: z.literal(MIN_MEASUREMENT_FREQUENCY_HZ),
   maximumFrequencyHz: z.literal(MAX_MEASUREMENT_FREQUENCY_HZ),
   minimumPoints: z.literal(2),
   maximumPoints: z.literal(MAX_SPECTRUM_POINTS),
@@ -80,6 +83,10 @@ export const sweptSpectrumCapabilitySchema = z.object({
 
 export const detectedPowerCapabilitySchema = z.object({
   kind: z.literal('detected-power-timeseries'),
+  minimumFrequencyHz: z.literal(MIN_MEASUREMENT_FREQUENCY_HZ),
+  maximumFrequencyHz: z.literal(MAX_MEASUREMENT_FREQUENCY_HZ),
+  frequencyStepHz: z.literal(MEASUREMENT_FREQUENCY_STEP_HZ),
+  frequencyUnit: z.literal('Hz'),
   minimumPoints: z.literal(1),
   maximumPoints: z.literal(MAX_DETECTED_POWER_POINTS),
   minimumSamplePeriodSeconds: z.literal(MIN_SAMPLE_PERIOD_SECONDS),
@@ -107,6 +114,10 @@ export const MEASUREMENT_CAPABILITIES: readonly MeasurementCapability[] = Object
   }),
   detectedPowerCapabilitySchema.parse({
     kind: 'detected-power-timeseries',
+    minimumFrequencyHz: MIN_MEASUREMENT_FREQUENCY_HZ,
+    maximumFrequencyHz: MAX_MEASUREMENT_FREQUENCY_HZ,
+    frequencyStepHz: MEASUREMENT_FREQUENCY_STEP_HZ,
+    frequencyUnit: 'Hz',
     minimumPoints: 1,
     maximumPoints: MAX_DETECTED_POWER_POINTS,
     minimumSamplePeriodSeconds: MIN_SAMPLE_PERIOD_SECONDS,
@@ -246,6 +257,7 @@ export const acquireDetectedPowerRequestSchema = z.object({
   requestId: z.string().min(1).max(64).regex(/^[A-Za-z0-9._:-]+$/),
   method: z.literal('acquire_detected_power'),
   params: z.object({
+    centerFrequencyHz: z.number().safe().int().min(MIN_MEASUREMENT_FREQUENCY_HZ).max(MAX_MEASUREMENT_FREQUENCY_HZ),
     points: z.number().int().min(1).max(MAX_DETECTED_POWER_POINTS),
     samplePeriodSeconds: z.number().finite().min(MIN_SAMPLE_PERIOD_SECONDS).max(MAX_SAMPLE_PERIOD_SECONDS),
   }).strict(),
@@ -389,6 +401,7 @@ export const measurementBridgeContractDocumentSchema = z.object({
     retry: z.literal('none'),
     selectedProfileVisibility: z.literal('status-only-never-copied-into-measurement-results'),
     configurationRevision: z.literal('opaque-and-replaced-after-every-accepted-configuration-change'),
+    detectedPowerTuning: z.literal('required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune'),
     measurementQualification: z.literal('synthetic-visual-projection-not-a-conformance-vector'),
   }).strict(),
   identityHashes: z.object({

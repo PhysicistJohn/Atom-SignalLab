@@ -21,15 +21,15 @@ npm run build:bridge
 npm run bridge
 ```
 
-The bridge uses bounded UTF-8 NDJSON over stdio. Its first stdout line is an exact `ready` declaration binding the contract, catalog, and shipped generator hashes. It serializes `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`, returns one response per admitted line (correlated whenever a valid request ID is available), and never retries. Every line—including invalid, duplicate, oversized, and overloaded input—consumes the 10,000-line process budget and one of at most 33 pending reply obligations; one additional valid shutdown line is separately reserved, and input pauses while stdout backpressure holds the bound. Atomizer renews a long-lived synthetic session before that process budget is reached by joining the retired child and handing its exact session ID, producer epoch, profile/channel state, and next measurement sequence to a freshly verified child. Any state drift, overlapping generation, identity change, framing/correlation/schema failure, timeout, or process failure remains terminal for that source, and Atomizer never falls back to a TinySA or the Firmware twin.
+The bridge uses bounded UTF-8 NDJSON over stdio. Its first stdout line is an exact `ready` declaration binding the contract, catalog, and shipped generator hashes. It serializes `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`, returns one response per admitted line (correlated whenever a valid request ID is available), and never retries. Every detected-power request must supply a safe-integer `centerFrequencyHz`; ready capability declares an exact 1 through 17,922,600,000 Hz range in 1 Hz steps, and the result returns that requested center exactly. Every line—including invalid, duplicate, oversized, and overloaded input—consumes the 10,000-line process budget and one of at most 33 pending reply obligations; one additional valid shutdown line is separately reserved, and input pauses while stdout backpressure holds the bound. Atomizer renews a long-lived synthetic session before that process budget is reached by joining the retired child and handing its exact session ID, producer epoch, profile/channel state, and next measurement sequence to a freshly verified child. Any state drift, overlapping generation, identity change, framing/correlation/schema failure, timeout, or process failure remains terminal for that source, and Atomizer never falls back to a TinySA or the Firmware twin.
 
 Contract v1 is still a pre-publication, lockstep Atomizer/SignalLab boundary.
-The reserved-shutdown field and the normalized descriptor `source` basis were
-added before a stable external release and intentionally change the exact
-contract/catalog hashes; an older strict client therefore rejects the new
-bridge before dispatch rather than misreading it. After v1 is published outside
-this paired workspace, any wire-field or semantic change must use a new contract
-version with an explicit compatibility policy.
+The reserved-shutdown field, normalized descriptor `source` basis, and required
+detected-power tune were added before a stable external release and intentionally
+change the exact contract/catalog or generator hashes; an older strict client
+therefore rejects the new bridge before dispatch rather than misreading it.
+After v1 is published outside this paired workspace, any wire-field or semantic
+change must use a new contract version with an explicit compatibility policy.
 
 The standalone Electron window admits privileged IPC only from its exact current main frame and selected file/development origin. Packaged execution ignores `VITE_DEV_SERVER_URL`, all Electron permissions and child windows are denied, and packaged HTML contains no development network origin.
 

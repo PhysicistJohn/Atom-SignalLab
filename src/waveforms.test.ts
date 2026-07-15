@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { synthesizedSignalProfileSchema, type ReplayChannelConfiguration } from './contracts.js';
+import {
+  MAX_MEASUREMENT_FREQUENCY_HZ,
+  synthesizedSignalProfileSchema,
+  type ReplayChannelConfiguration,
+} from './contracts.js';
 import { canonicalClassificationScenario } from './classification-corpus.js';
 import {
   CANONIZED_KNOWN_SCENARIOS,
@@ -120,7 +124,14 @@ describe('qualified waveform replay engine', () => {
       const descriptor = waveformDescriptor(profile);
       const range = suggestedAnalyzerRange(descriptor);
       const spectrum = synthesizeSpectrum({ profile, ...range, points: 2, sweepIndex: 0, channel: DEFAULT_REPLAY_CHANNEL });
-      const envelope = synthesizeZeroSpan({ profile, points: 1, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
+      const envelope = synthesizeZeroSpan({
+        profile,
+        tuneFrequencyHz: descriptor.centerHz,
+        points: 1,
+        sweepIndex: 0,
+        samplePeriodSeconds: 1 / 9_000,
+        channel: DEFAULT_REPLAY_CHANNEL,
+      });
       expect(spectrum).toHaveLength(2);
       expect(spectrum.every(Number.isFinite)).toBe(true);
       expect(envelope).toHaveLength(1);
@@ -134,7 +145,7 @@ describe('qualified waveform replay engine', () => {
     const points = 450;
     const sweepIndex = 9;
     const live = synthesizeZeroSpan({
-      profile: 'am', points, sweepIndex, samplePeriodSeconds, channel: DEFAULT_REPLAY_CHANNEL,
+      profile: 'am', tuneFrequencyHz: descriptor.centerHz, points, sweepIndex, samplePeriodSeconds, channel: DEFAULT_REPLAY_CHANNEL,
     });
     const expected = synthesizeCanonizedKnownEnvelope({
       scenarioId: 'am-dsb-25k', points, samplePeriodSeconds, actualRbwHz: 100_000,
@@ -144,8 +155,46 @@ describe('qualified waveform replay engine', () => {
     });
     expect(live).toEqual(expected);
     expect(live).not.toEqual(synthesizeZeroSpan({
-      profile: 'am', points, sweepIndex, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL,
+      profile: 'am', tuneFrequencyHz: descriptor.centerHz, points, sweepIndex, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL,
     }));
+  });
+
+  it('receiver-filters every canonized public envelope at the exact requested integer-Hz tune', () => {
+    for (const [profile, scenarioId] of Object.entries(CANONIZED_REPLAY_PROFILE_SCENARIOS)) {
+      if (!scenarioId) continue;
+      const descriptor = waveformDescriptor(profile as keyof typeof CANONIZED_REPLAY_PROFILE_SCENARIOS);
+      const tuneFrequencyHz = profile === 'bluetooth-le-advertising' ? 2_426_000_000 : descriptor.centerHz;
+      const input = {
+        profile: descriptor.id,
+        points: 1_024,
+        sweepIndex: 0,
+        samplePeriodSeconds: 1 / 9_000,
+        channel: DEFAULT_REPLAY_CHANNEL,
+      } as const;
+      const tuned = synthesizeZeroSpan({ ...input, tuneFrequencyHz });
+      const outOfBand = synthesizeZeroSpan({ ...input, tuneFrequencyHz: MAX_MEASUREMENT_FREQUENCY_HZ });
+      expect(tuned, profile).not.toEqual(outOfBand);
+      expect(Math.max(...tuned), profile).toBeGreaterThan(Math.max(...outOfBand) + 8);
+    }
+  });
+
+  it('uses an explicit descriptor-bounded tune for legacy visual profiles and rejects untunable survey zero span', () => {
+    const descriptor = waveformDescriptor('lte-etm2');
+    const sweepIndex = 0;
+    const allocatedPrbCenterHz = descriptor.centerHz - 0.38 * 18_000_000;
+    const input = {
+      profile: descriptor.id,
+      points: 256,
+      sweepIndex,
+      samplePeriodSeconds: 1 / 9_000,
+      channel: DEFAULT_REPLAY_CHANNEL,
+    } as const;
+    const allocated = synthesizeZeroSpan({ ...input, tuneFrequencyHz: allocatedPrbCenterHz });
+    const nominalCenter = synthesizeZeroSpan({ ...input, tuneFrequencyHz: descriptor.centerHz });
+    expect(allocated).not.toEqual(nominalCenter);
+    expect(Math.max(...allocated)).toBeGreaterThan(Math.max(...nominalCenter) + 8);
+    expect(() => synthesizeZeroSpan({ ...input, profile: 'survey', tuneFrequencyHz: descriptor.centerHz })).toThrow(/no absolute-frequency signal model/i);
+    expect(() => synthesizeZeroSpan({ ...input, tuneFrequencyHz: 98_000_000.5 })).toThrow(/safe-integer tune/i);
   });
 
   it('projects full, boosted, and single-PRB test models as distinct allocations', () => {
@@ -158,8 +207,8 @@ describe('qualified waveform replay engine', () => {
   });
 
   it('projects burst timing into zero-span replays for GSM and Wi-Fi', () => {
-    const gsm = synthesizeZeroSpan({ profile: 'gsm-normal-burst', points: 208, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
-    const wifi = synthesizeZeroSpan({ profile: 'wifi6-he-su', points: 178, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
+    const gsm = synthesizeZeroSpan({ profile: 'gsm-normal-burst', tuneFrequencyHz: waveformDescriptor('gsm-normal-burst').centerHz, points: 208, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
+    const wifi = synthesizeZeroSpan({ profile: 'wifi6-he-su', tuneFrequencyHz: waveformDescriptor('wifi6-he-su').centerHz, points: 178, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
     expect(gsm.filter((value) => value > -80).length / gsm.length).toBeCloseTo(1 / 8, 1);
     expect(wifi.some((value) => value > -70)).toBe(true);
     expect(wifi.some((value) => value < -100)).toBe(true);

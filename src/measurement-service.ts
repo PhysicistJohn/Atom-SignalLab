@@ -187,6 +187,7 @@ export class AtomizerMeasurementService {
     const sequence = this.#nextSequence();
     const powerDbm = synthesizeZeroSpan({
       profile: this.#profile,
+      tuneFrequencyHz: request.centerFrequencyHz,
       points: request.points,
       sweepIndex: sequence - 1,
       samplePeriodSeconds: request.samplePeriodSeconds,
@@ -195,7 +196,7 @@ export class AtomizerMeasurementService {
     return detectedPowerMeasurementSchema.parse({
       ...this.#measurementBase(sequence, started),
       kind: 'detected-power-timeseries',
-      centerFrequencyHz: waveformDescriptor(this.#profile).centerHz,
+      centerFrequencyHz: request.centerFrequencyHz,
       points: request.points,
       samplePeriodSeconds: request.samplePeriodSeconds,
       powerDbm,
