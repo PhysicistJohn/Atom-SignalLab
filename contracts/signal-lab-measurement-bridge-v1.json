@@ -50,13 +50,14 @@
     "maxResponseLineBytes": 1048576,
     "maxQueuedRequests": 32,
     "maxSessionRequests": 10000,
+    "reservedShutdownRequests": 1,
     "requestTimeoutMs": 5000
   },
   "semantics": {
     "replies": "one-response-per-admitted-input-line-and-no-request-id-executes-twice",
-    "inputBudget": "every-lf-line-and-final-fragment-including-malformed-input-counts-toward-max-session-requests",
+    "inputBudget": "every-lf-line-and-final-fragment-including-malformed-input-counts-toward-max-session-requests-with-one-additional-valid-shutdown-line-reserved",
     "backpressure": "input-pauses-at-thirty-three-total-pending-reply-obligations",
-    "ordering": "accepted-requests-execute-serially",
+    "ordering": "accepted-normal-requests-execute-serially-and-reserved-shutdown-runs-after-active-work-before-queued-normal-work",
     "retry": "none",
     "selectedProfileVisibility": "status-only-never-copied-into-measurement-results",
     "configurationRevision": "opaque-and-replaced-after-every-accepted-configuration-change",

@@ -3,9 +3,15 @@ import { lstat, readFile, realpath } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { AtomizerNdjsonMeasurementBridge } from './measurement-bridge.js';
 import { MEASUREMENT_GENERATOR_ARTIFACTS, measurementBridgeContractDocumentSchema } from './measurement-contract.js';
-import { AtomizerMeasurementService } from './measurement-service.js';
+import {
+  AtomizerMeasurementService,
+  measurementServiceContinuationSchema,
+  type MeasurementServiceContinuation,
+} from './measurement-service.js';
 
 const CONTRACT_FILE_NAME = 'signal-lab-measurement-bridge-v1.json';
+const CONTINUATION_ENVIRONMENT_VARIABLE = 'ATOMIZER_SIGNAL_LAB_CONTINUATION_V1';
+const MAX_CONTINUATION_CHARACTERS = 4_096;
 
 async function main(): Promise<void> {
   const executablePath = fileURLToPath(import.meta.url);
@@ -20,7 +26,7 @@ async function main(): Promise<void> {
   const service = new AtomizerMeasurementService({
     contractSha256: sha256Hex(contractBytes),
     generatorSha256: await hashGeneratorArtifacts(),
-  });
+  }, { continuation: readContinuation(process.env[CONTINUATION_ENVIRONMENT_VARIABLE]) });
   const bridge = new AtomizerNdjsonMeasurementBridge(service, {
     input: process.stdin,
     output: process.stdout,
@@ -28,6 +34,24 @@ async function main(): Promise<void> {
   });
   await bridge.run();
   if (bridge.executionTimedOut) process.exit(1);
+}
+
+function readContinuation(encoded: string | undefined): MeasurementServiceContinuation | undefined {
+  if (encoded === undefined) return undefined;
+  if (encoded.length < 1
+    || encoded.length > MAX_CONTINUATION_CHARACTERS
+    || !/^[A-Za-z0-9_-]+$/.test(encoded)) {
+    throw new Error('SignalLab continuation is not canonical bounded base64url');
+  }
+  const bytes = Buffer.from(encoded, 'base64url');
+  if (bytes.toString('base64url') !== encoded) throw new Error('SignalLab continuation base64url is not canonical');
+  let source: string;
+  try { source = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+  catch (cause) { throw new Error('SignalLab continuation is not valid UTF-8', { cause }); }
+  let value: unknown;
+  try { value = JSON.parse(source); }
+  catch (cause) { throw new Error('SignalLab continuation is not valid JSON', { cause }); }
+  return measurementServiceContinuationSchema.parse(value);
 }
 
 async function hashGeneratorArtifacts(): Promise<string> {

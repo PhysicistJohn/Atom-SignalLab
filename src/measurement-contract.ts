@@ -29,6 +29,7 @@ export const MEASUREMENT_BRIDGE_LIMITS = Object.freeze({
   maxResponseLineBytes: 1_048_576,
   maxQueuedRequests: 32,
   maxSessionRequests: 10_000,
+  reservedShutdownRequests: 1,
   requestTimeoutMs: 5_000,
 } as const);
 
@@ -272,6 +273,7 @@ export const measurementBridgeLimitsSchema = z.object({
   maxResponseLineBytes: z.literal(MEASUREMENT_BRIDGE_LIMITS.maxResponseLineBytes),
   maxQueuedRequests: z.literal(MEASUREMENT_BRIDGE_LIMITS.maxQueuedRequests),
   maxSessionRequests: z.literal(MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests),
+  reservedShutdownRequests: z.literal(MEASUREMENT_BRIDGE_LIMITS.reservedShutdownRequests),
   requestTimeoutMs: z.literal(MEASUREMENT_BRIDGE_LIMITS.requestTimeoutMs),
 }).strict();
 
@@ -380,9 +382,9 @@ export const measurementBridgeContractDocumentSchema = z.object({
   limits: measurementBridgeLimitsSchema,
   semantics: z.object({
     replies: z.literal('one-response-per-admitted-input-line-and-no-request-id-executes-twice'),
-    inputBudget: z.literal('every-lf-line-and-final-fragment-including-malformed-input-counts-toward-max-session-requests'),
+    inputBudget: z.literal('every-lf-line-and-final-fragment-including-malformed-input-counts-toward-max-session-requests-with-one-additional-valid-shutdown-line-reserved'),
     backpressure: z.literal('input-pauses-at-thirty-three-total-pending-reply-obligations'),
-    ordering: z.literal('accepted-requests-execute-serially'),
+    ordering: z.literal('accepted-normal-requests-execute-serially-and-reserved-shutdown-runs-after-active-work-before-queued-normal-work'),
     retry: z.literal('none'),
     selectedProfileVisibility: z.literal('status-only-never-copied-into-measurement-results'),
     configurationRevision: z.literal('opaque-and-replaced-after-every-accepted-configuration-change'),

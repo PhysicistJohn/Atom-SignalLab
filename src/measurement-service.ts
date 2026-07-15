@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { synthesizedSignalProfileSchema, type ReplayChannelConfiguration, type SynthesizedSignalProfile } from './contracts.js';
+import { z } from 'zod';
+import {
+  replayChannelConfigurationSchema,
+  synthesizedSignalProfileSchema,
+  type ReplayChannelConfiguration,
+  type SynthesizedSignalProfile,
+} from './contracts.js';
 import {
   ATOMIZER_MEASUREMENT_CONTRACT_ID,
   ATOMIZER_MEASUREMENT_CONTRACT_VERSION,
@@ -39,7 +45,19 @@ export interface MeasurementServiceDependencies {
   uuid?: () => string;
   now?: () => Date;
   monotonicMilliseconds?: () => number;
+  continuation?: MeasurementServiceContinuation;
 }
+
+export const measurementServiceContinuationSchema = z.object({
+  sessionId: z.string().uuid(),
+  configurationRevision: z.string().uuid(),
+  updatedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    .refine((value) => Number.isFinite(Date.parse(value))),
+  profile: synthesizedSignalProfileSchema,
+  channel: replayChannelConfigurationSchema,
+  sequence: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+}).strict();
+export type MeasurementServiceContinuation = z.infer<typeof measurementServiceContinuationSchema>;
 
 export class MeasurementServiceError extends Error {
   readonly code: 'SERVICE_CLOSED';
@@ -76,9 +94,17 @@ export class AtomizerMeasurementService {
     this.#uuid = dependencies.uuid ?? randomUUID;
     this.#now = dependencies.now ?? (() => new Date());
     this.#monotonicMilliseconds = dependencies.monotonicMilliseconds ?? (() => performance.now());
-    this.sessionId = this.#nextOpaqueId('session');
-    this.#configurationRevision = this.#nextOpaqueId('configuration revision');
-    this.#updatedAt = this.#nextInstant();
+    const continuation = dependencies.continuation
+      ? measurementServiceContinuationSchema.parse(dependencies.continuation)
+      : undefined;
+    this.sessionId = continuation?.sessionId ?? this.#nextOpaqueId('session');
+    this.#configurationRevision = continuation?.configurationRevision ?? this.#nextOpaqueId('configuration revision');
+    this.#updatedAt = continuation?.updatedAt ?? this.#nextInstant();
+    if (continuation) {
+      this.#profile = continuation.profile;
+      this.#channel = structuredClone(continuation.channel);
+      this.#sequence = continuation.sequence;
+    }
     this.identity = measurementSourceIdentitySchema.parse({
       driverId: 'signal-lab',
       sourceKind: 'signal-lab-simulation',

@@ -73,6 +73,7 @@ export class AtomizerNdjsonMeasurementBridge {
   readonly #timer: MeasurementBridgeTimer;
   readonly #seenRequestIds = new Set<string>();
   readonly #queue: QueuedRequest[] = [];
+  #shutdownRequest: QueuedRequest | undefined;
   readonly #lineBuffer = Buffer.allocUnsafe(MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes);
   #pendingInputChunk: PendingInputChunk | undefined;
   #lineBytes = 0;
@@ -159,13 +160,13 @@ export class AtomizerNdjsonMeasurementBridge {
   };
 
   #readInput(): void {
-    if (this.#pumpingInput || this.#settled || this.#inputEnded || this.#shuttingDown) return;
+    if (this.#pumpingInput || this.#settled || this.#inputEnded || this.#shuttingDown || this.#shutdownRequest) return;
     this.#pumpingInput = true;
     try {
       for (;;) {
         if (this.#pendingInputChunk) {
           this.#pumpInputChunk();
-          if (this.#pendingInputChunk || this.#settled || this.#inputEnded || this.#shuttingDown) return;
+          if (this.#pendingInputChunk || this.#settled || this.#inputEnded || this.#shuttingDown || this.#shutdownRequest) return;
         }
         if (!this.#reserveReplyObligation(false)) return;
         const maximumUnits = this.#input.readableEncoding
@@ -199,7 +200,7 @@ export class AtomizerNdjsonMeasurementBridge {
   #pumpInputChunk(): void {
     const pending = this.#pendingInputChunk;
     if (!pending || this.#settled) return;
-    if (this.#shuttingDown || this.#inputEnded) {
+    if (this.#shuttingDown || this.#shutdownRequest || this.#inputEnded) {
       this.#pendingInputChunk = undefined;
       return;
     }
@@ -218,7 +219,7 @@ export class AtomizerNdjsonMeasurementBridge {
       this.#appendLineBytes(pending.bytes.subarray(pending.offset, newline));
       pending.offset = newline + 1;
       this.#finishBufferedLine('lf');
-      if (this.#settled || this.#inputEnded || this.#shuttingDown) {
+      if (this.#settled || this.#inputEnded || this.#shuttingDown || this.#shutdownRequest) {
         this.#pendingInputChunk = undefined;
         return;
       }
@@ -244,6 +245,15 @@ export class AtomizerNdjsonMeasurementBridge {
     this.#resetLine();
     this.#inputLineCount += 1;
     if (this.#inputLineCount > MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests) {
+      const isReservedShutdown = this.#inputLineCount
+        === MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests + MEASUREMENT_BRIDGE_LIMITS.reservedShutdownRequests
+        && !tooLarge
+        && termination === 'lf'
+        && this.#isValidUnseenShutdown(line!);
+      if (isReservedShutdown) {
+        this.#acceptLine(line!);
+        return;
+      }
       this.#writeScheduledResponse(errorResponse(
         line ? correlationIdFromLine(line) : null,
         'SESSION_REQUEST_LIMIT',
@@ -261,6 +271,18 @@ export class AtomizerNdjsonMeasurementBridge {
       return;
     }
     this.#acceptLine(line!);
+  }
+
+  #isValidUnseenShutdown(line: Buffer): boolean {
+    try {
+      const source = new TextDecoder('utf-8', { fatal: true }).decode(line);
+      const parsed = measurementBridgeRequestSchema.safeParse(JSON.parse(source));
+      return parsed.success
+        && parsed.data.method === 'shutdown'
+        && !this.#seenRequestIds.has(parsed.data.requestId);
+    } catch {
+      return false;
+    }
   }
 
   #resetLine(): void {
@@ -301,6 +323,16 @@ export class AtomizerNdjsonMeasurementBridge {
       this.#writeScheduledResponse(errorResponse(request.requestId, 'SHUTTING_DOWN', 'The measurement bridge is shutting down'));
       return;
     }
+    if (request.method === 'shutdown') {
+      // One separately retained control request runs immediately after active
+      // work and ahead of the bounded normal queue. Its reply obligation is
+      // the existing +1 slot, so teardown remains admissible at normal load.
+      this.#accepting = false;
+      this.#input.pause();
+      this.#shutdownRequest = { request, receivedAt: this.#monotonicMilliseconds() };
+      void this.#drainQueue().catch((error) => this.#fatal(error));
+      return;
+    }
     const outstanding = this.#queue.length + (this.#processing ? 1 : 0);
     if (outstanding >= MEASUREMENT_BRIDGE_LIMITS.maxQueuedRequests) {
       this.#writeScheduledResponse(errorResponse(request.requestId, 'OVERLOADED', 'The bounded measurement request queue is full'));
@@ -314,8 +346,9 @@ export class AtomizerNdjsonMeasurementBridge {
     if (this.#processing || this.#settled) return;
     this.#processing = true;
     try {
-      while (this.#queue.length > 0) {
-        const item = this.#queue.shift()!;
+      while (this.#shutdownRequest || this.#queue.length > 0) {
+        const item = this.#shutdownRequest ?? this.#queue.shift()!;
+        if (this.#shutdownRequest === item) this.#shutdownRequest = undefined;
         if (this.#shuttingDown) {
           await this.#writeReservedResponse(errorResponse(item.request.requestId, 'SHUTTING_DOWN', 'The measurement bridge is shutting down'));
           continue;
@@ -399,7 +432,7 @@ export class AtomizerNdjsonMeasurementBridge {
   }
 
   #maybeComplete(): void {
-    if (this.#settled || this.#processing || this.#queue.length > 0) return;
+    if (this.#settled || this.#processing || this.#shutdownRequest || this.#queue.length > 0) return;
     if (!this.#inputEnded && !this.#shuttingDown) return;
     this.#settled = true;
     this.#accepting = false;
@@ -418,8 +451,9 @@ export class AtomizerNdjsonMeasurementBridge {
     // Requests still in the execution queue can no longer produce replies.
     // Release their reserved obligations immediately so a terminal I/O error
     // cannot retain request payloads or leave the operational bound stale.
-    const abandonedRequests = this.#queue.length;
+    const abandonedRequests = this.#queue.length + (this.#shutdownRequest ? 1 : 0);
     this.#queue.length = 0;
+    this.#shutdownRequest = undefined;
     if (abandonedRequests > this.#pendingReplyObligations) {
       this.#pendingReplyObligations = 0;
       this.#reportDiagnostic('Measurement bridge reply admission accounting was inconsistent during terminal cleanup');

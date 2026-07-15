@@ -133,6 +133,40 @@ describe('Atomizer high-level measurement source contract', () => {
     expect(() => service.status()).toThrow(/closed/i);
     expect(() => service.acquireSpectrum({ startHz: 1, stopHz: 2, points: 2 })).toThrow(/closed/i);
   });
+
+  it('continues exact producer state and sequence in a replacement process generation', () => {
+    const continuation = {
+      sessionId: '10000000-0000-4000-8000-000000000001',
+      configurationRevision: '20000000-0000-4000-8000-000000000002',
+      updatedAt: '2026-07-14T20:00:00.123Z',
+      profile: 'fm' as const,
+      channel: { model: 'rayleigh' as const, noiseFloorDbm: -120, seed: 19, fadingRateHz: 4 },
+      sequence: 10_000,
+    };
+    const service = new AtomizerMeasurementService(
+      { contractSha256: HASH_A, generatorSha256: HASH_B },
+      {
+        continuation,
+        uuid: () => '30000000-0000-4000-8000-000000000001',
+        now: () => new Date('2026-07-14T20:00:01.000Z'),
+        monotonicMilliseconds: () => 1,
+      },
+    );
+
+    expect(service.status()).toMatchObject({
+      sessionId: continuation.sessionId,
+      configurationRevision: continuation.configurationRevision,
+      updatedAt: continuation.updatedAt,
+      profile: continuation.profile,
+      channel: continuation.channel,
+    });
+    expect(service.acquireSpectrum({ startHz: 99_000_000, stopHz: 101_000_000, points: 3 }))
+      .toMatchObject({
+        sessionId: continuation.sessionId,
+        configurationRevision: continuation.configurationRevision,
+        sequence: 10_001,
+      });
+  });
 });
 
 function deterministicService(): AtomizerMeasurementService {

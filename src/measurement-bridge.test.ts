@@ -51,8 +51,8 @@ describe('bounded NDJSON measurement bridge', () => {
     expect(responses.filter((item) => item.ok && item.requestId === 'one')).toHaveLength(1);
     expect(responses).toContainEqual(expect.objectContaining({ ok: false, requestId: 'one', error: expect.objectContaining({ code: 'DUPLICATE_REQUEST_ID' }) }));
     expect(responses).toContainEqual(expect.objectContaining({ ok: false, requestId: null, error: expect.objectContaining({ code: 'INVALID_JSON' }) }));
-    expect(responses).toContainEqual(expect.objectContaining({ ok: true, requestId: 'two', result: expect.objectContaining({ kind: 'status', profile: 'fm' }) }));
-    expect(responses).toContainEqual(expect.objectContaining({ ok: true, requestId: 'three', result: expect.objectContaining({ kind: 'swept-spectrum', points: 25 }) }));
+    expect(responses).toContainEqual(expect.objectContaining({ ok: false, requestId: 'two', error: expect.objectContaining({ code: 'SHUTTING_DOWN' }) }));
+    expect(responses).toContainEqual(expect.objectContaining({ ok: false, requestId: 'three', error: expect.objectContaining({ code: 'SHUTTING_DOWN' }) }));
     expect(responses).toContainEqual(expect.objectContaining({ ok: true, requestId: 'four', result: { kind: 'shutdown', closed: true } }));
     expect(diagnostics).toEqual([]);
     expect(input.destroyed).toBe(true);
@@ -251,6 +251,31 @@ describe('bounded NDJSON measurement bridge', () => {
       error: { code: 'SESSION_REQUEST_LIMIT' },
     });
   });
+
+  it('reserves one valid shutdown admission after the normal process-line budget is exhausted', async () => {
+    const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    const input = new PassThrough();
+    const output = new CountingWritable();
+    const bridge = new AtomizerNdjsonMeasurementBridge(service, { input, output, diagnostics: () => undefined });
+    const running = bridge.run();
+    await waitUntil(() => output.writes === 1);
+    const lines = Array.from({ length: MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests }, (_unused, index) =>
+      JSON.stringify(request('status', `normal-${index}`, {})));
+    lines.push(JSON.stringify(request('shutdown', 'reserved-shutdown', {})), '');
+    input.end(lines.join('\n'));
+
+    await running;
+
+    expect(input.destroyed).toBe(true);
+    expect(output.writes).toBe(1 + MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests + 1);
+    expect(JSON.parse(output.shutdownLine)).toMatchObject({
+      ok: true,
+      requestId: 'reserved-shutdown',
+      result: { kind: 'shutdown', closed: true },
+    });
+    expect(output.shutdownWrite).toBeGreaterThan(1);
+    expect(bridge.pendingReplyObligations).toBe(0);
+  });
 });
 
 function request(method: string, requestId: string, params: unknown): MeasurementBridgeRequest {
@@ -352,10 +377,16 @@ class ReadyThenPermanentlyBlockedWritable extends Writable {
 class CountingWritable extends Writable {
   writes = 0;
   lastLine = '';
+  shutdownWrite = 0;
+  shutdownLine = '';
 
   override _write(chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
     this.writes += 1;
     this.lastLine = chunk.toString('utf8').trimEnd();
+    if (this.lastLine.includes('reserved-shutdown')) {
+      this.shutdownWrite = this.writes;
+      this.shutdownLine = this.lastLine;
+    }
     callback();
   }
 }
