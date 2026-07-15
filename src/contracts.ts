@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sourceBasisSchema } from './source-provenance.js';
 
 export const SIGNAL_LAB_CONTRACT_VERSION = 1 as const;
 export const SYNTHESIZED_SIGNAL_PROFILES = [
@@ -57,18 +58,14 @@ export const waveformDescriptorSchema = z.object({
   occupiedBandwidthHz: z.number().int().positive(),
   recommendedSpanHz: z.number().int().positive(),
   projection: waveformProjectionSchema,
-  standard: z.object({
-    organization: z.enum(['TinySA SignalLab', '3GPP', 'IEEE', 'Bluetooth SIG']),
-    specification: z.string().min(1),
-    clause: z.string().min(1),
-    revision: z.string().min(1),
-    url: z.string().url(),
-  }).strict(),
+  source: sourceBasisSchema,
   disclosure: z.string().min(1),
   assetSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
 }).strict().superRefine((descriptor, context) => {
   if (descriptor.recommendedSpanHz < descriptor.occupiedBandwidthHz) context.addIssue({ code: 'custom', path: ['recommendedSpanHz'], message: 'Recommended span must contain the occupied bandwidth' });
   if (descriptor.qualification === 'conformance-validated' && descriptor.assetSha256 === undefined) context.addIssue({ code: 'custom', path: ['assetSha256'], message: 'Conformance-validated waveforms require a verified I/Q asset hash' });
+  if (descriptor.qualification === 'visual' && descriptor.source.organization !== 'TinySA SignalLab') context.addIssue({ code: 'custom', path: ['source', 'organization'], message: 'Visual analytic waveforms must cite TinySA SignalLab' });
+  if (descriptor.qualification !== 'visual' && descriptor.source.organization === 'TinySA SignalLab') context.addIssue({ code: 'custom', path: ['source', 'organization'], message: 'Standards or conformance-qualified waveforms require an external standards organization' });
 });
 export type WaveformDescriptor = z.infer<typeof waveformDescriptorSchema>;
 

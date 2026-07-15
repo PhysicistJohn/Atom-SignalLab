@@ -57,7 +57,7 @@ With no persisted Atomizer preference, `signal-lab` is Atomizer's factory defaul
 | Bluetooth BR/EDR + LE canonized observable projections | 2 | Standards-derived |
 | Total | 88 | Closed |
 
-Every descriptor carries a stable ID, label, family/model, center, occupied bandwidth, recommended span, resource/timing projection, source organization/specification/clause/revision/URL, qualification, and disclosure.
+Every descriptor carries a stable ID, label, family/model, center, occupied bandwidth, recommended span, resource/timing projection, one normalized source basis with an ordered per-document specification/clause/revision/HTTPS reference list, qualification, and disclosure.
 
 `standards-derived` means a visual resource-allocation and timing projection. It is not bit-exact I/Q and is not a conformance vector. `conformance-validated` is impossible unless an immutable SHA-256 asset identity is present and independently admitted.
 
@@ -144,12 +144,12 @@ Every local API request settles exactly once as a validated new status or an exp
 `npm run check` must prove:
 
 - Exactly 88 descriptors with family counts `1/2/7/27/43/6/2`.
-- Every descriptor has a source clause and valid range.
+- Every descriptor has a normalized non-empty source basis and valid range.
 - Every profile produces finite spectrum output.
 - Seeded AWGN is repeatable and evolves by sweep.
 - Rayleigh fading is reproducible and measurably frequency-selective.
 - Every public canonized observable profile is byte-identical to its shared corpus source under equal geometry, seed, SNR, and look index.
-- Every corpus source carries one immutable HTTPS reference per independently versioned document; combined specification names, aggregate revisions, duplicate references, and partial provenance URLs are rejected.
+- Every live descriptor and corpus source carries one immutable HTTPS reference per independently versioned document; combined specification names, aggregate revisions, duplicate references, and partial provenance URLs are rejected. The 12 public canonized descriptors and their corpus scenarios must carry the same source basis exactly.
 - LTE/NR FDD/TDD and Bluetooth BR/EDR/LE profiles are explicit selectable capabilities with non-conformance and observable-equivalence disclosures.
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
@@ -169,7 +169,7 @@ Cross-repository release additionally requires the byte-identical trio-v4 manife
 | Public API, profile/channel/descriptor schemas | `src/contracts.ts` |
 | Atomizer measurement schemas and bridge manifest | `src/measurement-contract.ts`, `contracts/signal-lab-measurement-bridge-v1.json` |
 | Stateful measurement source and bounded NDJSON process | `src/measurement-service.ts`, `src/measurement-bridge.ts`, `src/atomizer-bridge.ts` |
-| Catalog and standards clauses | `src/catalog.ts` |
+| Catalog and standards clauses | `src/catalog.ts`, `src/source-provenance.ts` |
 | Spectrum/zero-span/channel synthesis | `src/waveforms.ts` |
 | Standalone Electron boundary | `src/main-process.ts`, `src/preload.ts` |
 | Operator UI | `src/DemoLab.tsx` |

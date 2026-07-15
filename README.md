@@ -23,7 +23,13 @@ npm run bridge
 
 The bridge uses bounded UTF-8 NDJSON over stdio. Its first stdout line is an exact `ready` declaration binding the contract, catalog, and shipped generator hashes. It serializes `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`, returns one response per admitted line (correlated whenever a valid request ID is available), and never retries. Every line—including invalid, duplicate, oversized, and overloaded input—consumes the 10,000-line process budget and one of at most 33 pending reply obligations; one additional valid shutdown line is separately reserved, and input pauses while stdout backpressure holds the bound. Atomizer renews a long-lived synthetic session before that process budget is reached by joining the retired child and handing its exact session ID, producer epoch, profile/channel state, and next measurement sequence to a freshly verified child. Any state drift, overlapping generation, identity change, framing/correlation/schema failure, timeout, or process failure remains terminal for that source, and Atomizer never falls back to a TinySA or the Firmware twin.
 
-Contract v1 is still a pre-publication, lockstep Atomizer/SignalLab boundary. The reserved-shutdown field was added before a stable external release and intentionally changes the exact contract SHA-256; an older strict client therefore rejects the new bridge before dispatch rather than misreading it. After v1 is published outside this paired workspace, any wire-field or semantic change must use a new contract version with an explicit compatibility policy.
+Contract v1 is still a pre-publication, lockstep Atomizer/SignalLab boundary.
+The reserved-shutdown field and the normalized descriptor `source` basis were
+added before a stable external release and intentionally change the exact
+contract/catalog hashes; an older strict client therefore rejects the new
+bridge before dispatch rather than misreading it. After v1 is published outside
+this paired workspace, any wire-field or semantic change must use a new contract
+version with an explicit compatibility policy.
 
 The standalone Electron window admits privileged IPC only from its exact current main frame and selected file/development origin. Packaged execution ignores `VITE_DEV_SERVER_URL`, all Electron permissions and child windows are denied, and packaged HTML contains no development network origin.
 
@@ -44,7 +50,7 @@ These are spectrum/time projections, not conformance-grade I/Q. A profile cannot
 
 `src/waveforms.ts` owns the executable definitions and synthesis kernel shared
 by the public canonized observable profiles and `src/classification-corpus.ts`.
-Corpus v9 canonizes deterministic scalar observations for Bayesian
+Corpus v10 canonizes deterministic scalar observations for Bayesian
 detector/classifier development, including CW, physical DSB full-carrier AM
 sideband ratios, Bessel-series FM, standards-parameterized heuristic
 projections of GSM, LTE FDD/TDD, NR FDD/TDD, Wi-Fi DSSS/OFDM and Bluetooth
@@ -64,7 +70,7 @@ Bluetooth activity leaf: scalar frequency agility cannot establish protocol
 or emitter identity. Simultaneous lines likewise cannot establish a shared
 emitter, oscillator, modulation process, or message identity.
 
-The v9 corpus also contains byte-for-byte scalar-equivalence null pairs: a
+The v10 corpus also contains byte-for-byte scalar-equivalence null pairs: a
 receiver spur versus CW, coherent independent tones versus DSB-FC AM, an
 independent Bessel-weighted comb versus FM, generic OFDM versus LTE/NR or
 Wi-Fi-shaped projections, and proprietary DSSS versus HR-DSSS. A classifier

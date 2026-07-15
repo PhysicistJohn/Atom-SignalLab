@@ -111,7 +111,7 @@ function ProfileBrowser({ descriptor, catalog, active, switching, disabled, onSe
       <span className="profile-icon"><Icon size={21}/></span>
       <div><small>{descriptor.qualification === 'standards-derived' ? 'STD-DERIVED' : 'VISUAL'}</small><h2>{descriptor.label}</h2><p>{switching ? 'Switching model…' : descriptor.model}</p></div>
       <i>{active && <b/>}</i>
-      <dl><div><dt>ALLOCATION</dt><dd>{descriptor.projection.allocation.replace('-', ' ').toUpperCase()}</dd></div><div><dt>TIMING</dt><dd>{descriptor.projection.timing.replace('sbfd-', 'SBFD ').toUpperCase()}</dd></div><div><dt>SOURCE</dt><dd>{descriptor.standard.clause}</dd></div></dl>
+      <dl><div><dt>ALLOCATION</dt><dd>{descriptor.projection.allocation.replace('-', ' ').toUpperCase()}</dd></div><div><dt>TIMING</dt><dd>{descriptor.projection.timing.replace('sbfd-', 'SBFD ').toUpperCase()}</dd></div><div><dt>SOURCE</dt><dd>{descriptor.source.references.map((reference) => `${reference.specification} ${reference.revision} · ${reference.clause}`).join(' + ')}</dd></div></dl>
     </article>
   </div>;
 }

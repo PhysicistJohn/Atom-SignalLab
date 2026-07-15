@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { synthesizedSignalProfileSchema, type ReplayChannelConfiguration } from './contracts.js';
+import { canonicalClassificationScenario } from './classification-corpus.js';
 import {
   CANONIZED_KNOWN_SCENARIOS,
   CANONIZED_REPLAY_PROFILE_SCENARIOS,
@@ -20,7 +21,7 @@ describe('qualified waveform replay engine', () => {
     expect(waveformCatalog).toHaveLength(88);
     expect(countFamilies(waveformCatalog)).toEqual({ tone: 1, analog: 2, geran: 7, 'e-utra': 27, nr: 43, wlan: 6, bluetooth: 2 });
     for (const descriptor of waveformCatalog) {
-      expect(descriptor.standard.url).toMatch(/^https:\/\//);
+      expect(descriptor.source.references.every((reference) => /^https:\/\//.test(reference.url))).toBe(true);
       expect(descriptor.recommendedSpanHz).toBeGreaterThanOrEqual(descriptor.occupiedBandwidthHz);
     }
     expect(waveformDescriptor('lte-band3-fdd-20m').projection.duplex).toBe('fdd');
@@ -67,6 +68,7 @@ describe('qualified waveform replay engine', () => {
         occupiedBandwidthHz: declared.occupiedBandwidthHz,
         recommendedSpanHz: declared.recommendedSpanHz,
       });
+      expect(descriptor.source).toEqual(canonicalClassificationScenario(scenarioId).source);
       const range = suggestedAnalyzerRange(descriptor);
       const points = 450;
       const sweepIndex = 17;
