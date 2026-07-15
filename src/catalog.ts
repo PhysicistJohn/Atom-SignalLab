@@ -19,7 +19,7 @@ import {
 const LTE_URL = 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136141/19.01.00_60/ts_136141v190100p.pdf';
 const NR_URL = 'https://www.etsi.org/deliver/etsi_ts/138100_138199/13814101/19.04.00_60/ts_13814101v190400p.pdf';
 const GSM_URL = 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00.00_60/ts_145005v190000p.pdf';
-const WIFI_URL = 'https://standards.ieee.org/ieee/802.11ax/7180/';
+const WIFI_URL = 'https://standards.ieee.org/ieee/802.11/10548/';
 const observableEquivalenceDisclosure = 'Canonized scalar power projection for observable Bayesian inference. It is not bit-exact or protocol-decodable I/Q, is not a conformance vector, and supports only observable-class equivalence rather than protocol or emitter identity.';
 const agileObservableEquivalenceDisclosure = `${observableEquivalenceDisclosure} Frequency-agile scalar activity is also compatible with proprietary FHSS, scanning interference, or time-interleaved independent sources.`;
 
@@ -244,7 +244,7 @@ const wifiDefinitions = [
 const wifiDescriptors = wifiDefinitions.map(([id, label, model, allocation, occupiedBandwidthHz]) => makeDescriptor({
   id, label, family: 'wlan', model, centerHz: 5_180_000_000, occupiedBandwidthHz, recommendedSpanHz: 30_000_000,
   projection: { allocation, modulation: 'he-ofdm', timing: 'burst', subcarrierSpacingHz: 78_125 },
-  source: sourceBasis('IEEE', [{ specification: 'IEEE 802.11ax-2021', clause: `${label.replace('Wi-Fi 6 ', '')} PPDU format`, revision: '2021', url: WIFI_URL }]),
+  source: sourceBasis('IEEE', [{ specification: 'IEEE 802.11-2024', clause: `${label.replace('Wi-Fi 6 ', '')} PPDU format`, revision: '2024', url: WIFI_URL }]),
   disclosure: `Standards-derived ${model} occupied-tone and burst projection. It is not a validated packet I/Q vector.`,
 }));
 
