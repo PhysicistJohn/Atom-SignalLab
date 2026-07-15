@@ -53,7 +53,9 @@
     "requestTimeoutMs": 5000
   },
   "semantics": {
-    "replies": "one-response-per-input-line-and-no-request-id-executes-twice",
+    "replies": "one-response-per-admitted-input-line-and-no-request-id-executes-twice",
+    "inputBudget": "every-lf-line-and-final-fragment-including-malformed-input-counts-toward-max-session-requests",
+    "backpressure": "input-pauses-at-thirty-three-total-pending-reply-obligations",
     "ordering": "accepted-requests-execute-serially",
     "retry": "none",
     "selectedProfileVisibility": "status-only-never-copied-into-measurement-results",

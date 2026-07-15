@@ -1,6 +1,11 @@
-import { PassThrough } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
-import { AtomizerNdjsonMeasurementBridge, type MeasurementBridgeTimer, type MeasurementRequestDispatcher } from './measurement-bridge.js';
+import {
+  AtomizerNdjsonMeasurementBridge,
+  MAX_PENDING_REPLY_OBLIGATIONS,
+  type MeasurementBridgeTimer,
+  type MeasurementRequestDispatcher,
+} from './measurement-bridge.js';
 import {
   MEASUREMENT_BRIDGE_LIMITS,
   measurementBridgeMessageSchema,
@@ -137,6 +142,115 @@ describe('bounded NDJSON measurement bridge', () => {
     expect(lateMutation).toBe(true);
     expect(calls).toEqual(['status']);
   });
+
+  it('bounds invalid-line admission when stdout remains permanently blocked', async () => {
+    const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    const input = new PassThrough();
+    const output = new ReadyThenPermanentlyBlockedWritable();
+    const bridge = new AtomizerNdjsonMeasurementBridge(service, { input, output, diagnostics: () => undefined });
+    const running = bridge.run();
+    await waitUntil(() => output.writes === 1);
+
+    input.write(`${Array.from({ length: MAX_PENDING_REPLY_OBLIGATIONS + 40 }, () => '{invalid-json}').join('\n')}\n`);
+    await waitUntil(() => bridge.pendingReplyObligations === MAX_PENDING_REPLY_OBLIGATIONS);
+    expect(input.isPaused()).toBe(true);
+    expect(output.writes).toBe(2);
+
+    output.failForTestTeardown();
+    await expect(running).rejects.toThrow(/permanently blocked output/i);
+    await waitUntil(() => bridge.pendingReplyObligations === 0);
+    expect(bridge.pendingReplyObligations).toBe(0);
+    expect(output.writes).toBe(2);
+    expect(input.destroyed).toBe(true);
+  });
+
+  it('releases queued reply obligations after terminal stdout failure', async () => {
+    const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    const input = new PassThrough();
+    const output = new ReadyThenPermanentlyBlockedWritable();
+    const bridge = new AtomizerNdjsonMeasurementBridge(service, { input, output, diagnostics: () => undefined });
+    const running = bridge.run();
+    await waitUntil(() => output.writes === 1);
+
+    for (let index = 0; index < MAX_PENDING_REPLY_OBLIGATIONS; index += 1) {
+      input.write(`${JSON.stringify(request('status', `output-failure-${index}`, {}))}\n`);
+    }
+    await waitUntil(() => bridge.pendingReplyObligations === MAX_PENDING_REPLY_OBLIGATIONS);
+    await waitUntil(() => output.writes === 2);
+
+    output.failForTestTeardown();
+    await expect(running).rejects.toThrow(/permanently blocked output/i);
+    await waitUntil(() => bridge.pendingReplyObligations === 0);
+    expect(input.destroyed).toBe(true);
+  });
+
+  it('charges duplicate and oversized lines to the same blocked-output admission bound', async () => {
+    await exerciseBlockedLineClass((input, count) => {
+      input.write(`${JSON.stringify(request('status', 'duplicate', {}))}\n`);
+      for (let index = 1; index < count; index++) {
+        input.write(`${JSON.stringify(request('status', 'duplicate', {}))}\n`);
+      }
+    });
+
+    await exerciseBlockedLineClass((input, count) => {
+      const oversized = `${'x'.repeat(MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes + 1)}\n`;
+      for (let index = 0; index < count; index++) input.write(oversized);
+    });
+  });
+
+  it('charges the overload reply and every queued request to one total retained-work bound', async () => {
+    const base = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    let resolveFirst!: (value: unknown) => void;
+    let calls = 0;
+    const dispatcher: MeasurementRequestDispatcher = {
+      sessionId: base.sessionId,
+      identity: base.identity,
+      dispatch: (next) => {
+        calls += 1;
+        if (calls === 1) return new Promise((resolve) => { resolveFirst = resolve; });
+        return base.dispatch(next);
+      },
+    };
+    const input = new PassThrough();
+    const output = new ReadyThenBlockedWritable();
+    const bridge = new AtomizerNdjsonMeasurementBridge(dispatcher, { input, output, diagnostics: () => undefined });
+    const running = bridge.run();
+    await waitUntil(() => output.writes === 1);
+    for (let index = 0; index < MAX_PENDING_REPLY_OBLIGATIONS; index++) {
+      input.write(`${JSON.stringify(request('status', `overload-${index}`, {}))}\n`);
+    }
+    await waitUntil(() => bridge.pendingReplyObligations === MAX_PENDING_REPLY_OBLIGATIONS);
+    expect(calls).toBe(1);
+    expect(input.isPaused()).toBe(true);
+    expect(output.writes).toBe(2);
+
+    output.unblock();
+    resolveFirst(base.status());
+    input.end();
+    await running;
+    expect(bridge.pendingReplyObligations).toBe(0);
+    expect(calls).toBe(MEASUREMENT_BRIDGE_LIMITS.maxQueuedRequests);
+    expect(output.writes).toBe(1 + MAX_PENDING_REPLY_OBLIGATIONS);
+  });
+
+  it('counts malformed lines against the lifetime session budget and terminates at overflow', async () => {
+    const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    const input = new PassThrough();
+    const output = new CountingWritable();
+    const bridge = new AtomizerNdjsonMeasurementBridge(service, { input, output, diagnostics: () => undefined });
+    const running = bridge.run();
+    await waitUntil(() => output.writes === 1);
+    input.write(`${'{invalid}\n'.repeat(MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests + 1)}`);
+    await running;
+
+    expect(input.destroyed).toBe(true);
+    expect(output.writes).toBe(1 + MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests + 1);
+    expect(JSON.parse(output.lastLine)).toMatchObject({
+      ok: false,
+      requestId: null,
+      error: { code: 'SESSION_REQUEST_LIMIT' },
+    });
+  });
 });
 
 function request(method: string, requestId: string, params: unknown): MeasurementBridgeRequest {
@@ -171,4 +285,85 @@ function captureLines(output: PassThrough) {
       }
     },
   };
+}
+
+async function exerciseBlockedLineClass(
+  writeLines: (input: PassThrough, count: number) => void,
+): Promise<void> {
+  const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+  const input = new PassThrough();
+  const output = new ReadyThenBlockedWritable();
+  const bridge = new AtomizerNdjsonMeasurementBridge(service, { input, output, diagnostics: () => undefined });
+  const running = bridge.run();
+  await waitUntil(() => output.writes === 1);
+  writeLines(input, MAX_PENDING_REPLY_OBLIGATIONS);
+  await waitUntil(() => bridge.pendingReplyObligations === MAX_PENDING_REPLY_OBLIGATIONS);
+  expect(input.isPaused()).toBe(true);
+  expect(output.writes).toBe(2);
+  output.unblock();
+  input.end();
+  await running;
+  expect(bridge.pendingReplyObligations).toBe(0);
+  expect(output.writes).toBe(1 + MAX_PENDING_REPLY_OBLIGATIONS);
+}
+
+class ReadyThenBlockedWritable extends Writable {
+  writes = 0;
+  #blocked = true;
+  #callback: ((error?: Error | null) => void) | undefined;
+
+  override _write(_chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    this.writes += 1;
+    if (this.writes === 1 || !this.#blocked) {
+      callback();
+      return;
+    }
+    this.#callback = callback;
+  }
+
+  unblock(): void {
+    this.#blocked = false;
+    const callback = this.#callback;
+    this.#callback = undefined;
+    callback?.();
+  }
+}
+
+class ReadyThenPermanentlyBlockedWritable extends Writable {
+  writes = 0;
+  #callback: ((error?: Error | null) => void) | undefined;
+
+  override _write(_chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    this.writes += 1;
+    if (this.writes === 1) {
+      callback();
+      return;
+    }
+    this.#callback = callback;
+  }
+
+  failForTestTeardown(): void {
+    const callback = this.#callback;
+    this.#callback = undefined;
+    callback?.(new Error('Permanently blocked output test teardown'));
+  }
+}
+
+class CountingWritable extends Writable {
+  writes = 0;
+  lastLine = '';
+
+  override _write(chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    this.writes += 1;
+    this.lastLine = chunk.toString('utf8').trimEnd();
+    callback();
+  }
+}
+
+async function waitUntil(predicate: () => boolean): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error('Timed out waiting for measurement bridge test state');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
 }

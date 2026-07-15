@@ -40,6 +40,22 @@ interface QueuedRequest {
   receivedAt: number;
 }
 
+interface PendingInputChunk {
+  bytes: Buffer;
+  offset: number;
+}
+
+interface PendingProtocolWrite {
+  chunk: string;
+  resolve(): void;
+  reject(error: Error): void;
+}
+
+/** One execution queue plus one overload/error response can be retained. */
+export const MAX_PENDING_REPLY_OBLIGATIONS = MEASUREMENT_BRIDGE_LIMITS.maxQueuedRequests + 1;
+/** Pull-based input never retains more than one line-bound-sized stream chunk. */
+export const MAX_BRIDGE_INPUT_CHUNK_BYTES = MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes;
+
 class RequestTimeoutError extends Error {
   constructor() {
     super('Measurement bridge request timed out');
@@ -47,7 +63,7 @@ class RequestTimeoutError extends Error {
   }
 }
 
-/** A bounded, serial, exactly-one-response-per-line NDJSON bridge session. */
+/** A bounded, serial, exactly-one-response-per-admitted-line NDJSON session. */
 export class AtomizerNdjsonMeasurementBridge {
   readonly #dispatcher: MeasurementRequestDispatcher;
   readonly #input: Readable;
@@ -57,10 +73,14 @@ export class AtomizerNdjsonMeasurementBridge {
   readonly #timer: MeasurementBridgeTimer;
   readonly #seenRequestIds = new Set<string>();
   readonly #queue: QueuedRequest[] = [];
-  readonly #lineParts: Buffer[] = [];
+  readonly #lineBuffer = Buffer.allocUnsafe(MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes);
+  #pendingInputChunk: PendingInputChunk | undefined;
   #lineBytes = 0;
   #lineTooLarge = false;
+  #inputLineCount = 0;
+  #pendingReplyObligations = 0;
   #processing = false;
+  #pumpingInput = false;
   #running = false;
   #accepting = true;
   #inputEnded = false;
@@ -84,6 +104,11 @@ export class AtomizerNdjsonMeasurementBridge {
     return this.#executionTimedOut;
   }
 
+  /** Operational evidence for the hard reply/backpressure admission bound. */
+  get pendingReplyObligations(): number {
+    return this.#pendingReplyObligations;
+  }
+
   async run(): Promise<void> {
     if (this.#running) throw new Error('Measurement bridge sessions can run only once');
     this.#running = true;
@@ -104,31 +129,27 @@ export class AtomizerNdjsonMeasurementBridge {
       this.#resolveDone = resolve;
       this.#rejectDone = reject;
     });
-    this.#input.on('data', this.#onData);
+    this.#input.pause();
+    this.#input.on('readable', this.#onReadable);
     this.#input.once('end', this.#onEnd);
     this.#input.once('error', this.#onInputError);
-    this.#input.resume();
+    this.#readInput();
     return done;
   }
 
-  readonly #onData = (chunk: Buffer | string): void => {
-    if (this.#settled) return;
-    try {
-      this.#consumeChunk(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8'));
-    } catch (error) {
-      this.#fatal(error);
-    }
+  readonly #onReadable = (): void => {
+    this.#readInput();
   };
 
   readonly #onEnd = (): void => {
     if (this.#settled) return;
     this.#inputEnded = true;
-    if (this.#lineTooLarge) {
-      this.#scheduleResponse(errorResponse(null, 'LINE_TOO_LARGE', `Input lines may not exceed ${MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes} bytes`));
-      this.#resetLine();
-    } else if (this.#lineBytes > 0) {
-      this.#scheduleResponse(errorResponse(null, 'LINE_TERMINATOR_REQUIRED', 'Every NDJSON request must end with LF'));
-      this.#resetLine();
+    if (this.#lineTooLarge || this.#lineBytes > 0) {
+      if (!this.#reserveReplyObligation()) {
+        this.#fatal(new Error('Input ended without response capacity for its final bounded fragment'));
+        return;
+      }
+      this.#finishBufferedLine('eof');
     }
     this.#maybeComplete();
   };
@@ -137,46 +158,112 @@ export class AtomizerNdjsonMeasurementBridge {
     this.#fatal(error);
   };
 
-  #consumeChunk(chunk: Buffer): void {
-    let offset = 0;
-    while (offset < chunk.length) {
-      const newline = chunk.indexOf(0x0a, offset);
-      if (newline === -1) {
-        this.#appendLineBytes(chunk.subarray(offset));
+  #readInput(): void {
+    if (this.#pumpingInput || this.#settled || this.#inputEnded || this.#shuttingDown) return;
+    this.#pumpingInput = true;
+    try {
+      for (;;) {
+        if (this.#pendingInputChunk) {
+          this.#pumpInputChunk();
+          if (this.#pendingInputChunk || this.#settled || this.#inputEnded || this.#shuttingDown) return;
+        }
+        if (!this.#reserveReplyObligation(false)) return;
+        const maximumUnits = this.#input.readableEncoding
+          ? Math.floor(MAX_BRIDGE_INPUT_CHUNK_BYTES / 4)
+          : MAX_BRIDGE_INPUT_CHUNK_BYTES;
+        const available = Math.min(this.#input.readableLength, maximumUnits);
+        if (available < 1) {
+          // A zero-length read lets Node publish a pending EOF after the last
+          // bounded pull without switching this stream into flowing mode.
+          this.#input.read(0);
+          return;
+        }
+        const chunk: unknown = this.#input.read(available);
+        if (chunk === null) return;
+        if (typeof chunk !== 'string' && !Buffer.isBuffer(chunk)) {
+          throw new Error('Measurement bridge input must produce bytes or UTF-8 strings');
+        }
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8');
+        if (bytes.byteLength > MAX_BRIDGE_INPUT_CHUNK_BYTES) {
+          throw new Error(`Input decoder produced more than the ${MAX_BRIDGE_INPUT_CHUNK_BYTES}-byte pull bound`);
+        }
+        this.#pendingInputChunk = { bytes, offset: 0 };
+      }
+    } catch (error) {
+      this.#fatal(error);
+    } finally {
+      this.#pumpingInput = false;
+    }
+  }
+
+  #pumpInputChunk(): void {
+    const pending = this.#pendingInputChunk;
+    if (!pending || this.#settled) return;
+    if (this.#shuttingDown || this.#inputEnded) {
+      this.#pendingInputChunk = undefined;
+      return;
+    }
+    while (pending.offset < pending.bytes.length) {
+      if (!this.#reserveReplyObligation(false)) {
+        this.#input.pause();
         return;
       }
-      this.#appendLineBytes(chunk.subarray(offset, newline));
-      this.#finishLine();
-      offset = newline + 1;
+      const newline = pending.bytes.indexOf(0x0a, pending.offset);
+      if (newline === -1) {
+        this.#appendLineBytes(pending.bytes.subarray(pending.offset));
+        pending.offset = pending.bytes.length;
+        break;
+      }
+      this.#pendingReplyObligations += 1;
+      this.#appendLineBytes(pending.bytes.subarray(pending.offset, newline));
+      pending.offset = newline + 1;
+      this.#finishBufferedLine('lf');
+      if (this.#settled || this.#inputEnded || this.#shuttingDown) {
+        this.#pendingInputChunk = undefined;
+        return;
+      }
     }
+    this.#pendingInputChunk = undefined;
   }
 
   #appendLineBytes(bytes: Buffer): void {
     if (bytes.length === 0 || this.#lineTooLarge) return;
     const nextSize = this.#lineBytes + bytes.length;
     if (nextSize > MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes) {
-      this.#lineParts.length = 0;
       this.#lineBytes = nextSize;
       this.#lineTooLarge = true;
       return;
     }
-    this.#lineParts.push(Buffer.from(bytes));
+    bytes.copy(this.#lineBuffer, this.#lineBytes);
     this.#lineBytes = nextSize;
   }
 
-  #finishLine(): void {
-    if (this.#lineTooLarge) {
-      this.#scheduleResponse(errorResponse(null, 'LINE_TOO_LARGE', `Input lines may not exceed ${MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes} bytes`));
-      this.#resetLine();
+  #finishBufferedLine(termination: 'lf' | 'eof'): void {
+    const tooLarge = this.#lineTooLarge;
+    const line = tooLarge ? undefined : this.#lineBuffer.subarray(0, this.#lineBytes);
+    this.#resetLine();
+    this.#inputLineCount += 1;
+    if (this.#inputLineCount > MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests) {
+      this.#writeScheduledResponse(errorResponse(
+        line ? correlationIdFromLine(line) : null,
+        'SESSION_REQUEST_LIMIT',
+        'The bounded input-line budget for this session is exhausted',
+      ));
+      this.#terminateInputAdmission();
       return;
     }
-    const line = Buffer.concat(this.#lineParts, this.#lineBytes);
-    this.#resetLine();
-    this.#acceptLine(line);
+    if (tooLarge) {
+      this.#writeScheduledResponse(errorResponse(null, 'LINE_TOO_LARGE', `Input lines may not exceed ${MEASUREMENT_BRIDGE_LIMITS.maxRequestLineBytes} bytes`));
+      return;
+    }
+    if (termination === 'eof') {
+      this.#writeScheduledResponse(errorResponse(correlationIdFromLine(line!), 'LINE_TERMINATOR_REQUIRED', 'Every NDJSON request must end with LF'));
+      return;
+    }
+    this.#acceptLine(line!);
   }
 
   #resetLine(): void {
-    this.#lineParts.length = 0;
     this.#lineBytes = 0;
     this.#lineTooLarge = false;
   }
@@ -186,7 +273,7 @@ export class AtomizerNdjsonMeasurementBridge {
     try {
       source = new TextDecoder('utf-8', { fatal: true }).decode(line);
     } catch {
-      this.#scheduleResponse(errorResponse(null, 'INVALID_ENCODING', 'Requests must be valid UTF-8'));
+      this.#writeScheduledResponse(errorResponse(null, 'INVALID_ENCODING', 'Requests must be valid UTF-8'));
       return;
     }
 
@@ -194,33 +281,29 @@ export class AtomizerNdjsonMeasurementBridge {
     try {
       value = JSON.parse(source);
     } catch {
-      this.#scheduleResponse(errorResponse(null, 'INVALID_JSON', 'Each input line must contain exactly one JSON request'));
+      this.#writeScheduledResponse(errorResponse(null, 'INVALID_JSON', 'Each input line must contain exactly one JSON request'));
       return;
     }
 
     const parsed = measurementBridgeRequestSchema.safeParse(value);
     if (!parsed.success) {
-      this.#scheduleResponse(errorResponse(correlationId(value), 'INVALID_REQUEST', 'Request does not match measurement bridge contract version 1'));
+      this.#writeScheduledResponse(errorResponse(correlationId(value), 'INVALID_REQUEST', 'Request does not match measurement bridge contract version 1'));
       return;
     }
     const request = parsed.data;
     if (this.#seenRequestIds.has(request.requestId)) {
-      this.#scheduleResponse(errorResponse(request.requestId, 'DUPLICATE_REQUEST_ID', 'Request identifiers may be used only once per session'));
-      return;
-    }
-    if (this.#seenRequestIds.size >= MEASUREMENT_BRIDGE_LIMITS.maxSessionRequests) {
-      this.#scheduleResponse(errorResponse(request.requestId, 'SESSION_REQUEST_LIMIT', 'The bounded request budget for this session is exhausted'));
+      this.#writeScheduledResponse(errorResponse(request.requestId, 'DUPLICATE_REQUEST_ID', 'Request identifiers may be used only once per session'));
       return;
     }
     this.#seenRequestIds.add(request.requestId);
 
     if (!this.#accepting || this.#shuttingDown) {
-      this.#scheduleResponse(errorResponse(request.requestId, 'SHUTTING_DOWN', 'The measurement bridge is shutting down'));
+      this.#writeScheduledResponse(errorResponse(request.requestId, 'SHUTTING_DOWN', 'The measurement bridge is shutting down'));
       return;
     }
     const outstanding = this.#queue.length + (this.#processing ? 1 : 0);
     if (outstanding >= MEASUREMENT_BRIDGE_LIMITS.maxQueuedRequests) {
-      this.#scheduleResponse(errorResponse(request.requestId, 'OVERLOADED', 'The bounded measurement request queue is full'));
+      this.#writeScheduledResponse(errorResponse(request.requestId, 'OVERLOADED', 'The bounded measurement request queue is full'));
       return;
     }
     this.#queue.push({ request, receivedAt: this.#monotonicMilliseconds() });
@@ -234,7 +317,7 @@ export class AtomizerNdjsonMeasurementBridge {
       while (this.#queue.length > 0) {
         const item = this.#queue.shift()!;
         if (this.#shuttingDown) {
-          await this.#writer.write(errorResponse(item.request.requestId, 'SHUTTING_DOWN', 'The measurement bridge is shutting down'));
+          await this.#writeReservedResponse(errorResponse(item.request.requestId, 'SHUTTING_DOWN', 'The measurement bridge is shutting down'));
           continue;
         }
         if (item.request.method === 'shutdown') {
@@ -253,16 +336,16 @@ export class AtomizerNdjsonMeasurementBridge {
   async #execute(item: QueuedRequest): Promise<void> {
     const elapsed = this.#monotonicMilliseconds() - item.receivedAt;
     if (!Number.isFinite(elapsed) || elapsed >= MEASUREMENT_BRIDGE_LIMITS.requestTimeoutMs) {
-      await this.#writer.write(errorResponse(item.request.requestId, 'REQUEST_TIMEOUT', 'Request exceeded the measurement bridge time bound before execution'));
+      await this.#writeReservedResponse(errorResponse(item.request.requestId, 'REQUEST_TIMEOUT', 'Request exceeded the measurement bridge time bound before execution'));
       return;
     }
+    let result: unknown;
     try {
-      const result = await withTimeout(
+      result = await withTimeout(
         () => this.#dispatcher.dispatch(item.request),
         MEASUREMENT_BRIDGE_LIMITS.requestTimeoutMs - Math.max(0, elapsed),
         this.#timer,
       );
-      await this.#writer.write(successResponse(item.request.requestId, result as never));
     } catch (error) {
       if (error instanceof RequestTimeoutError) {
         // The underlying Promise cannot be cancelled. Make the entire session
@@ -271,22 +354,48 @@ export class AtomizerNdjsonMeasurementBridge {
         this.#shuttingDown = true;
         this.#accepting = false;
         this.#input.pause();
-        await this.#writer.write(errorResponse(item.request.requestId, 'REQUEST_TIMEOUT', 'Request exceeded the measurement bridge execution time bound'));
+        await this.#writeReservedResponse(errorResponse(item.request.requestId, 'REQUEST_TIMEOUT', 'Request exceeded the measurement bridge execution time bound'));
         return;
       }
       if (error instanceof MeasurementServiceError) {
-        await this.#writer.write(errorResponse(item.request.requestId, error.code, error.message));
+        await this.#writeReservedResponse(errorResponse(item.request.requestId, error.code, error.message));
         return;
       }
-      this.#diagnostics(formatDiagnostic('Measurement request failed', error));
-      await this.#writer.write(errorResponse(item.request.requestId, 'INTERNAL_ERROR', 'Measurement request failed without state substitution or retry'));
+      this.#reportDiagnostic(formatDiagnostic('Measurement request failed', error));
+      await this.#writeReservedResponse(errorResponse(item.request.requestId, 'INTERNAL_ERROR', 'Measurement request failed without state substitution or retry'));
+      return;
+    }
+    await this.#writeReservedResponse(successResponse(item.request.requestId, result as never));
+  }
+
+  #writeScheduledResponse(response: MeasurementBridgeResponse): void {
+    void this.#writeReservedResponse(response).catch((error) => this.#fatal(error));
+  }
+
+  async #writeReservedResponse(response: MeasurementBridgeResponse): Promise<void> {
+    let written = false;
+    try {
+      await this.#writer.write(response);
+      written = true;
+    } finally {
+      if (this.#pendingReplyObligations < 1) throw new Error('Measurement bridge reply admission accounting underflow');
+      this.#pendingReplyObligations -= 1;
+      if (written && !this.#settled && !this.#inputEnded && !this.#shuttingDown) this.#readInput();
+      if (written) this.#maybeComplete();
     }
   }
 
-  #scheduleResponse(response: MeasurementBridgeResponse): void {
-    void this.#writer.write(response)
-      .then(() => this.#maybeComplete())
-      .catch((error) => this.#fatal(error));
+  #reserveReplyObligation(commit = true): boolean {
+    if (this.#pendingReplyObligations >= MAX_PENDING_REPLY_OBLIGATIONS) return false;
+    if (commit) this.#pendingReplyObligations += 1;
+    return true;
+  }
+
+  #terminateInputAdmission(): void {
+    this.#accepting = false;
+    this.#inputEnded = true;
+    this.#pendingInputChunk = undefined;
+    this.#releaseInput();
   }
 
   #maybeComplete(): void {
@@ -306,13 +415,33 @@ export class AtomizerNdjsonMeasurementBridge {
     const error = asError(cause);
     this.#settled = true;
     this.#accepting = false;
-    this.#diagnostics(formatDiagnostic('Measurement bridge terminated', error));
+    // Requests still in the execution queue can no longer produce replies.
+    // Release their reserved obligations immediately so a terminal I/O error
+    // cannot retain request payloads or leave the operational bound stale.
+    const abandonedRequests = this.#queue.length;
+    this.#queue.length = 0;
+    if (abandonedRequests > this.#pendingReplyObligations) {
+      this.#pendingReplyObligations = 0;
+      this.#reportDiagnostic('Measurement bridge reply admission accounting was inconsistent during terminal cleanup');
+    } else {
+      this.#pendingReplyObligations -= abandonedRequests;
+    }
+    this.#reportDiagnostic(formatDiagnostic('Measurement bridge terminated', error));
     this.#releaseInput();
     this.#rejectDone?.(error);
   }
 
+  #reportDiagnostic(message: string): void {
+    try {
+      this.#diagnostics(message);
+    } catch {
+      // Diagnostics are best effort and must never replace protocol failure or
+      // prevent this bounded session from settling.
+    }
+  }
+
   #releaseInput(): void {
-    this.#input.removeListener('data', this.#onData);
+    this.#input.removeListener('readable', this.#onReadable);
     this.#input.removeListener('end', this.#onEnd);
     this.#input.removeListener('error', this.#onInputError);
     this.#input.pause();
@@ -325,28 +454,73 @@ export class AtomizerNdjsonMeasurementBridge {
 
 class ProtocolWriter {
   readonly #output: Writable;
-  #tail: Promise<void> = Promise.resolve();
+  readonly #maximumPending: number;
+  readonly #queue: PendingProtocolWrite[] = [];
+  readonly #flushWaiters: Array<{ resolve(): void; reject(error: Error): void }> = [];
+  #pending = 0;
+  #writing = false;
   #failure: Error | undefined;
 
-  constructor(output: Writable) {
+  constructor(output: Writable, maximumPending = MAX_PENDING_REPLY_OBLIGATIONS) {
     this.#output = output;
+    this.#maximumPending = maximumPending;
   }
 
   write(message: unknown): Promise<void> {
-    const operation = this.#tail.then(async () => {
-      if (this.#failure) throw this.#failure;
+    if (this.#failure) return Promise.reject(this.#failure);
+    if (this.#pending >= this.#maximumPending) {
+      return Promise.reject(new Error(`Protocol writer exceeded its ${this.#maximumPending}-message pending bound`));
+    }
+    let chunk: string;
+    try {
       const bounded = this.#boundedMessage(message);
-      await writeChunk(this.#output, `${JSON.stringify(bounded)}\n`);
+      chunk = `${JSON.stringify(bounded)}\n`;
+    } catch (error) {
+      return Promise.reject(asError(error));
+    }
+    this.#pending += 1;
+    return new Promise<void>((resolve, reject) => {
+      this.#queue.push({ chunk, resolve, reject });
+      this.#drain();
     });
-    this.#tail = operation.catch((error: unknown) => {
-      this.#failure = asError(error);
-    });
-    return operation;
   }
 
-  async flush(): Promise<void> {
-    await this.#tail;
-    if (this.#failure) throw this.#failure;
+  flush(): Promise<void> {
+    if (this.#failure) return Promise.reject(this.#failure);
+    if (this.#pending === 0) return Promise.resolve();
+    return new Promise<void>((resolve, reject) => this.#flushWaiters.push({ resolve, reject }));
+  }
+
+  #drain(): void {
+    if (this.#writing || this.#failure) return;
+    const next = this.#queue.shift();
+    if (!next) {
+      if (this.#pending !== 0) this.#fail(new Error('Protocol writer pending accounting is inconsistent'));
+      else for (const waiter of this.#flushWaiters.splice(0)) waiter.resolve();
+      return;
+    }
+    this.#writing = true;
+    void writeChunk(this.#output, next.chunk).then(() => {
+      this.#writing = false;
+      this.#pending -= 1;
+      next.resolve();
+      this.#drain();
+    }, (error: unknown) => {
+      this.#writing = false;
+      this.#pending -= 1;
+      next.reject(asError(error));
+      this.#fail(error);
+    });
+  }
+
+  #fail(cause: unknown): void {
+    const error = asError(cause);
+    this.#failure ??= error;
+    for (const queued of this.#queue.splice(0)) {
+      this.#pending -= 1;
+      queued.reject(this.#failure);
+    }
+    for (const waiter of this.#flushWaiters.splice(0)) waiter.reject(this.#failure);
   }
 
   #boundedMessage(message: unknown): unknown {
@@ -366,6 +540,15 @@ function correlationId(value: unknown): string | null {
   if (typeof value !== 'object' || value === null || !('requestId' in value)) return null;
   const requestId = (value as { requestId?: unknown }).requestId;
   return typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,64}$/.test(requestId) ? requestId : null;
+}
+
+function correlationIdFromLine(line: Buffer): string | null {
+  try {
+    const source = new TextDecoder('utf-8', { fatal: true }).decode(line);
+    return correlationId(JSON.parse(source) as unknown);
+  } catch {
+    return null;
+  }
 }
 
 const SYSTEM_TIMER: MeasurementBridgeTimer = {
@@ -406,16 +589,22 @@ function writeChunk(output: Writable, chunk: string): Promise<void> {
     };
     output.once('error', onError);
     output.write(chunk, 'utf8', (error?: Error | null) => {
-      output.removeListener('error', onError);
-      if (error) reject(error);
-      else resolve();
+      if (error) {
+        reject(error);
+        // Writable implementations may emit `error` immediately after invoking
+        // the write callback. Keep the bounded one-shot listener installed so
+        // a callback-reported failure cannot become an uncaught exception.
+      } else {
+        output.removeListener('error', onError);
+        resolve();
+      }
     });
   });
 }
 
 function formatDiagnostic(prefix: string, cause: unknown): string {
   const error = asError(cause);
-  return `${prefix}: ${error.stack ?? error.message}`;
+  return `${prefix}: ${error.stack ?? error.message}`.slice(0, 4_096);
 }
 
 function asError(cause: unknown): Error {

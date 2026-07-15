@@ -35,8 +35,9 @@ Its UTF-8 NDJSON session is closed and bounded:
 - Ready identity binds measurement contract version 1 plus exact contract, catalog, and shipped runtime-generator SHA-256 values.
 - Claims are always `usbEmulated=false`, `firmwareExecuted=false`, and `rfEmitted=false`.
 - The only methods are `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`.
-- Accepted requests execute serially, each request ID executes at most once, every admitted line receives one correlated response, and neither producer nor consumer retries.
-- Lines, queue depth, request count, execution time, point counts, frequency, sample period, and response size are bounded by the public contract.
+- Accepted requests execute serially, each request ID executes at most once, every admitted line receives one response (correlated whenever the bounded input exposes a valid request ID), and neither producer nor consumer retries.
+- Every LF-delimited line and final unterminated fragment—including malformed, duplicate, oversized, and overloaded input—consumes the lifetime session-line budget and a reply obligation. At most 33 reply obligations exist at once; input pauses until blocked stdout releases one.
+- Input chunks, lines, pending replies, queue depth, session lines, execution time, point counts, frequency, sample period, and response size are hard bounded.
 - Every measurement is complete, finite, unit-declared, qualified `synthetic-visual-projection`, and bound to an opaque session/configuration revision and monotonic sequence.
 - Profile/channel changes replace the producer configuration revision. Atomizer invalidates its admitted acquisition configuration before any later acquisition.
 - Selected profile, waveform label, and catalog state appear only in status; measurements never copy them into detector, classifier, or exported-observation evidence.
@@ -117,6 +118,7 @@ No repository may reach into another repository's state directly or silently inf
 7. The active Atomizer measurement edge does not imply or activate the absent Firmware sink.
 8. Failure never activates another profile, channel, driver, transport, or process.
 9. Neither SignalLab nor TinySA's present drivers claim complex I/Q; NeptuneSDR remains a future Atomizer driver/contract evolution, not current support.
+10. Standalone IPC is admitted only from the exact current main frame and renderer origin; packaged execution cannot select a development renderer, request an Electron permission, open a child window, or navigate to an untrusted URL.
 
 ## Liveness and failure algebra
 
@@ -150,6 +152,8 @@ Every local API request settles exactly once as a validated new status or an exp
 - Invalid conformance promotion fails.
 - The shipped bridge and public contract interoperate through the exact ready identity and every admitted method.
 - Bridge bounds, duplicate IDs, malformed input, overload, timeout, shutdown and process exit settle once without retry or fallback.
+- Permanently blocked stdout plus invalid, duplicate, oversized, or overloaded input cannot exceed the total reply-obligation bound.
+- Exact renderer/WebContents/frame trust, strict IPC arity, permission denial, navigation denial, and production CSP are adversarially tested.
 - Electron main/preload and renderer build from this repository alone.
 
 Cross-repository release additionally requires the byte-identical trio-v4 manifest check and real producer/consumer interoperation from `../TinySA`. Activating the stimulus edge requires a new coordinated trio version and tests in both SignalLab and Firmware.

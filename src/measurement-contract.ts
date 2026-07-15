@@ -342,11 +342,16 @@ export const measurementBridgeMessageSchema = z.union([
   measurementBridgeResponseSchema,
 ]);
 
-const documentedCommandSchema = z.object({
-  method: z.enum(['status', 'select_profile', 'configure_channel', 'acquire_spectrum', 'acquire_detected_power', 'shutdown']),
-  stateChange: z.boolean(),
-  result: z.enum(['status', 'swept-spectrum', 'detected-power-timeseries', 'shutdown']),
-}).strict();
+function documentedCommandSchema<
+  Method extends 'status' | 'select_profile' | 'configure_channel' | 'acquire_spectrum' | 'acquire_detected_power' | 'shutdown',
+  Result extends 'status' | 'swept-spectrum' | 'detected-power-timeseries' | 'shutdown',
+>(method: Method, stateChange: boolean, result: Result) {
+  return z.object({
+    method: z.literal(method),
+    stateChange: z.literal(stateChange),
+    result: z.literal(result),
+  }).strict();
+}
 
 /** Runtime schema for the byte-addressed public JSON contract shipped beside the bridge. */
 export const measurementBridgeContractDocumentSchema = z.object({
@@ -365,21 +370,18 @@ export const measurementBridgeContractDocumentSchema = z.object({
     stderr: z.literal('diagnostics-only'),
   }).strict(),
   commands: z.tuple([
-    documentedCommandSchema,
-    documentedCommandSchema,
-    documentedCommandSchema,
-    documentedCommandSchema,
-    documentedCommandSchema,
-    documentedCommandSchema,
-  ]).superRefine((commands, context) => {
-    const expected = ['status', 'select_profile', 'configure_channel', 'acquire_spectrum', 'acquire_detected_power', 'shutdown'];
-    if (commands.some((command, index) => command.method !== expected[index])) {
-      context.addIssue({ code: 'custom', message: 'Commands must use the canonical order and exact method set' });
-    }
-  }),
+    documentedCommandSchema('status', false, 'status'),
+    documentedCommandSchema('select_profile', true, 'status'),
+    documentedCommandSchema('configure_channel', true, 'status'),
+    documentedCommandSchema('acquire_spectrum', false, 'swept-spectrum'),
+    documentedCommandSchema('acquire_detected_power', false, 'detected-power-timeseries'),
+    documentedCommandSchema('shutdown', true, 'shutdown'),
+  ]),
   limits: measurementBridgeLimitsSchema,
   semantics: z.object({
-    replies: z.literal('one-response-per-input-line-and-no-request-id-executes-twice'),
+    replies: z.literal('one-response-per-admitted-input-line-and-no-request-id-executes-twice'),
+    inputBudget: z.literal('every-lf-line-and-final-fragment-including-malformed-input-counts-toward-max-session-requests'),
+    backpressure: z.literal('input-pauses-at-thirty-three-total-pending-reply-obligations'),
     ordering: z.literal('accepted-requests-execute-serially'),
     retry: z.literal('none'),
     selectedProfileVisibility: z.literal('status-only-never-copied-into-measurement-results'),

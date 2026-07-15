@@ -6,7 +6,7 @@ The SignalLab→Atomizer measurement edge is active. It emits only swept-spectru
 
 ## Run
 
-Requirements: Node.js 22+ and npm 11+.
+Requirements: Node.js 22.23.1 and npm 10.9.8 (the exact versions pinned by CI and `packageManager`).
 
 ```bash
 npm install
@@ -21,7 +21,9 @@ npm run build:bridge
 npm run bridge
 ```
 
-The bridge uses bounded UTF-8 NDJSON over stdio. Its first stdout line is an exact `ready` declaration binding the contract, catalog, and shipped generator hashes. It serializes `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`, returns one correlated response per accepted line, and never retries. Atomizer treats any identity, framing, correlation, schema, timeout, or process failure as terminal for that source and never falls back to a TinySA or the Firmware twin.
+The bridge uses bounded UTF-8 NDJSON over stdio. Its first stdout line is an exact `ready` declaration binding the contract, catalog, and shipped generator hashes. It serializes `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`, returns one response per admitted line (correlated whenever a valid request ID is available), and never retries. Every line—including invalid, duplicate, oversized, and overloaded input—consumes the lifetime line budget and one of at most 33 pending reply obligations; input pauses while stdout backpressure holds that bound. Atomizer treats any identity, framing, correlation, schema, timeout, or process failure as terminal for that source and never falls back to a TinySA or the Firmware twin.
+
+The standalone Electron window admits privileged IPC only from its exact current main frame and selected file/development origin. Packaged execution ignores `VITE_DEV_SERVER_URL`, all Electron permissions and child windows are denied, and packaged HTML contains no development network origin.
 
 Atomizer's owner-only startup preference selects the factory default; with no preference file, that default is `signal-lab`. SignalLab does not inspect or mutate that preference. Its selected profile and channel are visible in status/capability state, while measurements carry only observables, opaque session/configuration correlation, and source provenance. Profile identity is never copied into measurement, detector, classifier, or exported-observation evidence.
 
@@ -54,7 +56,7 @@ Bluetooth activity leaf: scalar frequency agility cannot establish protocol
 or emitter identity. Simultaneous lines likewise cannot establish a shared
 emitter, oscillator, modulation process, or message identity.
 
-The v5 corpus also contains byte-for-byte scalar-equivalence null pairs: a
+The v7 corpus also contains byte-for-byte scalar-equivalence null pairs: a
 receiver spur versus CW, coherent independent tones versus DSB-FC AM, an
 independent Bessel-weighted comb versus FM, generic OFDM versus LTE/NR or
 Wi-Fi-shaped projections, and proprietary DSSS versus HR-DSSS. A classifier

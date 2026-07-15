@@ -2,10 +2,21 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { replayChannelConfigurationSchema, SIGNAL_LAB_CONTRACT_VERSION, synthesizedSignalProfileSchema, type ReplayChannelConfiguration, type SignalLabStatus, type SynthesizedSignalProfile } from './contracts.js';
+import { registerSignalLabIpc } from './signal-lab-ipc.js';
+import { installSignalLabRendererBoundary } from './renderer-boundary.js';
+import {
+  assertTrustedRendererEvent,
+  developmentRendererTrust,
+  isTrustedRendererUrl,
+  productionRendererTrust,
+  selectDevelopmentServerUrl,
+  type RendererTrust,
+} from './renderer-trust.js';
 import { DEFAULT_REPLAY_CHANNEL, waveformCatalog, waveformDescriptor } from './waveforms.js';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 let window: BrowserWindow | undefined;
+let rendererTrust: RendererTrust | undefined;
 let profile: SynthesizedSignalProfile = 'cw';
 let channel: ReplayChannelConfiguration = DEFAULT_REPLAY_CHANNEL;
 let sequence = 0;
@@ -27,25 +38,66 @@ function status(): SignalLabStatus {
     channel: structuredClone(channel),
   };
 }
-function publish(): SignalLabStatus { const value = status(); window?.webContents.send('signal-lab:status:v1', value); return value; }
 
-ipcMain.handle('signal-lab:status:v1', () => status());
-ipcMain.handle('signal-lab:select:v1', (_event, value: unknown) => { profile = synthesizedSignalProfileSchema.parse(value); sequence++; return publish(); });
-ipcMain.handle('signal-lab:channel:v1', (_event, value: unknown) => { channel = replayChannelConfigurationSchema.parse(value); sequence++; return publish(); });
+function publish(): SignalLabStatus {
+  const value = status();
+  if (window && !window.isDestroyed() && isTrustedRendererUrl(window.webContents.mainFrame.url, rendererTrust)) {
+    window.webContents.send('signal-lab:status:v1', value);
+  }
+  return value;
+}
+
+function assertTrustedIpcEvent(event: unknown): void {
+  const webContents = window && !window.isDestroyed() ? window.webContents : undefined;
+  assertTrustedRendererEvent(event, webContents, rendererTrust);
+}
+
+const unregisterIpc = registerSignalLabIpc(ipcMain, {
+  status,
+  select: (value) => {
+    profile = synthesizedSignalProfileSchema.parse(value);
+    sequence += 1;
+    return publish();
+  },
+  configureChannel: (value) => {
+    channel = replayChannelConfigurationSchema.parse(value);
+    sequence += 1;
+    return publish();
+  },
+}, assertTrustedIpcEvent);
 
 async function createWindow(): Promise<void> {
+  const rendererPath = join(here, '../renderer/index.html');
+  const developmentUrl = selectDevelopmentServerUrl(process.env.VITE_DEV_SERVER_URL, app.isPackaged);
+  const trust = developmentUrl ? developmentRendererTrust(developmentUrl) : productionRendererTrust(rendererPath);
   const next = new BrowserWindow({
     width: 520, height: 590, minWidth: 520, minHeight: 590, maxWidth: 520, maxHeight: 590, resizable: false,
     title: 'TinySA SignalLab', titleBarStyle: 'hiddenInset', backgroundColor: '#08080a',
-    webPreferences: { preload: join(here, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
+    webPreferences: {
+      preload: join(here, 'preload.cjs'),
+      nodeIntegration: false,
+      nodeIntegrationInSubFrames: false,
+      nodeIntegrationInWorker: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      webviewTag: false,
+    },
   });
   window = next;
-  next.on('closed', () => { window = undefined; });
-  next.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  next.webContents.on('will-navigate', (event) => event.preventDefault());
-  if (process.env.VITE_DEV_SERVER_URL) await next.loadURL(process.env.VITE_DEV_SERVER_URL);
-  else await next.loadFile(join(here, '../renderer/index.html'));
+  rendererTrust = trust;
+  next.on('closed', () => {
+    if (window === next) {
+      window = undefined;
+      rendererTrust = undefined;
+    }
+  });
+  installSignalLabRendererBoundary(next.webContents, trust);
+  if (developmentUrl) await next.loadURL(developmentUrl.href);
+  else await next.loadFile(rendererPath);
 }
 
 app.whenReady().then(createWindow).catch((error) => { console.error('TinySA SignalLab startup failed', error); app.exit(1); });
 app.on('window-all-closed', () => app.quit());
+app.on('will-quit', unregisterIpc);

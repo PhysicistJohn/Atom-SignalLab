@@ -31,6 +31,18 @@ describe('Atomizer high-level measurement source contract', () => {
     ]);
     expect(document.claims).toEqual(MEASUREMENT_BRIDGE_CLAIMS);
     expect(() => measurementBridgeContractDocumentSchema.parse({ ...document, undeclared: true })).toThrow();
+    expect(() => measurementBridgeContractDocumentSchema.parse({
+      ...document,
+      commands: document.commands.map((command, index) => index === 0
+        ? { ...command, stateChange: true }
+        : command),
+    })).toThrow();
+    expect(() => measurementBridgeContractDocumentSchema.parse({
+      ...document,
+      commands: document.commands.map((command, index) => index === 3
+        ? { ...command, result: 'status' }
+        : command),
+    })).toThrow();
   });
 
   it('rejects unknown versions, fields, ranges, and profile substitutions at the request boundary', () => {
