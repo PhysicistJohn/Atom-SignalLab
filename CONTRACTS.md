@@ -1,16 +1,18 @@
 # TinySA SignalLab contract
 
-Status: active standalone application
+Status: active standalone application and Atomizer measurement producer
 
-Contract version: `1`
+- Standalone API version: `1`
+- Atomizer measurement bridge version: `1`
+- Stimulus-intent version: `1`
 
-Trio composition: [`trio-composition-v2.json`](./contracts/trio-composition-v2.json)
+Trio composition: [`trio-composition-v4.json`](./contracts/trio-composition-v4.json)
 
 Owner: this repository
 
-SignalLab is the sole owner of waveform descriptors, the closed synthetic catalog, seeded channel models, playback state, and future stimulus intent. It does not own instrument emulation, USB, Atom policy, or operator-device orchestration.
+SignalLab is the sole owner of waveform descriptors, the closed synthetic catalog, seeded channel models, playback state, high-level synthetic measurement generation, and future stimulus intent. It does not own USB or TinySA emulation, firmware execution, Atom policy, operator instrument selection, or lifecycle orchestration.
 
-## Public boundary
+## Standalone application boundary
 
 The public source boundary is `src/contracts.ts`:
 
@@ -22,6 +24,24 @@ The public source boundary is `src/contracts.ts`:
 - `SignalLabStimulusIntent` is reserved for a future Firmware-owned sink.
 
 Every request is runtime validated. Invalid input rejects before state change; no profile, channel, seed, asset, or sink is substituted.
+
+## Atomizer measurement boundary
+
+The separately built `dist/bridge/atomizer-bridge.js` implements [`contracts/signal-lab-measurement-bridge-v1.json`](./contracts/signal-lab-measurement-bridge-v1.json). Atomizer launches it behind the `signal-lab` driver as a high-level source; the bridge is never a byte transport or TinySA protocol peer.
+
+Its UTF-8 NDJSON session is closed and bounded:
+
+- The first stdout line is one exact `ready` declaration; stdout contains protocol messages only and stderr diagnostics only.
+- Ready identity binds measurement contract version 1 plus exact contract, catalog, and shipped runtime-generator SHA-256 values.
+- Claims are always `usbEmulated=false`, `firmwareExecuted=false`, and `rfEmitted=false`.
+- The only methods are `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`.
+- Accepted requests execute serially, each request ID executes at most once, every admitted line receives one correlated response, and neither producer nor consumer retries.
+- Lines, queue depth, request count, execution time, point counts, frequency, sample period, and response size are bounded by the public contract.
+- Every measurement is complete, finite, unit-declared, qualified `synthetic-visual-projection`, and bound to an opaque session/configuration revision and monotonic sequence.
+- Profile/channel changes replace the producer configuration revision. Atomizer invalidates its admitted acquisition configuration before any later acquisition.
+- Selected profile, waveform label, and catalog state appear only in status; measurements never copy them into detector, classifier, or exported-observation evidence.
+
+With no persisted Atomizer preference, `signal-lab` is Atomizer's factory default. SignalLab neither owns nor reads that preference. Ready, identity, framing, correlation, schema, timeout, or child-process failure terminates that admission attempt and cannot activate the physical ZS407 or Firmware twin.
 
 ## Closed catalog
 
@@ -61,6 +81,14 @@ Guarantees:
 
 ## Assume/guarantee composition
 
+### SignalLab→Atomizer measurement edge
+
+Consumer assumption `A_A`: Atomizer launches the separately built bridge and public contract as admitted regular files, accepts only an exact version-1 ready identity, binds its own source/session evidence, permits one request in flight, and treats protocol or process failure as terminal without retry or fallback.
+
+Producer guarantee `G_M`: SignalLab returns only bounded high-level swept-spectrum and detected-power results with exact source identity, opaque state correlation, declared units and `synthetic-visual-projection` qualification. It exposes no USB, firmware, serial, RF-generator, display, touch, or complex-I/Q identity or capability. Selected profile remains status-only.
+
+Trio composition v4 proves this edge active only while `G_M => A_A` and the three repositories' v4 manifests remain byte-identical.
+
 ### SignalLab→Firmware edge
 
 Consumer assumption `A_F`: a Firmware-owned sink explicitly accepts `SignalLabStimulusIntent.contractVersion = 1` and declares its lifecycle, timing, acknowledgement, and evidence behavior.
@@ -71,11 +99,12 @@ The edge may activate only when `G_S => A_F` is proven by a coordinated trio con
 
 ### Repository ownership
 
-- SignalLab owns stimulus intent.
+- SignalLab owns synthetic measurement generation, the measurement bridge, waveform/profile/channel state, and stimulus intent.
 - `TinySA_Firmware` owns executable-twin state and the future intent sink.
-- `TinySA` owns Atomizer, physical USB, Atom, approvals, and instrument orchestration.
+- `TinySA` owns Atomizer, its driver registry/manager, physical USB, factory-default preference, Atom, approvals, and instrument orchestration.
+- `TinySA_Flasher` independently owns firmware artifacts and physical update transactions. Its active interface catalog v3 retains active application contract v2 (`deviceContractVersion: 2`); interface catalog v2 and legacy application contract v1 are frozen. It is not a runtime-trio party.
 
-No repository may mutate or silently infer another repository’s state.
+No repository may reach into another repository's state directly or silently infer it. Cross-owner state changes occur only through the admitted versioned request, validation, response, and evidence boundary; ownership remains with the producer.
 
 ## Safety invariants
 
@@ -85,8 +114,9 @@ No repository may mutate or silently infer another repository’s state.
 4. Channel configuration is closed and bounded.
 5. Playback never claims calibrated RF emission.
 6. SignalLab never identifies as a tinySA or USB device.
-7. The absent sink remains visibly absent.
-8. Failure never activates another profile, channel, transport, or process.
+7. The active Atomizer measurement edge does not imply or activate the absent Firmware sink.
+8. Failure never activates another profile, channel, driver, transport, or process.
+9. Neither SignalLab nor TinySA's present drivers claim complex I/Q; NeptuneSDR remains a future Atomizer driver/contract evolution, not current support.
 
 ## Liveness and failure algebra
 
@@ -98,6 +128,8 @@ Every local API request settles exactly once as a validated new status or an exp
 | Invalid channel/range/seed | Reject before mutation |
 | Missing descriptor/source | Fail catalog initialization |
 | Non-finite synthesis | Reject the frame |
+| Ready/hash/framing/correlation mismatch | Terminate the measurement session; no retry or fallback |
+| Measurement timeout/process exit | Terminate the measurement session; no retry or fallback |
 | Missing conformance asset | Refuse conformance promotion |
 | Absent Firmware sink | Report `reserved-not-connected` |
 | Version mismatch | Reject without downgrade |
@@ -116,17 +148,21 @@ Every local API request settles exactly once as a validated new status or an exp
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
 - Invalid conformance promotion fails.
+- The shipped bridge and public contract interoperate through the exact ready identity and every admitted method.
+- Bridge bounds, duplicate IDs, malformed input, overload, timeout, shutdown and process exit settle once without retry or fallback.
 - Electron main/preload and renderer build from this repository alone.
 
-Cross-repository release additionally requires the byte-identical trio manifest check from `../TinySA`. Activating the stimulus edge requires new tests in both SignalLab and Firmware.
+Cross-repository release additionally requires the byte-identical trio-v4 manifest check and real producer/consumer interoperation from `../TinySA`. Activating the stimulus edge requires a new coordinated trio version and tests in both SignalLab and Firmware.
 
 ## Source traceability
 
 | Contract | Source |
 |---|---|
 | Public API, profile/channel/descriptor schemas | `src/contracts.ts` |
+| Atomizer measurement schemas and bridge manifest | `src/measurement-contract.ts`, `contracts/signal-lab-measurement-bridge-v1.json` |
+| Stateful measurement source and bounded NDJSON process | `src/measurement-service.ts`, `src/measurement-bridge.ts`, `src/atomizer-bridge.ts` |
 | Catalog and standards clauses | `src/catalog.ts` |
 | Spectrum/zero-span/channel synthesis | `src/waveforms.ts` |
 | Standalone Electron boundary | `src/main-process.ts`, `src/preload.ts` |
 | Operator UI | `src/DemoLab.tsx` |
-| Contract evidence | `src/waveforms.test.ts` |
+| Contract evidence | `src/waveforms.test.ts`, `src/measurement-service.test.ts`, `src/measurement-bridge.test.ts`, `src/atomizer-bridge.integration.test.ts` |

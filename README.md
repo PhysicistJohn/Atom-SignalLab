@@ -1,8 +1,8 @@
 # TinySA SignalLab
 
-SignalLab is the standalone stimulus-authoring member of the TinySA trio. It owns deterministic CW, AM, FM, standards-derived GERAN/E-UTRA/NR/WLAN visual projections, and seeded AWGN/Rayleigh channel models.
+SignalLab is the standalone synthetic-measurement and stimulus-authoring member of the TinySA trio. It owns deterministic CW, AM, FM, standards-derived GERAN/E-UTRA/NR/WLAN visual projections, seeded AWGN/Rayleigh channel models, and the separately built high-level measurement bridge used by Atomizer's `signal-lab` driver.
 
-It does not impersonate a USB instrument, emit RF, control Atomizer, or own the executable twin. Its future integration surface is a versioned `SignalLabStimulusIntent`; the Firmware repository will own any sink that applies that intent. That sink is currently `reserved-not-connected`.
+The SignalLab→Atomizer measurement edge is active. It emits only swept-spectrum and detected-power observations qualified `synthetic-visual-projection`; it does not impersonate a USB instrument, execute firmware, emit RF, control Atomizer, or own the executable twin. The separate SignalLab→Firmware integration surface is versioned `SignalLabStimulusIntent`; the Firmware repository will own any sink that applies that intent. That sink remains `reserved-not-connected`.
 
 ## Run
 
@@ -13,6 +13,17 @@ npm install
 npm run check
 npm run dev
 ```
+
+Build or run the version-1 Atomizer bridge directly with:
+
+```bash
+npm run build:bridge
+npm run bridge
+```
+
+The bridge uses bounded UTF-8 NDJSON over stdio. Its first stdout line is an exact `ready` declaration binding the contract, catalog, and shipped generator hashes. It serializes `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`, returns one correlated response per accepted line, and never retries. Atomizer treats any identity, framing, correlation, schema, timeout, or process failure as terminal for that source and never falls back to a TinySA or the Firmware twin.
+
+Atomizer's owner-only startup preference selects the factory default; with no preference file, that default is `signal-lab`. SignalLab does not inspect or mutate that preference. Its selected profile and channel are visible in status/capability state, while measurements carry only observables, opaque session/configuration correlation, and source provenance. Profile identity is never copied into measurement, detector, classifier, or exported-observation evidence.
 
 The catalog contains exactly 79 profiles:
 
@@ -56,4 +67,4 @@ physics/standards-derived projections verify inference code and observable
 equivalence behavior; real-world probability calibration still requires
 session-grouped physical captures.
 
-See [CONTRACTS.md](./CONTRACTS.md) for the closed API, synthesis guarantees, failure algebra, and acceptance evidence. The byte-identical cross-repository composition is [contracts/trio-composition-v2.json](./contracts/trio-composition-v2.json).
+See [CONTRACTS.md](./CONTRACTS.md) for the standalone API, measurement bridge, synthesis guarantees, failure algebra, and acceptance evidence. The byte-identical cross-repository composition is [contracts/trio-composition-v4.json](./contracts/trio-composition-v4.json).

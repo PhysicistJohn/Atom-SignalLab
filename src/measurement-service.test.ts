@@ -20,6 +20,7 @@ describe('Atomizer high-level measurement source contract', () => {
     const source = await readFile(new URL('../contracts/signal-lab-measurement-bridge-v1.json', import.meta.url), 'utf8');
     const document = measurementBridgeContractDocumentSchema.parse(JSON.parse(source));
     expect(document.contractVersion).toBe(1);
+    expect(document.status).toBe('active');
     expect(document.commands.map((command) => command.method)).toEqual([
       'status',
       'select_profile',

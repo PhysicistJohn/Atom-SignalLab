@@ -353,7 +353,7 @@ export const measurementBridgeContractDocumentSchema = z.object({
   documentType: z.literal('contract-manifest'),
   contractId: z.literal(ATOMIZER_MEASUREMENT_CONTRACT_ID),
   contractVersion: z.literal(ATOMIZER_MEASUREMENT_CONTRACT_VERSION),
-  status: z.literal('producer-available-consumer-not-yet-composed'),
+  status: z.literal('active'),
   owner: z.literal('TinySA_SignalLab'),
   purpose: z.literal('high-level-synthetic-measurement-source-for-atomizer'),
   framing: z.object({

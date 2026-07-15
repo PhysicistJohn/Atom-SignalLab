@@ -2,7 +2,7 @@
   "documentType": "contract-manifest",
   "contractId": "tinysa-signal-lab-atomizer-measurement",
   "contractVersion": 1,
-  "status": "producer-available-consumer-not-yet-composed",
+  "status": "active",
   "owner": "TinySA_SignalLab",
   "purpose": "high-level-synthetic-measurement-source-for-atomizer",
   "framing": {
