@@ -627,11 +627,26 @@ function canonizedEnvelopeRelativePowerDb(
   scenario: CanonizedKnownScenario,
   timeSeconds: number,
   tuneFrequencyHz: number,
-  configuration: Pick<CanonizedEnvelopeInput, 'synthesisFilterWidthHz' | 'seed'>,
+  configuration: Pick<CanonizedEnvelopeInput, 'synthesisFilterWidthHz' | 'seed' | 'lookIndex'>,
 ): number {
   switch (scenario.envelopeModel) {
-    case 'steady': return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds)
-      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
+    case 'steady': {
+      // The swept CW projection declares deterministic inter-look drift.  A
+      // fresh fixed-tune capture observes the carrier at its capture-time
+      // center, not forever at the nominal scenario center.  Omitting this
+      // term made long-running sessions spuriously turn a correctly tuned CW
+      // envelope into receiver noise.
+      const captureCenterHz = scenario.centerHz
+        + (configuration.lookIndex - 4) * (scenario.parameters.driftHzPerLook ?? 0);
+      return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds)
+        + canonizedFixedReceiverResponseDb(
+          scenarioId,
+          scenario,
+          tuneFrequencyHz,
+          configuration.synthesisFilterWidthHz,
+          captureCenterHz,
+        );
+    }
     case 'sinusoidal-am': return canonizedReceiverFilteredAmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
     case 'receiver-filtered-fm': return canonizedReceiverFilteredFmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
     case 'one-of-eight-tdma': return canonizedGsmTrafficActive(scenarioId, scenario, timeSeconds)
@@ -682,8 +697,9 @@ function canonizedFixedReceiverResponseDb(
   scenario: CanonizedKnownScenario,
   tuneFrequencyHz: number,
   rbwHz: number,
+  signalCenterHz = scenario.centerHz,
 ): number {
-  const offsetHz = tuneFrequencyHz - scenario.centerHz;
+  const offsetHz = tuneFrequencyHz - signalCenterHz;
   switch (scenario.spectrumModel) {
     case 'rbw-line': return canonizedGaussianFilterDb(offsetHz, rbwHz);
     case 'gaussian-channel': return canonizedGaussianOccupiedChannelDb(offsetHz, Math.max(scenario.occupiedBandwidthHz, rbwHz));

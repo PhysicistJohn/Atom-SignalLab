@@ -36,7 +36,7 @@ import {
   type SourceBasis,
 } from './source-provenance.js';
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v12' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v13' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -173,7 +173,8 @@ const nonConformance = 'Deterministic scalar instrument projection for inference
 const multitoneDisclosure = `${nonConformance} Simultaneous regular lines are association-compatible, but scalar power cannot prove a shared emitter, oscillator, modulation process, or message identity.`;
 const agileEquivalenceDisclosure = `${nonConformance} The observed frequency-agile scalar activity is also compatible with Bluetooth, proprietary FHSS, a scanning interferer, or time-interleaved independent sources; it cannot prove protocol or emitter identity.`;
 const stationaryDisclosure = `${nonConformance} Intermittence at one fixed center is negative evidence for frequency agility, but its scalar line may remain CW-like.`;
-const exactScalarEquivalenceDisclosure = `${nonConformance} This deliberately independent source model produces the same admitted scalar observables as a fitted known scenario, so the measurement cannot establish waveform or protocol identity.`;
+const exactScalarEquivalenceDisclosure = `${nonConformance} This deliberately independent source hypothesis is rendered through the same declared scalar observation operator as a fitted known scenario, so every admitted scalar observable is exactly equal and the measurement cannot establish waveform or protocol identity.`;
+const chirpFragmentDisclosure = `${nonConformance} The swept source can be fragmented by local detection and tracking into observations that are CW-like or FM-like over the admitted finite window; those observable labels do not establish the source modulation or emitter identity.`;
 const lteTddDisclosure = `${nonConformance} This downlink-only scenario explicitly selects UL/DL configuration 0 and normal-CP special-subframe configuration 7 with srs-UpPtsAdd absent; only DwPTS is downlink-active in each special subframe. The special-subframe selection is not implied by Band 38 or UL/DL configuration 0.`;
 const nrTddEngineeringDisclosure = `${nonConformance} Engineering schedule nr-tdd-7dl-3ul-engineering-v1 selects one valid 5 ms TDD-UL-DL-Pattern at 30 kHz SCS with seven complete downlink slots followed by three complete uplink slots. It is a downlink-only SignalLab scenario, not a pattern prescribed for n78 or universal across NR deployments.`;
 const bleEngineeringDisclosure = `${nonConformance} Engineering schedule ble-primary-advertising-engineering-v1 sends one fixed-duration packet on each primary advertising center in the fixed 37, 38, 39 order with 1.5 ms packet-start spacing, a 20 ms advertising interval, and a seeded per-event pseudorandom advDelay in [0, 10 ms). This schedule is an acquisition scenario, not universal Bluetooth timing, channel-map, order, or PDU behavior.`;
@@ -227,7 +228,10 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   }),
 
   scenario('unknown-narrow-fsk', 'unknown-signal', 'unknown', 'Proprietary narrow FSK hard negative', 433_920_000, 45_000, 500_000, 'fsk-pair', 'fsk-steady', TINYSA_SOURCE, { deviationHz: 18_000 }),
-  scenario('unknown-chirp', 'unknown-signal', 'unknown', 'Swept chirp hard negative', 915_000_000, 5_000_000, 10_000_000, 'chirp', 'chirp-sweep', TINYSA_SOURCE, { chirpPeriodSeconds: 0.004 }),
+  scenario('unknown-chirp', 'unknown-signal', 'unknown', 'Swept chirp with locally line-like finite-window fragments', 915_000_000, 5_000_000, 10_000_000, 'chirp', 'chirp-sweep', TINYSA_SOURCE, { chirpPeriodSeconds: 0.004 }, {
+    disclosure: chirpFragmentDisclosure,
+    allowedObservableClasses: ['unknown-signal', 'cw-like', 'fm-angle-modulated-like'],
+  }),
   scenario('unknown-802154', 'unknown-signal', 'unknown', 'IEEE 802.15.4-like hard negative', 2_425_000_000, 2_000_000, 10_000_000, 'gaussian-channel', 'csma-bursts', IEEE_802154_SOURCE, { symbolRateHz: 62_500 }, { carrierRasterHz: 5_000_000 }),
   scenario('unknown-impulsive', 'unknown-signal', 'unknown', 'Impulsive broadband interference hard negative', 1_000_000_000, 20_000_000, 30_000_000, 'impulsive-noise', 'impulsive', TINYSA_SOURCE, { impulseRateHz: 120 }),
   scenario('unknown-regular-cw-comb-4', 'unknown-signal', 'unknown', 'Four independent equal-power CW lines on a regular raster', 915_000_000, 900_000, 2_000_000, 'multitone-lines', 'multitone-fixed-tune', TINYSA_SOURCE, {
@@ -282,8 +286,37 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'wifi-hr-dsss-like'] }),
 ]);
 
+/**
+ * Source-distinct hypotheses that are intentionally identical after the
+ * declared scalar instrument observation operator.  Delegating the numerical
+ * projection is stronger than maintaining duplicate formulas: it makes the
+ * non-identifiability null exact for every seed, look, RBW, tune, and sampling
+ * geometry while the returned scenario truth/provenance remains independent.
+ */
+export const EXACT_SCALAR_EQUIVALENCE_REFERENCE_SCENARIOS: Readonly<Record<string, CanonizedKnownScenarioId | undefined>> = Object.freeze({
+  'unknown-instrument-spur-rbw-line': 'cw-rbw-line',
+  'unknown-independent-am-equivalent-three-tone': 'am-dsb-25k',
+  'unknown-independent-fm-equivalent-bessel-comb': 'fm-beta-3',
+  'unknown-generic-ofdm-20m': 'lte-band3-fdd-20m',
+  'unknown-generic-tdd-ofdm-10m': 'lte-band38-tdd-10m',
+  'unknown-generic-ofdm-80m': 'wifi-ofdm-80m',
+  'unknown-proprietary-dsss-22m': 'wifi-hr-dsss-11m',
+});
+
 const scenarioById = new Map(canonicalClassificationScenarios.map((value) => [value.id, value]));
 if (scenarioById.size !== canonicalClassificationScenarios.length) throw new Error('Canonical classification corpus contains duplicate scenario IDs');
+for (const [nullScenarioId, referenceScenarioId] of Object.entries(EXACT_SCALAR_EQUIVALENCE_REFERENCE_SCENARIOS)) {
+  if (referenceScenarioId === undefined) continue;
+  const scalarNull = scenarioById.get(nullScenarioId);
+  const reference = scenarioById.get(referenceScenarioId);
+  if (!scalarNull || !reference) throw new Error(`Exact scalar-equivalence pair ${nullScenarioId}<=>${referenceScenarioId} is missing`);
+  if (scalarNull.truthClass !== 'unknown-signal'
+    || scalarNull.centerHz !== reference.centerHz
+    || scalarNull.occupiedBandwidthHz !== reference.occupiedBandwidthHz
+    || scalarNull.recommendedSpanHz !== reference.recommendedSpanHz) {
+    throw new Error(`Exact scalar-equivalence pair ${nullScenarioId}<=>${referenceScenarioId} has incompatible declared geometry`);
+  }
+}
 
 export const DEFAULT_CANONICAL_INSTRUMENT: Omit<CanonicalInstrumentConfiguration, 'lookIndex'> = Object.freeze({
   points: 450,
@@ -313,7 +346,9 @@ export function synthesizeCanonicalObservation(
   const startHz = scenario.centerHz - scenario.recommendedSpanHz / 2;
   const stopHz = scenario.centerHz + scenario.recommendedSpanHz / 2;
   const frequencyHz = Array.from({ length: configuration.points }, (_, index) => startHz + (stopHz - startHz) * index / (configuration.points - 1));
-  const knownScenarioId = isCanonizedKnownScenarioId(scenario.id) ? scenario.id : undefined;
+  const knownScenarioId = isCanonizedKnownScenarioId(scenario.id)
+    ? scenario.id
+    : EXACT_SCALAR_EQUIVALENCE_REFERENCE_SCENARIOS[scenario.id];
   const powerDbm = knownScenarioId === undefined
     ? frequencyHz.map((frequency, index) => {
       const timeSeconds = configuration.lookIndex * configuration.sweepTimeSeconds + index * configuration.sweepTimeSeconds / Math.max(1, configuration.points - 1);

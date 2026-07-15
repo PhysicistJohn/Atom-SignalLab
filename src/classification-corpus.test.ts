@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CLASSIFICATION_CORPUS_VERSION,
+  EXACT_SCALAR_EQUIVALENCE_REFERENCE_SCENARIOS,
   OBSERVABLE_SIGNAL_CLASSES,
   canonicalClassificationScenarios,
   canonicalClassificationScenario,
@@ -9,7 +10,7 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v12');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v13');
     expect(canonicalClassificationScenarios).toHaveLength(35);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
@@ -40,6 +41,32 @@ describe('canonical scalar classification corpus', () => {
     expect(first.zeroSpanPowerDbm).toHaveLength(450);
     expect(first.powerDbm.every(Number.isFinite)).toBe(true);
     expect(first.zeroSpanPowerDbm.every(Number.isFinite)).toBe(true);
+  });
+
+  it('keeps a fresh fixed-tune CW capture centered on the declared inter-look drift', () => {
+    const scenario = canonicalClassificationScenario('cw-rbw-line');
+    const lookIndex = 347;
+    const driftedCenterHz = scenario.centerHz + (lookIndex - 4) * 35;
+    const centered = synthesizeCanonicalObservation('cw-rbw-line', {
+      lookIndex,
+      seed: 13_037,
+      snrDb: 60,
+      noiseFloorDbm: -145,
+      actualRbwHz: 1_000,
+      detectedPowerSynthesisFilterWidthHz: 1_000,
+      zeroSpanFrequencyHz: driftedCenterHz,
+    });
+    const staleNominalTune = synthesizeCanonicalObservation('cw-rbw-line', {
+      lookIndex,
+      seed: 13_037,
+      snrDb: 60,
+      noiseFloorDbm: -145,
+      actualRbwHz: 1_000,
+      detectedPowerSynthesisFilterWidthHz: 1_000,
+      zeroSpanFrequencyHz: scenario.centerHz,
+    });
+    expect(Math.max(...centered.zeroSpanPowerDbm)).toBeGreaterThan(-90);
+    expect(Math.max(...staleNominalTune.zeroSpanPowerDbm)).toBeLessThan(-125);
   });
 
   it('uses the physical DSB full-carrier AM sideband-to-carrier power relation', () => {
@@ -396,19 +423,40 @@ describe('canonical scalar classification corpus', () => {
       ['wifi-ofdm-80m', 'unknown-generic-ofdm-80m'],
       ['wifi-hr-dsss-11m', 'unknown-proprietary-dsss-22m'],
     ] as const;
+    expect(Object.entries(EXACT_SCALAR_EQUIVALENCE_REFERENCE_SCENARIOS).sort())
+      .toEqual(pairs.map(([knownId, nullId]) => [nullId, knownId]).sort());
     for (const [knownId, nullId] of pairs) {
-      const configuration = {
-        lookIndex: 3, seed: 4_019, snrDb: 24, actualRbwHz: 100_000,
-        points: 450, sweepTimeSeconds: 0.05, zeroSpanPoints: 450, zeroSpanSamplePeriodSeconds: 1 / 9_000,
-      };
-      const known = synthesizeCanonicalObservation(knownId, configuration);
-      const scalarNull = synthesizeCanonicalObservation(nullId, configuration);
-      expect(scalarNull.frequencyHz).toEqual(known.frequencyHz);
-      expect(maximumAbsoluteDifference(scalarNull.powerDbm, known.powerDbm)).toBeLessThan(1e-10);
-      expect(maximumAbsoluteDifference(scalarNull.zeroSpanPowerDbm, known.zeroSpanPowerDbm)).toBeLessThan(1e-10);
+      const scenario = canonicalClassificationScenario(knownId);
+      for (const configuration of [
+        { lookIndex: 0, seed: 4_019, snrDb: 6, actualRbwHz: 1_000, detectedPowerSynthesisFilterWidthHz: 1_000 },
+        { lookIndex: 3, seed: 4_019, snrDb: 24, actualRbwHz: 100_000, detectedPowerSynthesisFilterWidthHz: 100_000 },
+        { lookIndex: 347, seed: 13_037, snrDb: 32, actualRbwHz: scenario.occupiedBandwidthHz / 44, detectedPowerSynthesisFilterWidthHz: scenario.occupiedBandwidthHz / 98 },
+        { lookIndex: 511, seed: 13_151, snrDb: 16, actualRbwHz: scenario.recommendedSpanHz / 449, detectedPowerSynthesisFilterWidthHz: 77_777, zeroSpanFrequencyHz: scenario.centerHz + scenario.occupiedBandwidthHz * 0.17 },
+      ]) {
+        const acquisition = {
+          ...configuration,
+          points: 450, sweepTimeSeconds: 0.05, zeroSpanPoints: 450, zeroSpanSamplePeriodSeconds: 1 / 9_000,
+        };
+        const known = synthesizeCanonicalObservation(knownId, acquisition);
+        const scalarNull = synthesizeCanonicalObservation(nullId, acquisition);
+        expect(scalarNull.frequencyHz).toEqual(known.frequencyHz);
+        expect(scalarNull.powerDbm).toEqual(known.powerDbm);
+        expect(scalarNull.zeroSpanPowerDbm).toEqual(known.zeroSpanPowerDbm);
+      }
       expect(canonicalClassificationScenario(nullId).allowedObservableClasses.length).toBeGreaterThan(1);
-      expect(canonicalClassificationScenario(nullId).disclosure).toMatch(/same admitted scalar observables/i);
+      expect(canonicalClassificationScenario(nullId).disclosure).toMatch(/every admitted scalar observable is exactly equal/i);
     }
+  });
+
+  it('discloses finite-window chirp fragments as observation-level ambiguity', () => {
+    const chirp = canonicalClassificationScenario('unknown-chirp');
+    expect(chirp.allowedObservableClasses).toEqual([
+      'unknown-signal',
+      'cw-like',
+      'fm-angle-modulated-like',
+    ]);
+    expect(chirp.disclosure).toMatch(/finite window/i);
+    expect(chirp.disclosure).toMatch(/do not establish/i);
   });
 
   it('canonizes regular independent-carrier combs without claiming one emitter', () => {
