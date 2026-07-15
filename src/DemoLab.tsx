@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, AudioLines, Boxes, Grid3X3, RadioTower, Waves, Wifi } from 'lucide-react';
+import { Activity, AudioLines, Bluetooth, Boxes, Grid3X3, RadioTower, Waves, Wifi } from 'lucide-react';
 import type { SignalLabStatus, ReplayChannelConfiguration, SynthesizedSignalProfile, WaveformDescriptor } from './contracts.js';
 import { EditableParameter, SelectParameter } from './ParameterRow.js';
 
-type CatalogGroup = 'lab' | 'geran' | 'e-utra' | 'nr' | 'wlan';
+type CatalogGroup = 'lab' | 'geran' | 'e-utra' | 'nr' | 'wlan' | 'bluetooth';
 
 const groups: readonly { id: CatalogGroup; label: string }[] = [
   { id: 'lab', label: 'LAB' },
@@ -11,6 +11,7 @@ const groups: readonly { id: CatalogGroup; label: string }[] = [
   { id: 'e-utra', label: 'LTE' },
   { id: 'nr', label: '5G NR' },
   { id: 'wlan', label: 'WI-FI' },
+  { id: 'bluetooth', label: 'BT' },
 ];
 
 const labIcons = { cw: RadioTower, am: Activity, fm: Waves } as const;
@@ -103,7 +104,7 @@ function ProfileBrowser({ descriptor, catalog, active, switching, disabled, onSe
   disabled: boolean;
   onSelect(profile: SynthesizedSignalProfile): void;
 }) {
-  const Icon = descriptor.family === 'geran' ? AudioLines : descriptor.family === 'e-utra' ? Grid3X3 : descriptor.family === 'nr' ? Boxes : Wifi;
+  const Icon = descriptor.family === 'geran' ? AudioLines : descriptor.family === 'e-utra' ? Grid3X3 : descriptor.family === 'nr' ? Boxes : descriptor.family === 'bluetooth' ? Bluetooth : Wifi;
   return <div className="profile-browser">
     <SelectParameter label={`${familyLabel(descriptor)} waveform model`} value={descriptor.id} disabled={disabled} controlId="demo.waveform-model" options={catalog.map((entry) => ({ value: entry.id, label: entry.label }))} onValue={(value) => onSelect(value as SynthesizedSignalProfile)}/>
     <article className={active ? 'active' : ''} title={descriptor.disclosure}>
@@ -120,7 +121,7 @@ function catalogGroup(descriptor: WaveformDescriptor): CatalogGroup {
 }
 
 function familyLabel(descriptor: WaveformDescriptor): string {
-  return ({ geran: 'GSM', 'e-utra': 'LTE', nr: '5G NR', wlan: 'Wi-Fi', tone: 'Lab', analog: 'Lab' })[descriptor.family];
+  return ({ geran: 'GSM', 'e-utra': 'LTE', nr: '5G NR', wlan: 'Wi-Fi', bluetooth: 'Bluetooth', tone: 'Lab', analog: 'Lab' })[descriptor.family];
 }
 
 function requireDescriptor(descriptor: WaveformDescriptor | undefined, group: CatalogGroup): WaveformDescriptor {

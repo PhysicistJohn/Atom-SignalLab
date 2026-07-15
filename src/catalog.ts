@@ -11,36 +11,127 @@ const LTE_URL = 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136141/19.01
 const NR_URL = 'https://www.etsi.org/deliver/etsi_ts/138100_138199/13814101/19.04.00_60/ts_13814101v190400p.pdf';
 const GSM_URL = 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00.00_60/ts_145005v190000p.pdf';
 const WIFI_URL = 'https://standards.ieee.org/ieee/802.11ax/7180/';
+const LTE_OBSERVABLE_URL = 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136101/18.05.00_60/ts_136101v180500p.pdf';
+const NR_OBSERVABLE_URL = 'https://www.etsi.org/deliver/etsi_ts/138100_138199/138104/18.12.00_60/ts_138104v181200p.pdf';
+const WIFI_OBSERVABLE_URL = 'https://standards.ieee.org/ieee/802.11/10548/';
+const BLUETOOTH_URL = 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/index-en.html';
+const observableEquivalenceDisclosure = 'Canonized scalar power projection for observable Bayesian inference. It is not bit-exact or protocol-decodable I/Q, is not a conformance vector, and supports only observable-class equivalence rather than protocol or emitter identity.';
+const agileObservableEquivalenceDisclosure = `${observableEquivalenceDisclosure} Frequency-agile scalar activity is also compatible with proprietary FHSS, scanning interference, or time-interleaved independent sources.`;
 
 const visualStandard = {
   organization: 'TinySA SignalLab' as const,
-  specification: 'Synthetic replay contract',
-  clause: 'Visual laboratory profiles',
-  revision: '2.2',
+  specification: 'Analytic RF scalar-observation definitions',
+  clause: 'RBW-filtered CW, DSB full-carrier AM and sinusoidal FM',
+  revision: '3',
   url: 'https://tinysa.org/wiki/',
 };
 
 const visualDescriptors: WaveformDescriptor[] = [
   makeDescriptor({
-    id: 'cw', label: 'CW carrier', family: 'tone', model: 'Unmodulated carrier', centerHz: 98_000_000,
-    occupiedBandwidthHz: 5_000, recommendedSpanHz: 2_000_000,
+    id: 'cw', label: 'CW carrier', family: 'tone', model: 'Canonized scalar observable · RBW-filtered line', centerHz: 98_000_000,
+    occupiedBandwidthHz: 2_000, recommendedSpanHz: 500_000,
     projection: { allocation: 'carrier', modulation: 'unmodulated', timing: 'continuous' },
     standard: visualStandard,
-    disclosure: 'Deterministic unmodulated carrier for interaction and marker testing; not a calibrated RF source.',
+    disclosure: `${observableEquivalenceDisclosure} This physics-derived case is an unmodulated line passed through the declared analyzer grid-equivalent RBW.`,
   }),
   makeDescriptor({
-    id: 'am', label: 'AM replay', family: 'analog', model: 'AM · time-compressed envelope', centerHz: 98_000_000,
-    occupiedBandwidthHz: 60_000, recommendedSpanHz: 500_000,
+    id: 'am', label: 'AM replay', family: 'analog', model: 'Canonized DSB full-carrier observable · 25 kHz tone', centerHz: 98_000_000,
+    occupiedBandwidthHz: 52_000, recommendedSpanHz: 500_000,
     projection: { allocation: 'sidebands', modulation: 'am', timing: 'continuous' },
     standard: visualStandard,
-    disclosure: 'Carrier and symmetric sidebands use a time-compressed amplitude cycle so modulation is visible sweep to sweep.',
+    disclosure: `${observableEquivalenceDisclosure} The carrier and symmetric sidebands use the physical DSB full-carrier power ratio; independent coherent tones can be scalar-equivalent.`,
   }),
   makeDescriptor({
-    id: 'fm', label: 'FM replay', family: 'analog', model: 'FM · ±75 kHz deviation', centerHz: 98_000_000,
+    id: 'fm', label: 'FM replay', family: 'analog', model: 'Canonized sinusoidal FM observable · beta 3 · ±75 kHz', centerHz: 98_000_000,
     occupiedBandwidthHz: 200_000, recommendedSpanHz: 500_000,
     projection: { allocation: 'sidebands', modulation: 'fm', timing: 'continuous' },
     standard: visualStandard,
-    disclosure: 'Instantaneous carrier energy traverses a time-compressed ±75 kHz deviation with resolved low-level sidebands; the replay channel floor is not raised.',
+    disclosure: `${observableEquivalenceDisclosure} The swept spectrum is the physical Bessel-series line-power projection; an independent Bessel-weighted comb can be scalar-equivalent.`,
+  }),
+];
+
+const canonizedGsmDescriptors: WaveformDescriptor[] = [makeDescriptor({
+  id: 'gsm-900-loaded-bcch', label: 'GSM 900 loaded observable', family: 'geran',
+  model: 'Canonized scalar observable · loaded BCCH/dummy bursts', centerHz: 947_400_000,
+  occupiedBandwidthHz: 200_000, recommendedSpanHz: 2_000_000,
+  projection: { allocation: 'narrowband', modulation: 'gmsk', timing: 'continuous', duplex: 'fdd' },
+  standard: { organization: '3GPP', specification: 'TS 45.002 / TS 45.005', clause: 'TDMA frame/slot structure and 200 kHz radio-channel spacing', revision: '19.0.0', url: GSM_URL },
+  disclosure: observableEquivalenceDisclosure,
+})];
+
+const canonizedLteDescriptors: WaveformDescriptor[] = [
+  makeDescriptor({
+    id: 'lte-band3-fdd-20m', label: 'LTE Band 3 FDD observable', family: 'e-utra',
+    model: 'Canonized scalar observable · 20 MHz · 15 kHz SCS', centerHz: 1_840_000_000,
+    occupiedBandwidthHz: 18_000_000, recommendedSpanHz: 30_000_000,
+    projection: { allocation: 'full', modulation: 'ofdm-mixed', timing: 'continuous', duplex: 'fdd', subcarrierSpacingHz: 15_000, nominalResourceBlocks: 100 },
+    standard: { organization: '3GPP', specification: 'TS 36.101 / TS 36.211', clause: 'Band 3 FDD, transmission bandwidth and frame structure', revision: '18.5.0', url: LTE_OBSERVABLE_URL },
+    disclosure: observableEquivalenceDisclosure,
+  }),
+  makeDescriptor({
+    id: 'lte-band38-tdd-10m', label: 'LTE Band 38 TDD observable', family: 'e-utra',
+    model: 'Canonized scalar observable · 10 MHz · UL/DL config 0', centerHz: 2_595_000_000,
+    occupiedBandwidthHz: 9_000_000, recommendedSpanHz: 20_000_000,
+    projection: { allocation: 'full', modulation: 'ofdm-mixed', timing: 'tdd-frame', duplex: 'tdd', subcarrierSpacingHz: 15_000, nominalResourceBlocks: 50 },
+    standard: { organization: '3GPP', specification: 'TS 36.101 / TS 36.211', clause: 'Band 38 TDD, transmission bandwidth and UL/DL configuration 0', revision: '18.5.0', url: LTE_OBSERVABLE_URL },
+    disclosure: observableEquivalenceDisclosure,
+  }),
+];
+
+const canonizedNrDescriptors: WaveformDescriptor[] = [
+  makeDescriptor({
+    id: 'nr-n3-fdd-20m', label: '5G NR n3 FDD observable', family: 'nr',
+    model: 'Canonized scalar observable · 20 MHz · 15 kHz SCS', centerHz: 1_840_000_000,
+    occupiedBandwidthHz: 19_080_000, recommendedSpanHz: 30_000_000,
+    projection: { allocation: 'full', modulation: 'ofdm-mixed', timing: 'continuous', duplex: 'fdd', subcarrierSpacingHz: 15_000, nominalResourceBlocks: 106 },
+    standard: { organization: '3GPP', specification: 'TS 38.104 / TS 38.211', clause: 'FR1 band n3 FDD, channel bandwidth, numerology and frame structure', revision: '18.12.0', url: NR_OBSERVABLE_URL },
+    disclosure: observableEquivalenceDisclosure,
+  }),
+  makeDescriptor({
+    id: 'nr-n78-tdd-100m', label: '5G NR n78 TDD observable', family: 'nr',
+    model: 'Canonized scalar observable · 100 MHz · 30 kHz SCS', centerHz: 3_500_000_000,
+    occupiedBandwidthHz: 98_280_000, recommendedSpanHz: 120_000_000,
+    projection: { allocation: 'full', modulation: 'ofdm-mixed', timing: 'tdd-frame', duplex: 'tdd', subcarrierSpacingHz: 30_000, nominalResourceBlocks: 273 },
+    standard: { organization: '3GPP', specification: 'TS 38.104 / TS 38.211', clause: 'FR1 band n78 TDD, channel bandwidth, numerology and frame structure', revision: '18.12.0', url: NR_OBSERVABLE_URL },
+    disclosure: observableEquivalenceDisclosure,
+  }),
+];
+
+const canonizedWifiDescriptors: WaveformDescriptor[] = [
+  makeDescriptor({
+    id: 'wifi-hr-dsss-11m', label: 'Wi-Fi HR-DSSS observable', family: 'wlan',
+    model: 'Canonized scalar observable · 2.4 GHz · 11 Mchip/s', centerHz: 2_437_000_000,
+    occupiedBandwidthHz: 22_000_000, recommendedSpanHz: 30_000_000,
+    projection: { allocation: 'full', modulation: 'hr-dsss', timing: 'burst' },
+    standard: { organization: 'IEEE', specification: 'IEEE 802.11-2024', clause: 'DSSS/HR-DSSS PHY channelization', revision: '2024', url: WIFI_OBSERVABLE_URL },
+    disclosure: observableEquivalenceDisclosure,
+  }),
+  makeDescriptor({
+    id: 'wifi-ofdm-20m', label: 'Wi-Fi OFDM 20 MHz observable', family: 'wlan',
+    model: 'Canonized scalar observable · 2.4 GHz · 20 MHz', centerHz: 2_437_000_000,
+    occupiedBandwidthHz: 16_600_000, recommendedSpanHz: 30_000_000,
+    projection: { allocation: 'full', modulation: 'ofdm-mixed', timing: 'burst', subcarrierSpacingHz: 312_500 },
+    standard: { organization: 'IEEE', specification: 'IEEE 802.11-2024', clause: 'OFDM PHY channelization', revision: '2024', url: WIFI_OBSERVABLE_URL },
+    disclosure: observableEquivalenceDisclosure,
+  }),
+];
+
+const canonizedBluetoothDescriptors: WaveformDescriptor[] = [
+  makeDescriptor({
+    id: 'bluetooth-classic-connected', label: 'Bluetooth BR/EDR connected observable', family: 'bluetooth',
+    model: 'Canonized scalar observable · 79-channel hopping', centerHz: 2_441_000_000,
+    occupiedBandwidthHz: 79_000_000, recommendedSpanHz: 84_000_000,
+    projection: { allocation: 'frequency-hopping', modulation: 'br-edr', timing: 'classic-slots' },
+    standard: { organization: 'Bluetooth SIG', specification: 'Bluetooth Core Specification', clause: 'BR/EDR radio physical layer and baseband slot timing', revision: '6.3', url: BLUETOOTH_URL },
+    disclosure: agileObservableEquivalenceDisclosure,
+  }),
+  makeDescriptor({
+    id: 'bluetooth-le-advertising', label: 'Bluetooth LE advertising observable', family: 'bluetooth',
+    model: 'Canonized scalar observable · primary advertising channels', centerHz: 2_441_000_000,
+    occupiedBandwidthHz: 80_000_000, recommendedSpanHz: 84_000_000,
+    projection: { allocation: 'advertising-channels', modulation: 'ble-1m', timing: 'advertising-events' },
+    standard: { organization: 'Bluetooth SIG', specification: 'Bluetooth Core Specification', clause: 'LE 1M primary advertising physical/link-layer timing', revision: '6.3', url: BLUETOOTH_URL },
+    disclosure: agileObservableEquivalenceDisclosure,
   }),
 ];
 
@@ -162,12 +253,17 @@ const wifiDescriptors = wifiDefinitions.map(([id, label, model, allocation, occu
 
 const unorderedCatalog = [
   ...visualDescriptors,
+  ...canonizedGsmDescriptors,
   ...gsmDescriptors,
+  ...canonizedLteDescriptors,
   ...lteDescriptors,
+  ...canonizedNrDescriptors,
   ...nrBaseDescriptors,
   nrNarrowbandDescriptor,
   ...nrSbfdDescriptors,
+  ...canonizedWifiDescriptors,
   ...wifiDescriptors,
+  ...canonizedBluetoothDescriptors,
 ];
 
 const catalogById = new Map<SynthesizedSignalProfile, WaveformDescriptor>();
@@ -231,5 +327,6 @@ function modulationLabel(modulation: WaveformProjection['modulation']): string {
   return ({
     unmodulated: 'unmodulated', am: 'AM', fm: 'FM', gmsk: 'GMSK', qpsk: 'QPSK', aqpsk: 'AQPSK', '8psk': '8-PSK',
     '16qam': '16-QAM', '32qam': '32-QAM', '64qam': '64-QAM', '256qam': '256-QAM', '1024qam': '1024-QAM', 'ofdm-mixed': 'mixed OFDM', 'he-ofdm': 'HE OFDM',
+    'hr-dsss': 'HR-DSSS', 'br-edr': 'BR/EDR', 'ble-1m': 'LE 1M',
   })[modulation];
 }

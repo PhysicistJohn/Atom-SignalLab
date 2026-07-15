@@ -14,7 +14,7 @@ header > span > i { width:5px; height:5px; border-radius:50%; background:var(--a
 .demo-orbit i:nth-child(3) { transform:rotate(120deg); }
 .demo-orbit b { width:5px; height:5px; border-radius:50%; background:currentColor; box-shadow:0 0 8px currentColor; }
 .profile-catalog { min-height:0; display:flex; flex-direction:column; padding:14px 18px; }
-.catalog-tabs { height:37px; display:grid; grid-template-columns:repeat(5,1fr); padding:3px; border:1px solid var(--line); border-radius:11px; background:rgba(2,5,7,.28); }
+.catalog-tabs { height:37px; display:grid; grid-template-columns:repeat(6,1fr); padding:3px; border:1px solid var(--line); border-radius:11px; background:rgba(2,5,7,.28); }
 .catalog-tabs button { min-width:0; display:flex; align-items:center; justify-content:center; gap:5px; border:0; border-radius:8px; color:#65706e; background:transparent; font:6px var(--mono); letter-spacing:.08em; }
 .catalog-tabs button small { min-width:14px; padding:2px 3px; border-radius:5px; color:#4d5856; background:rgba(255,255,255,.035); font:5px var(--mono); }
 .catalog-tabs button.active { color:var(--accent); background:rgba(10,132,255,.075); }

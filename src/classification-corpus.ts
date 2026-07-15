@@ -7,7 +7,14 @@
  * tinySA-class instrument.
  */
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v7' as const;
+import {
+  CANONIZED_KNOWN_SCENARIOS,
+  synthesizeCanonizedKnownEnvelope,
+  synthesizeCanonizedKnownSpectrum,
+  type CanonizedKnownScenarioId,
+} from './waveforms.js';
+
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v8' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -170,45 +177,36 @@ const stationaryDisclosure = `${nonConformance} Intermittence at one fixed cente
 const exactScalarEquivalenceDisclosure = `${nonConformance} This deliberately independent source model produces the same admitted scalar observables as a fitted known scenario, so the measurement cannot establish waveform or protocol identity.`;
 
 export const canonicalClassificationScenarios: readonly CanonicalClassificationScenario[] = Object.freeze([
-  scenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', 98_000_000, 2_000, 500_000, 'rbw-line', 'steady', TINYSA_SOURCE, { driftHzPerLook: 35 }),
-  scenario('am-dsb-25k', 'am-dsb-full-carrier-like', 'analog', 'DSB full-carrier AM, 25 kHz tone', 98_000_000, 52_000, 500_000, 'am-dsb-full-carrier', 'sinusoidal-am', TINYSA_SOURCE, { modulationFrequencyHz: 25_000, modulationIndex: 0.72 }, {
+  canonizedKnownScenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', TINYSA_SOURCE),
+  canonizedKnownScenario('am-dsb-25k', 'am-dsb-full-carrier-like', 'analog', 'DSB full-carrier AM, 25 kHz tone', TINYSA_SOURCE, {
     allowedObservableClasses: ['am-dsb-full-carrier-like', 'cw-like'],
   }),
-  scenario('fm-beta-3', 'fm-angle-modulated-like', 'analog', 'Sinusoidal FM, beta 3', 98_000_000, 200_000, 500_000, 'fm-bessel', 'receiver-filtered-fm', TINYSA_SOURCE, { modulationFrequencyHz: 25_000, deviationHz: 75_000 }, {
+  canonizedKnownScenario('fm-beta-3', 'fm-angle-modulated-like', 'analog', 'Sinusoidal FM, beta 3', TINYSA_SOURCE, {
     allowedObservableClasses: ['fm-angle-modulated-like', 'cw-like'],
   }),
 
-  scenario('gsm-900-tdma', 'gsm-like', 'geran', 'GSM 900 one-timeslot traffic', 947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'one-of-eight-tdma', GSM_SOURCE, { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }, { carrierRasterHz: 200_000, duplex: 'fdd' }),
-  scenario('gsm-900-loaded-bcch', 'gsm-like', 'geran', 'GSM 900 loaded BCCH/dummy-burst carrier', 947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'continuous-gsm-loaded', GSM_SOURCE, { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }, {
+  canonizedKnownScenario('gsm-900-tdma', 'gsm-like', 'geran', 'GSM 900 one-timeslot traffic', GSM_SOURCE, { carrierRasterHz: 200_000, duplex: 'fdd' }),
+  canonizedKnownScenario('gsm-900-loaded-bcch', 'gsm-like', 'geran', 'GSM 900 loaded BCCH/dummy-burst carrier', GSM_SOURCE, {
     carrierRasterHz: 200_000,
     duplex: 'fdd',
     disclosure: `${nonConformance} This loaded downlink scenario models continuous slot occupancy from traffic, control, or dummy bursts; it does not claim that every GSM carrier is continuous.`,
   }),
 
-  scenario('lte-band3-fdd-5m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 5 MHz', 1_842_500_000, 4_500_000, 10_000_000, 'ofdm-channel', 'continuous-ofdm', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }, { carrierRasterHz: 100_000, duplex: 'fdd' }),
-  scenario('lte-band3-fdd-20m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 20 MHz', 1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }, { carrierRasterHz: 100_000, duplex: 'fdd' }),
-  scenario('lte-band38-tdd-10m', 'lte-tdd-like', 'e-utra', 'LTE Band 38 TDD, 10 MHz · UL/DL config 0', 2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', 'lte-tdd-pattern', LTE_SOURCE, { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001, ulDlConfiguration: 0 }, { carrierRasterHz: 100_000, duplex: 'tdd' }),
+  canonizedKnownScenario('lte-band3-fdd-5m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 5 MHz', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
+  canonizedKnownScenario('lte-band3-fdd-20m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 20 MHz', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
+  canonizedKnownScenario('lte-band38-tdd-10m', 'lte-tdd-like', 'e-utra', 'LTE Band 38 TDD, 10 MHz · UL/DL config 0', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'tdd' }),
 
-  scenario('nr-n3-fdd-20m', 'nr-fdd-like', 'nr', 'NR n3 FDD, 20 MHz', 1_840_000_000, 19_080_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', NR_SOURCE, { subcarrierSpacingHz: 15_000, slotSeconds: 0.001 }, { carrierRasterHz: 5_000, duplex: 'fdd' }),
-  scenario('nr-n78-tdd-40m', 'nr-tdd-like', 'nr', 'NR n78 TDD, 40 MHz', 3_500_000_000, 38_160_000, 60_000_000, 'ofdm-channel', 'nr-tdd-pattern', NR_SOURCE, { subcarrierSpacingHz: 30_000, slotSeconds: 0.0005 }, { carrierRasterHz: 15_000, duplex: 'tdd' }),
-  scenario('nr-n78-tdd-100m', 'nr-tdd-like', 'nr', 'NR n78 TDD, 100 MHz', 3_500_000_000, 98_280_000, 120_000_000, 'ofdm-channel', 'nr-tdd-pattern', NR_SOURCE, { subcarrierSpacingHz: 30_000, slotSeconds: 0.0005 }, { carrierRasterHz: 15_000, duplex: 'tdd' }),
+  canonizedKnownScenario('nr-n3-fdd-20m', 'nr-fdd-like', 'nr', 'NR n3 FDD, 20 MHz', NR_SOURCE, { carrierRasterHz: 5_000, duplex: 'fdd' }),
+  canonizedKnownScenario('nr-n78-tdd-40m', 'nr-tdd-like', 'nr', 'NR n78 TDD, 40 MHz', NR_SOURCE, { carrierRasterHz: 15_000, duplex: 'tdd' }),
+  canonizedKnownScenario('nr-n78-tdd-100m', 'nr-tdd-like', 'nr', 'NR n78 TDD, 100 MHz', NR_SOURCE, { carrierRasterHz: 15_000, duplex: 'tdd' }),
 
-  scenario('wifi-hr-dsss-11m', 'wifi-hr-dsss-like', 'wlan', '2.4 GHz HR-DSSS channel', 2_437_000_000, 22_000_000, 30_000_000, 'dsss-channel', 'csma-bursts', WIFI_SOURCE, { chipRateHz: 11_000_000 }, { carrierRasterHz: 5_000_000 }),
-  scenario('wifi-ofdm-20m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 20 MHz', 2_437_000_000, 16_600_000, 30_000_000, 'ofdm-channel', 'csma-bursts', WIFI_SOURCE, { subcarrierSpacingHz: 312_500 }, { carrierRasterHz: 5_000_000 }),
-  scenario('wifi-ofdm-40m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 40 MHz', 5_190_000_000, 36_600_000, 60_000_000, 'ofdm-channel', 'csma-bursts', WIFI_SOURCE, { subcarrierSpacingHz: 312_500 }, { carrierRasterHz: 5_000_000 }),
-  scenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz', 5_210_000_000, 76_600_000, 100_000_000, 'ofdm-channel', 'csma-bursts', WIFI_SOURCE, { subcarrierSpacingHz: 312_500 }, { carrierRasterHz: 5_000_000 }),
+  canonizedKnownScenario('wifi-hr-dsss-11m', 'wifi-hr-dsss-like', 'wlan', '2.4 GHz HR-DSSS channel', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
+  canonizedKnownScenario('wifi-ofdm-20m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 20 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
+  canonizedKnownScenario('wifi-ofdm-40m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 40 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
+  canonizedKnownScenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
 
-  scenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR/EDR connected hopping', 2_441_000_000, 79_000_000, 84_000_000, 'classic-hop', 'classic-slots', BLUETOOTH_SOURCE, { channelWidthHz: 1_000_000, slotSeconds: 0.000625, hopRateHz: 1_600 }, { carrierRasterHz: 1_000_000 }),
-  scenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising', 2_441_000_000, 80_000_000, 84_000_000, 'ble-advertising', 'ble-advertising-events', BLUETOOTH_SOURCE, {
-    channelWidthHz: 2_000_000,
-    advertisingIntervalSeconds: 0.02,
-    // Scenario schedule: start-to-start spacing for the three primary-channel
-    // packets. This is deliberately separate from their on-air duration.
-    packetSpacingSeconds: 0.0015,
-    // Full-length legacy LE 1M advertising packet: 1-byte preamble + 4-byte
-    // access address + 2-byte header + 37-byte payload + 3-byte CRC = 376 bits.
-    packetDurationSeconds: 0.000376,
-  }, { carrierRasterHz: 2_000_000 }),
+  canonizedKnownScenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR/EDR connected hopping', BLUETOOTH_SOURCE, { carrierRasterHz: 1_000_000 }),
+  canonizedKnownScenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising', BLUETOOTH_SOURCE, { carrierRasterHz: 2_000_000 }),
 
   scenario('unknown-narrow-fsk', 'unknown-signal', 'unknown', 'Proprietary narrow FSK hard negative', 433_920_000, 45_000, 500_000, 'fsk-pair', 'fsk-steady', TINYSA_SOURCE, { deviationHz: 18_000 }),
   scenario('unknown-chirp', 'unknown-signal', 'unknown', 'Swept chirp hard negative', 915_000_000, 5_000_000, 10_000_000, 'chirp', 'chirp-sweep', TINYSA_SOURCE, { chirpPeriodSeconds: 0.004 }),
@@ -295,25 +293,47 @@ export function synthesizeCanonicalObservation(
   const startHz = scenario.centerHz - scenario.recommendedSpanHz / 2;
   const stopHz = scenario.centerHz + scenario.recommendedSpanHz / 2;
   const frequencyHz = Array.from({ length: configuration.points }, (_, index) => startHz + (stopHz - startHz) * index / (configuration.points - 1));
-  const powerDbm = frequencyHz.map((frequency, index) => {
-    const timeSeconds = configuration.lookIndex * configuration.sweepTimeSeconds + index * configuration.sweepTimeSeconds / Math.max(1, configuration.points - 1);
-    const relativeSignalDb = spectrumRelativePowerDb(scenario, frequency, timeSeconds, configuration);
-    const noiseDbm = configuration.noiseFloorDbm + periodogramNoiseDb(index, configuration.lookIndex, configuration.seed);
-    if (!Number.isFinite(relativeSignalDb)) return noiseDbm;
-    return combineDbm(noiseDbm, configuration.noiseFloorDbm + configuration.snrDb + relativeSignalDb);
-  });
-  const zeroSpanPowerDbm = Array.from({ length: configuration.zeroSpanPoints }, (_, index) => {
-    const timeSeconds = (configuration.lookIndex * configuration.zeroSpanPoints + index) * configuration.zeroSpanSamplePeriodSeconds;
-    const relativeSignalDb = envelopeRelativePowerDb(
-      scenario,
-      timeSeconds,
-      configuration.zeroSpanFrequencyHz ?? scenario.centerHz,
-      configuration,
-    );
-    const noiseDbm = configuration.noiseFloorDbm + periodogramNoiseDb(index, configuration.lookIndex + 10_000, configuration.seed ^ 0x68bc21eb);
-    if (!Number.isFinite(relativeSignalDb)) return noiseDbm;
-    return combineDbm(noiseDbm, configuration.noiseFloorDbm + configuration.snrDb + relativeSignalDb);
-  });
+  const knownScenarioId = isCanonizedKnownScenarioId(scenario.id) ? scenario.id : undefined;
+  const powerDbm = knownScenarioId === undefined
+    ? frequencyHz.map((frequency, index) => {
+      const timeSeconds = configuration.lookIndex * configuration.sweepTimeSeconds + index * configuration.sweepTimeSeconds / Math.max(1, configuration.points - 1);
+      const relativeSignalDb = spectrumRelativePowerDb(scenario, frequency, timeSeconds, configuration);
+      const noiseDbm = configuration.noiseFloorDbm + periodogramNoiseDb(index, configuration.lookIndex, configuration.seed);
+      if (!Number.isFinite(relativeSignalDb)) return noiseDbm;
+      return combineDbm(noiseDbm, configuration.noiseFloorDbm + configuration.snrDb + relativeSignalDb);
+    })
+    : synthesizeCanonizedKnownSpectrum({
+      scenarioId: knownScenarioId,
+      startHz,
+      stopHz,
+      points: configuration.points,
+      actualRbwHz: configuration.actualRbwHz,
+      sweepTimeSeconds: configuration.sweepTimeSeconds,
+      noiseFloorDbm: configuration.noiseFloorDbm,
+      snrDb: configuration.snrDb,
+      seed: configuration.seed,
+      lookIndex: configuration.lookIndex,
+    });
+  const zeroSpanFrequencyHz = configuration.zeroSpanFrequencyHz ?? scenario.centerHz;
+  const zeroSpanPowerDbm = knownScenarioId === undefined
+    ? Array.from({ length: configuration.zeroSpanPoints }, (_, index) => {
+      const timeSeconds = (configuration.lookIndex * configuration.zeroSpanPoints + index) * configuration.zeroSpanSamplePeriodSeconds;
+      const relativeSignalDb = envelopeRelativePowerDb(scenario, timeSeconds, zeroSpanFrequencyHz, configuration);
+      const noiseDbm = configuration.noiseFloorDbm + periodogramNoiseDb(index, configuration.lookIndex + 10_000, configuration.seed ^ 0x68bc21eb);
+      if (!Number.isFinite(relativeSignalDb)) return noiseDbm;
+      return combineDbm(noiseDbm, configuration.noiseFloorDbm + configuration.snrDb + relativeSignalDb);
+    })
+    : synthesizeCanonizedKnownEnvelope({
+      scenarioId: knownScenarioId,
+      points: configuration.zeroSpanPoints,
+      samplePeriodSeconds: configuration.zeroSpanSamplePeriodSeconds,
+      actualRbwHz: configuration.actualRbwHz,
+      noiseFloorDbm: configuration.noiseFloorDbm,
+      snrDb: configuration.snrDb,
+      seed: configuration.seed,
+      lookIndex: configuration.lookIndex,
+      tuneFrequencyHz: zeroSpanFrequencyHz,
+    });
   return {
     corpusVersion: CLASSIFICATION_CORPUS_VERSION,
     scenarioId: scenario.id,
@@ -325,12 +345,44 @@ export function synthesizeCanonicalObservation(
     powerDbm,
     sweepTimeSeconds: configuration.sweepTimeSeconds,
     actualRbwHz: configuration.actualRbwHz,
-    zeroSpanFrequencyHz: configuration.zeroSpanFrequencyHz ?? scenario.centerHz,
+    zeroSpanFrequencyHz,
     zeroSpanPowerDbm,
     zeroSpanSamplePeriodSeconds: configuration.zeroSpanSamplePeriodSeconds,
     source: structuredClone(scenario.source),
     disclosure: scenario.disclosure,
   };
+}
+
+function isCanonizedKnownScenarioId(value: string): value is CanonizedKnownScenarioId {
+  return Object.prototype.hasOwnProperty.call(CANONIZED_KNOWN_SCENARIOS, value);
+}
+
+function canonizedKnownScenario(
+  id: CanonizedKnownScenarioId,
+  truthClass: ObservableSignalClass,
+  family: CanonicalClassificationScenario['family'],
+  label: string,
+  source: CanonicalSource,
+  options: Pick<CanonicalClassificationScenario, 'carrierRasterHz' | 'duplex'> & {
+    disclosure?: string;
+    allowedObservableClasses?: readonly ObservableSignalClass[];
+  } = {},
+): CanonicalClassificationScenario {
+  const definition = CANONIZED_KNOWN_SCENARIOS[id];
+  return scenario(
+    id,
+    truthClass,
+    family,
+    label,
+    definition.centerHz,
+    definition.occupiedBandwidthHz,
+    definition.recommendedSpanHz,
+    definition.spectrumModel,
+    definition.envelopeModel,
+    source,
+    definition.parameters,
+    options,
+  );
 }
 
 function scenario(

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { synthesizedSignalProfileSchema, type ReplayChannelConfiguration } from './contracts.js';
 import {
+  CANONIZED_KNOWN_SCENARIOS,
+  CANONIZED_REPLAY_PROFILE_SCENARIOS,
   DEFAULT_REPLAY_CHANNEL,
   requireConformanceValidated,
   suggestedAnalyzerRange,
+  synthesizeCanonizedKnownSpectrum,
+  synthesizeCanonizedKnownEnvelope,
   synthesizeSpectrum,
   synthesizeZeroSpan,
   waveformCatalog,
@@ -13,12 +17,18 @@ import {
 describe('qualified waveform replay engine', () => {
   it('publishes a closed catalog with source clauses and refuses unvalidated conformance claims', () => {
     expect(waveformCatalog.map((entry) => entry.id)).toEqual(synthesizedSignalProfileSchema.options);
-    expect(waveformCatalog).toHaveLength(79);
-    expect(countFamilies(waveformCatalog)).toEqual({ tone: 1, analog: 2, geran: 6, 'e-utra': 25, nr: 41, wlan: 4 });
+    expect(waveformCatalog).toHaveLength(88);
+    expect(countFamilies(waveformCatalog)).toEqual({ tone: 1, analog: 2, geran: 7, 'e-utra': 27, nr: 43, wlan: 6, bluetooth: 2 });
     for (const descriptor of waveformCatalog) {
       expect(descriptor.standard.url).toMatch(/^https:\/\//);
       expect(descriptor.recommendedSpanHz).toBeGreaterThanOrEqual(descriptor.occupiedBandwidthHz);
     }
+    expect(waveformDescriptor('lte-band3-fdd-20m').projection.duplex).toBe('fdd');
+    expect(waveformDescriptor('lte-band38-tdd-10m').projection.duplex).toBe('tdd');
+    expect(waveformDescriptor('nr-n3-fdd-20m').projection.duplex).toBe('fdd');
+    expect(waveformDescriptor('nr-n78-tdd-100m').projection.duplex).toBe('tdd');
+    expect(waveformDescriptor('bluetooth-classic-connected')).toMatchObject({ family: 'bluetooth', qualification: 'standards-derived' });
+    expect(waveformDescriptor('bluetooth-le-advertising').disclosure).toMatch(/observable-class equivalence/i);
     expect(() => requireConformanceValidated('lte-etm1.1')).toThrow(/not installed/i);
   });
 
@@ -47,23 +57,34 @@ describe('qualified waveform replay engine', () => {
     expect(synthesizeSpectrum({ profile: descriptor.id, ...range, points: 450, sweepIndex: 7, channel: rayleighChannel })).toEqual(rayleigh);
   });
 
-  it('animates AM vertically and FM laterally with distinct replay behavior', () => {
-    const amDescriptor = waveformDescriptor('am');
-    const amRange = suggestedAnalyzerRange(amDescriptor);
-    const amCenterLevels = Array.from({ length: 18 }, (_, sweepIndex) => {
-      const values = synthesizeSpectrum({ profile: 'am', ...amRange, points: 401, sweepIndex, channel: DEFAULT_REPLAY_CHANNEL });
-      return values[200]!;
-    });
-    expect(Math.max(...amCenterLevels) - Math.min(...amCenterLevels)).toBeGreaterThan(5);
-
-    const fmDescriptor = waveformDescriptor('fm');
-    const fmRange = suggestedAnalyzerRange(fmDescriptor);
-    const peakFrequencies = Array.from({ length: 24 }, (_, sweepIndex) => {
-      const values = synthesizeSpectrum({ profile: 'fm', ...fmRange, points: 401, sweepIndex, channel: DEFAULT_REPLAY_CHANNEL });
-      const peak = values.reduce((best, value, index) => value > values[best]! ? index : best, 0);
-      return fmRange.startHz + (fmRange.stopHz - fmRange.startHz) * peak / 400;
-    });
-    expect(Math.max(...peakFrequencies) - Math.min(...peakFrequencies)).toBeGreaterThan(130_000);
+  it('uses the exact fitted canonized source for every public observable profile', () => {
+    for (const [profile, scenarioId] of Object.entries(CANONIZED_REPLAY_PROFILE_SCENARIOS)) {
+      if (!scenarioId) continue;
+      const descriptor = waveformDescriptor(profile as keyof typeof CANONIZED_REPLAY_PROFILE_SCENARIOS);
+      const declared = CANONIZED_KNOWN_SCENARIOS[scenarioId];
+      expect(descriptor).toMatchObject({
+        centerHz: declared.centerHz,
+        occupiedBandwidthHz: declared.occupiedBandwidthHz,
+        recommendedSpanHz: declared.recommendedSpanHz,
+      });
+      const range = suggestedAnalyzerRange(descriptor);
+      const points = 450;
+      const sweepIndex = 17;
+      const live = synthesizeSpectrum({ profile: descriptor.id, ...range, points, sweepIndex, channel: DEFAULT_REPLAY_CHANNEL });
+      const expected = synthesizeCanonizedKnownSpectrum({
+        scenarioId,
+        ...range,
+        points,
+        actualRbwHz: (range.stopHz - range.startHz) / (points - 1),
+        sweepTimeSeconds: 0.05,
+        noiseFloorDbm: DEFAULT_REPLAY_CHANNEL.noiseFloorDbm,
+        snrDb: 32,
+        seed: DEFAULT_REPLAY_CHANNEL.seed,
+        lookIndex: sweepIndex,
+        centerHz: descriptor.centerHz,
+      });
+      expect(live, profile).toEqual(expected);
+    }
   });
 
   it('keeps the FM-adjacent channel floor at the AWGN floor instead of drawing a false occupied pedestal', () => {
@@ -83,13 +104,46 @@ describe('qualified waveform replay engine', () => {
     expect(Math.abs(median(adjacent) - median(outside))).toBeLessThan(4);
   });
 
-  it('synthesizes every closed Release 19 and HE profile with finite, correctly sized output', () => {
+  it('synthesizes every closed visual, standards, and observable profile with finite, correctly sized output', () => {
     for (const descriptor of waveformCatalog) {
       const range = suggestedAnalyzerRange(descriptor);
       const values = synthesizeSpectrum({ profile: descriptor.id, ...range, points: 121, sweepIndex: 2, channel: DEFAULT_REPLAY_CHANNEL });
       expect(values).toHaveLength(121);
       expect(values.every(Number.isFinite), descriptor.id).toBe(true);
     }
+  });
+
+  it('honors the bridge-advertised two-point spectrum and one-point detected-power minima', () => {
+    for (const profile of Object.keys(CANONIZED_REPLAY_PROFILE_SCENARIOS) as Array<keyof typeof CANONIZED_REPLAY_PROFILE_SCENARIOS>) {
+      const descriptor = waveformDescriptor(profile);
+      const range = suggestedAnalyzerRange(descriptor);
+      const spectrum = synthesizeSpectrum({ profile, ...range, points: 2, sweepIndex: 0, channel: DEFAULT_REPLAY_CHANNEL });
+      const envelope = synthesizeZeroSpan({ profile, points: 1, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
+      expect(spectrum).toHaveLength(2);
+      expect(spectrum.every(Number.isFinite)).toBe(true);
+      expect(envelope).toHaveLength(1);
+      expect(envelope.every(Number.isFinite)).toBe(true);
+    }
+  });
+
+  it('uses the admitted detected-power sample period instead of a hidden fixed clock', () => {
+    const descriptor = waveformDescriptor('am');
+    const samplePeriodSeconds = 1 / 3_200;
+    const points = 450;
+    const sweepIndex = 9;
+    const live = synthesizeZeroSpan({
+      profile: 'am', points, sweepIndex, samplePeriodSeconds, channel: DEFAULT_REPLAY_CHANNEL,
+    });
+    const expected = synthesizeCanonizedKnownEnvelope({
+      scenarioId: 'am-dsb-25k', points, samplePeriodSeconds, actualRbwHz: 100_000,
+      noiseFloorDbm: DEFAULT_REPLAY_CHANNEL.noiseFloorDbm, snrDb: 32,
+      seed: DEFAULT_REPLAY_CHANNEL.seed, lookIndex: sweepIndex,
+      tuneFrequencyHz: descriptor.centerHz, centerHz: descriptor.centerHz,
+    });
+    expect(live).toEqual(expected);
+    expect(live).not.toEqual(synthesizeZeroSpan({
+      profile: 'am', points, sweepIndex, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL,
+    }));
   });
 
   it('projects full, boosted, and single-PRB test models as distinct allocations', () => {
@@ -102,8 +156,8 @@ describe('qualified waveform replay engine', () => {
   });
 
   it('projects burst timing into zero-span replays for GSM and Wi-Fi', () => {
-    const gsm = synthesizeZeroSpan({ profile: 'gsm-normal-burst', points: 208, sweepIndex: 0, channel: DEFAULT_REPLAY_CHANNEL });
-    const wifi = synthesizeZeroSpan({ profile: 'wifi6-he-su', points: 178, sweepIndex: 0, channel: DEFAULT_REPLAY_CHANNEL });
+    const gsm = synthesizeZeroSpan({ profile: 'gsm-normal-burst', points: 208, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
+    const wifi = synthesizeZeroSpan({ profile: 'wifi6-he-su', points: 178, sweepIndex: 0, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL });
     expect(gsm.filter((value) => value > -80).length / gsm.length).toBeCloseTo(1 / 8, 1);
     expect(wifi.some((value) => value > -70)).toBe(true);
     expect(wifi.some((value) => value < -100)).toBe(true);

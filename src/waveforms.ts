@@ -25,6 +25,7 @@ export interface ZeroSpanSynthesisInput {
   profile: ReplayProfile;
   points: number;
   sweepIndex: number;
+  samplePeriodSeconds: number;
   channel: ReplayChannelConfiguration;
 }
 
@@ -35,9 +36,146 @@ export const DEFAULT_REPLAY_CHANNEL: ReplayChannelConfiguration = replayChannelC
   fadingRateHz: 2,
 });
 
+export type CanonizedKnownScenarioId = keyof typeof CANONIZED_KNOWN_SCENARIOS;
+
+export interface CanonizedKnownScenario {
+  readonly centerHz: number;
+  readonly occupiedBandwidthHz: number;
+  readonly recommendedSpanHz: number;
+  readonly spectrumModel: 'rbw-line' | 'am-dsb-full-carrier' | 'fm-bessel' | 'gaussian-channel' | 'ofdm-channel' | 'dsss-channel' | 'classic-hop' | 'ble-advertising';
+  readonly envelopeModel: 'steady' | 'sinusoidal-am' | 'receiver-filtered-fm' | 'one-of-eight-tdma' | 'continuous-gsm-loaded' | 'continuous-ofdm' | 'lte-tdd-pattern' | 'nr-tdd-pattern' | 'csma-bursts' | 'classic-slots' | 'ble-advertising-events';
+  readonly parameters: Readonly<Record<string, number>>;
+}
+
+/**
+ * The single executable source definition for every fitted known scenario.
+ *
+ * The classifier corpus and the live replay path both consume these exact
+ * definitions and synthesis functions. Profile labels remain status-only and
+ * are never copied into a measurement or classifier feature.
+ */
+export const CANONIZED_KNOWN_SCENARIOS = Object.freeze({
+  'cw-rbw-line': knownScenario(98_000_000, 2_000, 500_000, 'rbw-line', 'steady', { driftHzPerLook: 35 }),
+  'am-dsb-25k': knownScenario(98_000_000, 52_000, 500_000, 'am-dsb-full-carrier', 'sinusoidal-am', { modulationFrequencyHz: 25_000, modulationIndex: 0.72 }),
+  'fm-beta-3': knownScenario(98_000_000, 200_000, 500_000, 'fm-bessel', 'receiver-filtered-fm', { modulationFrequencyHz: 25_000, deviationHz: 75_000 }),
+  'gsm-900-tdma': knownScenario(947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'one-of-eight-tdma', { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }),
+  'gsm-900-loaded-bcch': knownScenario(947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'continuous-gsm-loaded', { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }),
+  'lte-band3-fdd-5m': knownScenario(1_842_500_000, 4_500_000, 10_000_000, 'ofdm-channel', 'continuous-ofdm', { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }),
+  'lte-band3-fdd-20m': knownScenario(1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }),
+  'lte-band38-tdd-10m': knownScenario(2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', 'lte-tdd-pattern', { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001, ulDlConfiguration: 0 }),
+  'nr-n3-fdd-20m': knownScenario(1_840_000_000, 19_080_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', { subcarrierSpacingHz: 15_000, slotSeconds: 0.001 }),
+  'nr-n78-tdd-40m': knownScenario(3_500_000_000, 38_160_000, 60_000_000, 'ofdm-channel', 'nr-tdd-pattern', { subcarrierSpacingHz: 30_000, slotSeconds: 0.0005 }),
+  'nr-n78-tdd-100m': knownScenario(3_500_000_000, 98_280_000, 120_000_000, 'ofdm-channel', 'nr-tdd-pattern', { subcarrierSpacingHz: 30_000, slotSeconds: 0.0005 }),
+  'wifi-hr-dsss-11m': knownScenario(2_437_000_000, 22_000_000, 30_000_000, 'dsss-channel', 'csma-bursts', { chipRateHz: 11_000_000 }),
+  'wifi-ofdm-20m': knownScenario(2_437_000_000, 16_600_000, 30_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
+  'wifi-ofdm-40m': knownScenario(5_190_000_000, 36_600_000, 60_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
+  'wifi-ofdm-80m': knownScenario(5_210_000_000, 76_600_000, 100_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
+  'bluetooth-classic-connected': knownScenario(2_441_000_000, 79_000_000, 84_000_000, 'classic-hop', 'classic-slots', { channelWidthHz: 1_000_000, slotSeconds: 0.000625, hopRateHz: 1_600 }),
+  'bluetooth-le-advertising': knownScenario(2_441_000_000, 80_000_000, 84_000_000, 'ble-advertising', 'ble-advertising-events', {
+    channelWidthHz: 2_000_000, advertisingIntervalSeconds: 0.02, packetSpacingSeconds: 0.0015, packetDurationSeconds: 0.000376,
+  }),
+});
+
+/** Public replay profiles whose live measurements use the fitted corpus source. */
+export const CANONIZED_REPLAY_PROFILE_SCENARIOS: Readonly<Partial<Record<SynthesizedSignalProfile, CanonizedKnownScenarioId>>> = Object.freeze({
+  cw: 'cw-rbw-line',
+  am: 'am-dsb-25k',
+  fm: 'fm-beta-3',
+  'gsm-900-loaded-bcch': 'gsm-900-loaded-bcch',
+  'lte-band3-fdd-20m': 'lte-band3-fdd-20m',
+  'lte-band38-tdd-10m': 'lte-band38-tdd-10m',
+  'nr-n3-fdd-20m': 'nr-n3-fdd-20m',
+  'nr-n78-tdd-100m': 'nr-n78-tdd-100m',
+  'wifi-hr-dsss-11m': 'wifi-hr-dsss-11m',
+  'wifi-ofdm-20m': 'wifi-ofdm-20m',
+  'bluetooth-classic-connected': 'bluetooth-classic-connected',
+  'bluetooth-le-advertising': 'bluetooth-le-advertising',
+});
+
+const CANONIZED_REPLAY_SNR_DB = 32;
+const CANONIZED_REPLAY_SWEEP_TIME_SECONDS = 0.05;
+const CANONIZED_ZERO_SPAN_RBW_HZ = 100_000;
+
+export interface CanonizedSpectrumInput {
+  readonly scenarioId: CanonizedKnownScenarioId;
+  readonly startHz: number;
+  readonly stopHz: number;
+  readonly points: number;
+  readonly actualRbwHz: number;
+  readonly sweepTimeSeconds: number;
+  readonly noiseFloorDbm: number;
+  readonly snrDb: number;
+  readonly seed: number;
+  readonly lookIndex: number;
+  readonly centerHz?: number;
+  /** Optional receiver/channel gain applied to signal power only. */
+  readonly signalGainDb?: readonly number[];
+}
+
+export interface CanonizedEnvelopeInput {
+  readonly scenarioId: CanonizedKnownScenarioId;
+  readonly points: number;
+  readonly samplePeriodSeconds: number;
+  readonly actualRbwHz: number;
+  readonly noiseFloorDbm: number;
+  readonly snrDb: number;
+  readonly seed: number;
+  readonly lookIndex: number;
+  readonly tuneFrequencyHz: number;
+  readonly centerHz?: number;
+  /** Optional receiver/channel gain applied to signal power only. */
+  readonly signalGainDb?: readonly number[];
+}
+
+export function synthesizeCanonizedKnownSpectrum(input: CanonizedSpectrumInput): number[] {
+  validateCanonizedSpectrum(input);
+  const declared = CANONIZED_KNOWN_SCENARIOS[input.scenarioId];
+  const scenario = input.centerHz === undefined ? declared : { ...declared, centerHz: input.centerHz };
+  return Array.from({ length: input.points }, (_unused, index) => {
+    const frequencyHz = input.startHz + (input.stopHz - input.startHz) * index / (input.points - 1);
+    const timeSeconds = input.lookIndex * input.sweepTimeSeconds + index * input.sweepTimeSeconds / Math.max(1, input.points - 1);
+    const relativeSignalDb = canonizedSpectrumRelativePowerDb(input.scenarioId, scenario, frequencyHz, timeSeconds, input);
+    const noiseDbm = input.noiseFloorDbm + canonizedPeriodogramNoiseDb(index, input.lookIndex, input.seed);
+    return Number.isFinite(relativeSignalDb)
+      ? canonizedCombineDbm(noiseDbm, input.noiseFloorDbm + input.snrDb + relativeSignalDb + (input.signalGainDb?.[index] ?? 0))
+      : noiseDbm;
+  });
+}
+
+export function synthesizeCanonizedKnownEnvelope(input: CanonizedEnvelopeInput): number[] {
+  validateCanonizedEnvelope(input);
+  const declared = CANONIZED_KNOWN_SCENARIOS[input.scenarioId];
+  const scenario = input.centerHz === undefined ? declared : { ...declared, centerHz: input.centerHz };
+  return Array.from({ length: input.points }, (_unused, index) => {
+    const timeSeconds = (input.lookIndex * input.points + index) * input.samplePeriodSeconds;
+    const relativeSignalDb = canonizedEnvelopeRelativePowerDb(input.scenarioId, scenario, timeSeconds, input.tuneFrequencyHz, input);
+    const noiseDbm = input.noiseFloorDbm + canonizedPeriodogramNoiseDb(index, input.lookIndex + 10_000, input.seed ^ 0x68bc21eb);
+    return Number.isFinite(relativeSignalDb)
+      ? canonizedCombineDbm(noiseDbm, input.noiseFloorDbm + input.snrDb + relativeSignalDb + (input.signalGainDb?.[index] ?? 0))
+      : noiseDbm;
+  });
+}
+
 export function synthesizeSpectrum(input: SpectrumSynthesisInput): number[] {
   validateSpectrumInput(input);
   const channel = replayChannelConfigurationSchema.parse(input.channel);
+  const scenarioId = canonizedReplayScenarioId(input.profile);
+  if (scenarioId !== undefined) {
+    return synthesizeCanonizedKnownSpectrum({
+      scenarioId,
+      startHz: input.startHz,
+      stopHz: input.stopHz,
+      points: input.points,
+      actualRbwHz: (input.stopHz - input.startHz) / (input.points - 1),
+      sweepTimeSeconds: CANONIZED_REPLAY_SWEEP_TIME_SECONDS,
+      noiseFloorDbm: channel.noiseFloorDbm,
+      snrDb: CANONIZED_REPLAY_SNR_DB,
+      seed: channel.seed,
+      lookIndex: input.sweepIndex,
+      centerHz: waveformDescriptor(input.profile as SynthesizedSignalProfile).centerHz,
+      signalGainDb: canonizedSignalGain(input.points, input.sweepIndex, channel),
+    });
+  }
   return Array.from({ length: input.points }, (_, index) => {
     const frequencyHz = input.startHz + (input.stopHz - input.startHz) * index / (input.points - 1);
     const noiseDbm = receiverNoiseDbm(index, input.points, input.sweepIndex, channel);
@@ -53,8 +191,25 @@ export function synthesizeSpectrum(input: SpectrumSynthesisInput): number[] {
 export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
   if (!Number.isInteger(input.points) || input.points < 1) throw new Error('Zero-span synthesis requires a positive integer point count');
   if (!Number.isInteger(input.sweepIndex) || input.sweepIndex < 0) throw new Error('Zero-span synthesis requires a non-negative integer sweep index');
+  if (!Number.isFinite(input.samplePeriodSeconds) || input.samplePeriodSeconds <= 0) throw new Error('Zero-span synthesis requires a finite positive sample period');
   const channel = replayChannelConfigurationSchema.parse(input.channel);
   const descriptor = input.profile === 'survey' ? undefined : waveformDescriptor(input.profile);
+  const scenarioId = canonizedReplayScenarioId(input.profile);
+  if (scenarioId !== undefined && descriptor !== undefined) {
+    return synthesizeCanonizedKnownEnvelope({
+      scenarioId,
+      points: input.points,
+      samplePeriodSeconds: input.samplePeriodSeconds,
+      actualRbwHz: CANONIZED_ZERO_SPAN_RBW_HZ,
+      noiseFloorDbm: channel.noiseFloorDbm,
+      snrDb: CANONIZED_REPLAY_SNR_DB,
+      seed: channel.seed,
+      lookIndex: input.sweepIndex,
+      tuneFrequencyHz: descriptor.centerHz,
+      centerHz: descriptor.centerHz,
+      signalGainDb: canonizedSignalGain(input.points, input.sweepIndex, channel),
+    });
+  }
   return Array.from({ length: input.points }, (_, index) => {
     const phase = (index + input.sweepIndex * 3) * Math.PI / 13;
     const normalized = index / Math.max(1, input.points - 1);
@@ -65,6 +220,20 @@ export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
       : 0;
     return combineDbm(noiseDbm, signalDbm + fadingDb);
   });
+}
+
+function canonizedReplayScenarioId(profile: ReplayProfile): CanonizedKnownScenarioId | undefined {
+  return profile === 'survey' ? undefined : CANONIZED_REPLAY_PROFILE_SCENARIOS[profile];
+}
+
+function canonizedSignalGain(
+  points: number,
+  sweepIndex: number,
+  channel: ReplayChannelConfiguration,
+): readonly number[] | undefined {
+  if (channel.model !== 'rayleigh') return undefined;
+  return Array.from({ length: points }, (_unused, index) =>
+    rayleighFadingDb(index, points, sweepIndex + index / Math.max(1, points - 1), channel));
 }
 
 function signalPowerDbm(profile: ReplayProfile, frequencyHz: number, index: number, input: SpectrumSynthesisInput): number {
@@ -236,6 +405,7 @@ function modulationTexture(modulation: WaveformProjection['modulation']): number
   return ({
     unmodulated: 0, am: 0.2, fm: 0.3, gmsk: 0.3, qpsk: 0.55, aqpsk: 0.65, '8psk': 0.72,
     '16qam': 0.8, '32qam': 0.85, '64qam': 0.9, '256qam': 1.05, '1024qam': 1.2, 'ofdm-mixed': 1, 'he-ofdm': 1,
+    'hr-dsss': 0.7, 'br-edr': 0.65, 'ble-1m': 0.55,
   })[modulation];
 }
 
@@ -329,6 +499,366 @@ function combineDbm(left: number, right: number): number {
 
 function combineManyDbm(values: readonly number[]): number {
   return values.reduce(combineDbm, Number.NEGATIVE_INFINITY);
+}
+
+function knownScenario(
+  centerHz: number,
+  occupiedBandwidthHz: number,
+  recommendedSpanHz: number,
+  spectrumModel: CanonizedKnownScenario['spectrumModel'],
+  envelopeModel: CanonizedKnownScenario['envelopeModel'],
+  parameters: Readonly<Record<string, number>>,
+): CanonizedKnownScenario {
+  return Object.freeze({ centerHz, occupiedBandwidthHz, recommendedSpanHz, spectrumModel, envelopeModel, parameters: Object.freeze({ ...parameters }) });
+}
+
+function canonizedSpectrumRelativePowerDb(
+  scenarioId: CanonizedKnownScenarioId,
+  scenario: CanonizedKnownScenario,
+  frequencyHz: number,
+  timeSeconds: number,
+  configuration: Pick<CanonizedSpectrumInput, 'actualRbwHz' | 'lookIndex' | 'seed'>,
+): number {
+  if (!canonizedSweptTrafficActive(scenarioId, scenario, timeSeconds, configuration.seed)) return Number.NEGATIVE_INFINITY;
+  const offsetHz = frequencyHz - scenario.centerHz;
+  switch (scenario.spectrumModel) {
+    case 'rbw-line': {
+      const drift = (configuration.lookIndex - 4) * (scenario.parameters.driftHzPerLook ?? 0);
+      return canonizedGaussianFilterDb(offsetHz - drift, configuration.actualRbwHz);
+    }
+    case 'am-dsb-full-carrier': {
+      const modulationFrequencyHz = canonizedRequiredParameter(scenarioId, scenario, 'modulationFrequencyHz');
+      const modulationIndex = canonizedRequiredParameter(scenarioId, scenario, 'modulationIndex');
+      const sidebandRelativeDb = 10 * Math.log10(modulationIndex ** 2 / 4);
+      return canonizedCombineRelativeDb([
+        canonizedGaussianFilterDb(offsetHz, configuration.actualRbwHz),
+        sidebandRelativeDb + canonizedGaussianFilterDb(offsetHz - modulationFrequencyHz, configuration.actualRbwHz),
+        sidebandRelativeDb + canonizedGaussianFilterDb(offsetHz + modulationFrequencyHz, configuration.actualRbwHz),
+      ]);
+    }
+    case 'fm-bessel': {
+      const modulationFrequencyHz = canonizedRequiredParameter(scenarioId, scenario, 'modulationFrequencyHz');
+      const beta = canonizedRequiredParameter(scenarioId, scenario, 'deviationHz') / modulationFrequencyHz;
+      const components: number[] = [];
+      for (let order = -10; order <= 10; order++) {
+        const amplitude = Math.abs(canonizedBesselJ(order, beta));
+        if (amplitude < 1e-5) continue;
+        components.push(20 * Math.log10(amplitude) + canonizedGaussianFilterDb(offsetHz - order * modulationFrequencyHz, configuration.actualRbwHz));
+      }
+      return canonizedCombineRelativeDb(components);
+    }
+    case 'gaussian-channel': return canonizedGaussianOccupiedChannelDb(offsetHz, scenario.occupiedBandwidthHz);
+    case 'ofdm-channel': return canonizedOfdmChannelDb(
+      offsetHz,
+      scenario.occupiedBandwidthHz,
+      canonizedRequiredParameter(scenarioId, scenario, 'subcarrierSpacingHz'),
+      configuration.lookIndex,
+      configuration.seed,
+    );
+    case 'dsss-channel': return canonizedDsssChannelDb(offsetHz, scenario.occupiedBandwidthHz);
+    case 'classic-hop': {
+      if (!canonizedClassicSlotActive(timeSeconds)) return Number.NEGATIVE_INFINITY;
+      const hop = canonizedClassicHopCenter(timeSeconds, configuration.seed);
+      return canonizedGaussianOccupiedChannelDb(frequencyHz - hop, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz'));
+    }
+    case 'ble-advertising': {
+      const center = canonizedBleAdvertisingCenter(
+        timeSeconds,
+        canonizedRequiredParameter(scenarioId, scenario, 'advertisingIntervalSeconds'),
+        canonizedRequiredParameter(scenarioId, scenario, 'packetSpacingSeconds'),
+        canonizedRequiredParameter(scenarioId, scenario, 'packetDurationSeconds'),
+        configuration.seed,
+      );
+      return center === undefined
+        ? Number.NEGATIVE_INFINITY
+        : canonizedGaussianOccupiedChannelDb(frequencyHz - center, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz'));
+    }
+  }
+}
+
+function canonizedEnvelopeRelativePowerDb(
+  scenarioId: CanonizedKnownScenarioId,
+  scenario: CanonizedKnownScenario,
+  timeSeconds: number,
+  tuneFrequencyHz: number,
+  configuration: Pick<CanonizedEnvelopeInput, 'actualRbwHz' | 'seed'>,
+): number {
+  switch (scenario.envelopeModel) {
+    case 'steady': return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds);
+    case 'sinusoidal-am': return canonizedReceiverFilteredAmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
+    case 'receiver-filtered-fm': return canonizedReceiverFilteredFmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
+    case 'one-of-eight-tdma': return canonizedGsmTrafficActive(scenarioId, scenario, timeSeconds) ? 0 : Number.NEGATIVE_INFINITY;
+    case 'continuous-gsm-loaded': return -0.35 + 0.25 * canonizedDeterministicTexture(timeSeconds * 1_733, configuration.seed);
+    case 'continuous-ofdm': return -0.7 + 0.55 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed);
+    case 'lte-tdd-pattern': return canonizedLteTddDownlinkActive(scenarioId, scenario, timeSeconds)
+      ? -0.5 + 0.4 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed)
+      : Number.NEGATIVE_INFINITY;
+    case 'nr-tdd-pattern': return canonizedNrTddDownlinkActive(scenarioId, scenario, timeSeconds)
+      ? -0.5 + 0.45 * canonizedDeterministicTexture(timeSeconds * 4_000, configuration.seed)
+      : Number.NEGATIVE_INFINITY;
+    case 'csma-bursts': return canonizedCsmaTrafficActive(timeSeconds, configuration.seed)
+      ? -0.5 + 0.7 * canonizedDeterministicTexture(timeSeconds * 3_000, configuration.seed)
+      : Number.NEGATIVE_INFINITY;
+    case 'classic-slots': {
+      const slot = canonizedRequiredParameter(scenarioId, scenario, 'slotSeconds');
+      const index = Math.floor(timeSeconds / slot);
+      const hopCenterHz = canonizedClassicHopCenter(timeSeconds, configuration.seed);
+      const receiverResponseDb = canonizedGaussianFilterDb(
+        tuneFrequencyHz - hopCenterHz,
+        Math.max(configuration.actualRbwHz, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz')),
+      );
+      return canonizedClassicSlotActive(timeSeconds) && receiverResponseDb > -60
+        ? -0.4 + 0.25 * canonizedDeterministicTexture(index, configuration.seed) + receiverResponseDb
+        : Number.NEGATIVE_INFINITY;
+    }
+    case 'ble-advertising-events': {
+      const packetCenterHz = canonizedBleAdvertisingCenter(
+        timeSeconds,
+        canonizedRequiredParameter(scenarioId, scenario, 'advertisingIntervalSeconds'),
+        canonizedRequiredParameter(scenarioId, scenario, 'packetSpacingSeconds'),
+        canonizedRequiredParameter(scenarioId, scenario, 'packetDurationSeconds'),
+        configuration.seed,
+      );
+      if (packetCenterHz === undefined) return Number.NEGATIVE_INFINITY;
+      const receiverResponseDb = canonizedGaussianFilterDb(
+        tuneFrequencyHz - packetCenterHz,
+        Math.max(configuration.actualRbwHz, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz')),
+      );
+      return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
+    }
+  }
+}
+
+function canonizedSweptTrafficActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number, seed: number): boolean {
+  switch (scenario.envelopeModel) {
+    case 'one-of-eight-tdma': return canonizedGsmTrafficActive(scenarioId, scenario, timeSeconds);
+    case 'lte-tdd-pattern': return canonizedLteTddDownlinkActive(scenarioId, scenario, timeSeconds);
+    case 'nr-tdd-pattern': return canonizedNrTddDownlinkActive(scenarioId, scenario, timeSeconds);
+    case 'csma-bursts': return canonizedCsmaTrafficActive(timeSeconds, seed);
+    default: return true;
+  }
+}
+
+function canonizedGsmTrafficActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number): boolean {
+  const slot = canonizedRequiredParameter(scenarioId, scenario, 'slotSeconds');
+  return Math.floor(timeSeconds / slot) % 8 === 0;
+}
+
+function canonizedLteTddDownlinkActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number): boolean {
+  const configurationIndex = canonizedRequiredParameter(scenarioId, scenario, 'ulDlConfiguration');
+  if (configurationIndex !== 0) throw new Error(`${scenarioId} supports only LTE UL/DL configuration 0`);
+  const index = Math.floor(timeSeconds / canonizedRequiredParameter(scenarioId, scenario, 'subframeSeconds')) % 10;
+  return 'DSUUUDSUUU'[index] !== 'U';
+}
+
+function canonizedNrTddDownlinkActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number): boolean {
+  const index = Math.floor(timeSeconds / canonizedRequiredParameter(scenarioId, scenario, 'slotSeconds')) % 10;
+  return index <= 6;
+}
+
+function canonizedCsmaTrafficActive(timeSeconds: number, seed: number): boolean {
+  const coordinate = timeSeconds * 1_000;
+  const frame = Math.floor(coordinate / 2.7);
+  const phase = coordinate - frame * 2.7;
+  const duration = 0.25 + 1.9 * canonizedPseudoUniform(frame, 7, seed);
+  return phase < duration;
+}
+
+function canonizedReceiverFilteredAmPowerDb(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number, tuneFrequencyHz: number, rbwHz: number): number {
+  const modulationFrequencyHz = canonizedRequiredParameter(scenarioId, scenario, 'modulationFrequencyHz');
+  const modulationIndex = canonizedRequiredParameter(scenarioId, scenario, 'modulationIndex');
+  return canonizedReceiverFilteredTonePowerDb([
+    { offsetHz: -modulationFrequencyHz, amplitude: modulationIndex / 2 },
+    { offsetHz: 0, amplitude: 1 },
+    { offsetHz: modulationFrequencyHz, amplitude: modulationIndex / 2 },
+  ], scenario.centerHz, timeSeconds, tuneFrequencyHz, rbwHz, modulationFrequencyHz);
+}
+
+function canonizedReceiverFilteredFmPowerDb(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number, tuneFrequencyHz: number, rbwHz: number): number {
+  const modulationFrequencyHz = canonizedRequiredParameter(scenarioId, scenario, 'modulationFrequencyHz');
+  const beta = canonizedRequiredParameter(scenarioId, scenario, 'deviationHz') / modulationFrequencyHz;
+  const tones = Array.from({ length: 21 }, (_value, index) => index - 10)
+    .map((order) => ({ offsetHz: order * modulationFrequencyHz, amplitude: canonizedBesselJ(order, beta) }))
+    .filter((tone) => Math.abs(tone.amplitude) >= 1e-5);
+  return canonizedReceiverFilteredTonePowerDb(tones, scenario.centerHz, timeSeconds, tuneFrequencyHz, rbwHz, modulationFrequencyHz);
+}
+
+function canonizedReceiverFilteredTonePowerDb(tones: readonly { offsetHz: number; amplitude: number }[], centerHz: number, timeSeconds: number, tuneFrequencyHz: number, rbwHz: number, fundamentalHz: number): number {
+  let real = 0;
+  let imaginary = 0;
+  for (const tone of tones) {
+    const responseAmplitude = 10 ** (canonizedGaussianFilterDb(centerHz + tone.offsetHz - tuneFrequencyHz, rbwHz) / 20);
+    const order = tone.offsetHz / fundamentalHz;
+    const phase = 2 * Math.PI * order * fundamentalHz * timeSeconds;
+    real += tone.amplitude * responseAmplitude * Math.cos(phase);
+    imaginary += tone.amplitude * responseAmplitude * Math.sin(phase);
+  }
+  return 10 * Math.log10(Math.max(1e-12, real * real + imaginary * imaginary));
+}
+
+function canonizedGaussianFilterDb(offsetHz: number, rbwHz: number): number {
+  const sigmaHz = Math.max(1, rbwHz / 2.355);
+  return -4.342944819 * 0.5 * (offsetHz / sigmaHz) ** 2;
+}
+
+function canonizedGaussianOccupiedChannelDb(offsetHz: number, occupiedBandwidthHz: number): number {
+  const normalized = offsetHz / Math.max(1, occupiedBandwidthHz / 2);
+  if (Math.abs(normalized) > 1.45) return Number.NEGATIVE_INFINITY;
+  return -4.342944819 * 0.5 * (normalized / 0.52) ** 2;
+}
+
+function canonizedOfdmChannelDb(offsetHz: number, occupiedBandwidthHz: number, spacingHz: number, lookIndex: number, seed: number): number {
+  const half = occupiedBandwidthHz / 2;
+  const distance = Math.abs(offsetHz);
+  if (distance > half * 1.08) return Number.NEGATIVE_INFINITY;
+  if (distance > half) return -18 - 45 * (distance - half) / (half * 0.08);
+  const taper = distance > half * 0.96 ? -5 * (distance - half * 0.96) / (half * 0.04) : 0;
+  const dcNotch = Math.abs(offsetHz) < spacingHz * 0.75 ? -10 : 0;
+  const texture = 0.65 * canonizedDeterministicTexture(offsetHz / Math.max(1, spacingHz) + lookIndex * 0.37, seed);
+  return taper + dcNotch + texture;
+}
+
+function canonizedDsssChannelDb(offsetHz: number, occupiedBandwidthHz: number): number {
+  const normalized = Math.abs(offsetHz) / (occupiedBandwidthHz / 2);
+  if (normalized > 1.25) return Number.NEGATIVE_INFINITY;
+  return -1.8 * normalized ** 2 - 9 * normalized ** 8;
+}
+
+function canonizedClassicHopCenter(timeSeconds: number, seed: number): number {
+  const slot = Math.floor(timeSeconds / 0.000625);
+  const channel = Math.floor(canonizedPseudoUniform(slot, 31, seed) * 79);
+  return 2_402_000_000 + channel * 1_000_000;
+}
+
+function canonizedClassicSlotActive(timeSeconds: number): boolean {
+  return Math.floor(timeSeconds / 0.000625) % 3 !== 2;
+}
+
+const canonizedBleEventStartCache = new Map<string, number[]>();
+
+function canonizedBleAdvertisingCenter(timeSeconds: number, intervalSeconds: number, packetSpacingSeconds: number, packetDurationSeconds: number, seed: number): number | undefined {
+  if (packetDurationSeconds <= 0 || packetDurationSeconds > packetSpacingSeconds) throw new Error('BLE advertising packet duration must be positive and no longer than the packet start spacing');
+  const starts = canonizedBleAdvertisingEventStartsThrough(timeSeconds, intervalSeconds, seed);
+  const event = canonizedGreatestIndexAtOrBefore(starts, timeSeconds);
+  if (event < 0) return undefined;
+  const eventPhase = timeSeconds - starts[event]!;
+  if (eventPhase < 0) return undefined;
+  const packet = Math.floor(eventPhase / packetSpacingSeconds);
+  if (packet < 0 || packet > 2) return undefined;
+  if (eventPhase - packet * packetSpacingSeconds >= packetDurationSeconds) return undefined;
+  return [2_402_000_000, 2_426_000_000, 2_480_000_000][packet];
+}
+
+function canonizedBleAdvertisingEventStartsThrough(timeSeconds: number, intervalSeconds: number, seed: number): readonly number[] {
+  if (!(intervalSeconds > 0)) throw new Error('BLE advertising interval must be positive');
+  const key = `${intervalSeconds}:${seed}`;
+  const starts = canonizedBleEventStartCache.get(key) ?? [0];
+  while (starts.at(-1)! <= timeSeconds) {
+    const event = starts.length - 1;
+    starts.push(starts.at(-1)! + intervalSeconds + canonizedPseudoUniform(event, 43, seed) * 0.010);
+  }
+  canonizedBleEventStartCache.set(key, starts);
+  return starts;
+}
+
+function canonizedGreatestIndexAtOrBefore(values: readonly number[], target: number): number {
+  let low = 0;
+  let high = values.length - 1;
+  let result = -1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    if (values[middle]! <= target) {
+      result = middle;
+      low = middle + 1;
+    } else high = middle - 1;
+  }
+  return result;
+}
+
+function canonizedBesselJ(order: number, value: number): number {
+  const absoluteOrder = Math.abs(order);
+  let term = (value / 2) ** absoluteOrder / canonizedFactorial(absoluteOrder);
+  let sum = term;
+  for (let k = 1; k < 80; k++) {
+    term *= -(value * value / 4) / (k * (k + absoluteOrder));
+    sum += term;
+    if (Math.abs(term) < 1e-14) break;
+  }
+  return order < 0 && absoluteOrder % 2 === 1 ? -sum : sum;
+}
+
+function canonizedFactorial(value: number): number {
+  let result = 1;
+  for (let index = 2; index <= value; index++) result *= index;
+  return result;
+}
+
+function canonizedPeriodogramNoiseDb(index: number, lookIndex: number, seed: number): number {
+  let gammaPower = 0;
+  const looks = 6;
+  for (let look = 0; look < looks; look++) gammaPower += -Math.log(Math.max(Number.EPSILON, canonizedPseudoUniform(index, lookIndex * 17 + look, seed ^ Math.imul(look + 1, 0x9e3779b9))));
+  return Math.max(-12, Math.min(8, 10 * Math.log10(gammaPower / looks)));
+}
+
+function canonizedPseudoUniform(left: number, right: number, seed: number): number {
+  let value = (Math.trunc(left) ^ Math.imul(Math.trunc(right), 0x9e3779b1) ^ seed) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x21f0aaad);
+  value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
+  value ^= value >>> 15;
+  return ((value >>> 0) + 0.5) / 0x1_0000_0000;
+}
+
+function canonizedDeterministicTexture(coordinate: number, seed: number): number {
+  return 0.58 * Math.sin(coordinate * 0.73 + seed * 0.001)
+    + 0.27 * Math.cos(coordinate * 1.91 - seed * 0.0007)
+    + 0.15 * Math.sin(coordinate * 4.17 + seed * 0.0003);
+}
+
+// Keep the corpus arithmetic exact: the trained model hash includes these
+// scalar samples, so even an algebraically equivalent stable-log rewrite would
+// create a different executable corpus.
+function canonizedCombineDbm(leftDbm: number, rightDbm: number): number {
+  return 10 * Math.log10(10 ** (leftDbm / 10) + 10 ** (rightDbm / 10));
+}
+
+function canonizedCombineRelativeDb(values: readonly number[]): number {
+  const finite = values.filter(Number.isFinite);
+  if (!finite.length) return Number.NEGATIVE_INFINITY;
+  const maximum = Math.max(...finite);
+  return maximum + 10 * Math.log10(finite.reduce((sum, value) => sum + 10 ** ((value - maximum) / 10), 0));
+}
+
+function canonizedRequiredParameter(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, key: string): number {
+  const value = scenario.parameters[key];
+  if (value === undefined) throw new Error(`${scenarioId} is missing parameter ${key}`);
+  return value;
+}
+
+function validateCanonizedSpectrum(input: CanonizedSpectrumInput): void {
+  if (!Number.isFinite(input.startHz) || !Number.isFinite(input.stopHz) || input.stopHz <= input.startHz) throw new Error('Canonized spectrum requires an increasing finite frequency range');
+  if (!Number.isInteger(input.points) || input.points < 2) throw new Error('Canonized spectrum requires at least two points');
+  validateCanonizedSignalGain(input.points, input.signalGainDb);
+  validateCanonizedCommon(input);
+}
+
+function validateCanonizedEnvelope(input: CanonizedEnvelopeInput): void {
+  if (!Number.isInteger(input.points) || input.points < 1) throw new Error('Canonized envelope requires at least one point');
+  if (!Number.isFinite(input.samplePeriodSeconds) || input.samplePeriodSeconds <= 0 || !Number.isFinite(input.tuneFrequencyHz)) throw new Error('Canonized envelope geometry must be finite and positive');
+  validateCanonizedSignalGain(input.points, input.signalGainDb);
+  validateCanonizedCommon(input);
+}
+
+function validateCanonizedSignalGain(points: number, signalGainDb: readonly number[] | undefined): void {
+  if (signalGainDb === undefined) return;
+  if (signalGainDb.length !== points || signalGainDb.some((value) => !Number.isFinite(value))) {
+    throw new Error('Canonized signal gain must contain one finite value per point');
+  }
+}
+
+function validateCanonizedCommon(input: Pick<CanonizedSpectrumInput, 'actualRbwHz' | 'noiseFloorDbm' | 'snrDb' | 'seed' | 'lookIndex' | 'centerHz'>): void {
+  if (!Number.isFinite(input.actualRbwHz) || input.actualRbwHz <= 0 || !Number.isFinite(input.noiseFloorDbm) || !Number.isFinite(input.snrDb)) throw new Error('Canonized projection levels and RBW must be finite and RBW must be positive');
+  if (!Number.isInteger(input.seed) || !Number.isInteger(input.lookIndex) || input.lookIndex < 0) throw new Error('Canonized projection seed/look index must be non-negative integers');
+  if (input.centerHz !== undefined && !Number.isFinite(input.centerHz)) throw new Error('Canonized projection center must be finite');
 }
 
 function validateSpectrumInput(input: SpectrumSynthesisInput): void {

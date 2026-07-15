@@ -18,7 +18,7 @@ The public source boundary is `src/contracts.ts`:
 
 - `SignalLabApi.version = 1`.
 - `status()` returns immutable current state.
-- `select(profile)` accepts one of exactly 79 profile IDs.
+- `select(profile)` accepts one of exactly 88 profile IDs.
 - `configureChannel(config)` accepts the closed AWGN/Rayleigh schema.
 - `subscribe(listener)` delivers status changes and returns explicit unsubscription.
 - `SignalLabStimulusIntent` is reserved for a future Firmware-owned sink.
@@ -50,11 +50,12 @@ With no persisted Atomizer preference, `signal-lab` is Atomizer's factory defaul
 |---|---:|---|
 | Tone | 1 | Visual |
 | Analog AM/FM | 2 | Visual |
-| GERAN/EDGE normal-burst projections | 6 | Standards-derived |
-| E-UTRA Release 19 E-TM/sE-TM/N-TM projections | 25 | Standards-derived |
-| NR Release 19 FR1/N-TM/SBFD projections | 41 | Standards-derived |
-| IEEE 802.11ax HE PPDU projections | 4 | Standards-derived |
-| Total | 79 | Closed |
+| GERAN canonized observable + EDGE normal-burst projections | 7 | Standards-derived |
+| E-UTRA canonized FDD/TDD + Release 19 E-TM/sE-TM/N-TM projections | 27 | Standards-derived |
+| NR canonized FDD/TDD + Release 19 FR1/N-TM/SBFD projections | 43 | Standards-derived |
+| IEEE 802.11 canonized HR-DSSS/OFDM + 802.11ax HE PPDU projections | 6 | Standards-derived |
+| Bluetooth BR/EDR + LE canonized observable projections | 2 | Standards-derived |
+| Total | 88 | Closed |
 
 Every descriptor carries a stable ID, label, family/model, center, occupied bandwidth, recommended span, resource/timing projection, source organization/specification/clause/revision/URL, qualification, and disclosure.
 
@@ -71,12 +72,13 @@ Assumptions:
 
 Guarantees:
 
-- AWGN output is derived from a seeded complex-Gaussian periodogram plus bounded receiver ripple and stable low-level spurs.
-- Rayleigh output adds reproducible correlated frequency-selective fading rather than relabeling AWGN.
+- Legacy visual/test-model AWGN is derived from a seeded complex-Gaussian periodogram plus bounded receiver ripple and stable low-level spurs. Canonized observable profiles use the same deterministic corpus periodogram process at a fixed in-support 32 dB SNR.
+- Rayleigh output adds reproducible correlated frequency-selective signal fading rather than relabeling AWGN.
 - Equal profile, channel, point grid, seed, and sweep index produce equal output.
 - A changed sweep index evolves the live replay.
-- AM varies envelope amplitude across replay time.
-- FM moves carrier energy laterally through its deviation; non-line adjacent bins retain the channel noise floor rather than a false occupied pedestal.
+- Canonized AM uses the physical DSB full-carrier power ratio and receiver-filtered envelope projection.
+- Canonized FM uses the sinusoidal-FM Bessel-series line-power and receiver-filtered envelope projections; non-line adjacent bins retain the channel noise floor rather than a false occupied pedestal.
+- Canonized detected-power synthesis uses the exact admitted sample period rather than a hidden fixed clock.
 - GSM and WLAN zero-span projections preserve burst behavior.
 - Every accepted profile produces finite, correctly sized spectrum and zero-span arrays or fails.
 
@@ -141,12 +143,13 @@ Every local API request settles exactly once as a validated new status or an exp
 
 `npm run check` must prove:
 
-- Exactly 79 descriptors with family counts `1/2/6/25/41/4`.
+- Exactly 88 descriptors with family counts `1/2/7/27/43/6/2`.
 - Every descriptor has a source clause and valid range.
 - Every profile produces finite spectrum output.
 - Seeded AWGN is repeatable and evolves by sweep.
 - Rayleigh fading is reproducible and measurably frequency-selective.
-- AM and FM replay behaviors are distinct and visible.
+- Every public canonized observable profile is byte-identical to its shared corpus source under equal geometry, seed, SNR, and look index.
+- LTE/NR FDD/TDD and Bluetooth BR/EDR/LE profiles are explicit selectable capabilities with non-conformance and observable-equivalence disclosures.
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
 - Invalid conformance promotion fails.

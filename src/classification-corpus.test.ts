@@ -9,7 +9,7 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v7');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v8');
     expect(canonicalClassificationScenarios).toHaveLength(35);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
