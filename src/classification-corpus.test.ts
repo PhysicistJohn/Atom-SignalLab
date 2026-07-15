@@ -9,7 +9,7 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v11');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v12');
     expect(canonicalClassificationScenarios).toHaveLength(35);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
@@ -47,6 +47,7 @@ describe('canonical scalar classification corpus', () => {
       lookIndex: 0,
       points: 2_001,
       actualRbwHz: 2_000,
+      detectedPowerSynthesisFilterWidthHz: 2_000,
       noiseFloorDbm: -145,
       snrDb: 70,
       seed: 17,
@@ -66,6 +67,7 @@ describe('canonical scalar classification corpus', () => {
       lookIndex: 2,
       points: 2_001,
       actualRbwHz: 2_000,
+      detectedPowerSynthesisFilterWidthHz: 2_000,
       noiseFloorDbm: -145,
       snrDb: 70,
       seed: 21,
@@ -79,7 +81,7 @@ describe('canonical scalar classification corpus', () => {
     expect(quantile(observation.zeroSpanPowerDbm, 0.95) - quantile(observation.zeroSpanPowerDbm, 0.05)).toBeLessThan(3);
   });
 
-  it('projects analog zero span through the configured tune and RBW response', () => {
+  it('keeps swept-spectrum RBW separate from the detected-power synthesis filter', () => {
     const common = {
       lookIndex: 0,
       zeroSpanPoints: 1_800,
@@ -91,24 +93,40 @@ describe('canonical scalar classification corpus', () => {
     const narrowAm = synthesizeCanonicalObservation('am-dsb-25k', {
       ...common,
       actualRbwHz: 2_000,
+      detectedPowerSynthesisFilterWidthHz: 2_000,
       zeroSpanFrequencyHz: 98_000_000,
     });
     const wideAm = synthesizeCanonicalObservation('am-dsb-25k', {
       ...common,
-      actualRbwHz: 100_000,
+      actualRbwHz: 2_000,
+      detectedPowerSynthesisFilterWidthHz: 100_000,
       zeroSpanFrequencyHz: 98_000_000,
     });
+    const differentSpectrumRbw = synthesizeCanonicalObservation('am-dsb-25k', {
+      ...common,
+      actualRbwHz: 4_000,
+      detectedPowerSynthesisFilterWidthHz: 2_000,
+      zeroSpanFrequencyHz: 98_000_000,
+    });
+    expect(wideAm.powerDbm).toEqual(narrowAm.powerDbm);
+    expect(wideAm.zeroSpanPowerDbm).not.toEqual(narrowAm.zeroSpanPowerDbm);
+    expect(differentSpectrumRbw.powerDbm).not.toEqual(narrowAm.powerDbm);
+    expect(differentSpectrumRbw.zeroSpanPowerDbm).toEqual(narrowAm.zeroSpanPowerDbm);
+    expect(wideAm.detectedPowerActualRbwHz).toBeNull();
+    expect(wideAm.detectedPowerSynthesisFilterWidthHz).toBe(100_000);
     expect(quantile(narrowAm.zeroSpanPowerDbm, 0.95) - quantile(narrowAm.zeroSpanPowerDbm, 0.05)).toBeLessThan(3);
     expect(quantile(wideAm.zeroSpanPowerDbm, 0.95) - quantile(wideAm.zeroSpanPowerDbm, 0.05)).toBeGreaterThan(8);
 
     const discriminatorFm = synthesizeCanonicalObservation('fm-beta-3', {
       ...common,
-      actualRbwHz: 50_000,
+      actualRbwHz: 2_000,
+      detectedPowerSynthesisFilterWidthHz: 50_000,
       zeroSpanFrequencyHz: 98_025_000,
     });
     const wideFm = synthesizeCanonicalObservation('fm-beta-3', {
       ...common,
-      actualRbwHz: 1_000_000,
+      actualRbwHz: 2_000,
+      detectedPowerSynthesisFilterWidthHz: 1_000_000,
       zeroSpanFrequencyHz: 98_000_000,
     });
     expect(quantile(discriminatorFm.zeroSpanPowerDbm, 0.95) - quantile(discriminatorFm.zeroSpanPowerDbm, 0.05)).toBeGreaterThan(3);
@@ -423,6 +441,7 @@ describe('canonical scalar classification corpus', () => {
     const scenario = canonicalClassificationScenario(id);
     const observation = synthesizeCanonicalObservation(id, {
       lookIndex: 0, points: 4_001, actualRbwHz: 2_000, noiseFloorDbm: -145, snrDb: 70, seed: 919,
+      detectedPowerSynthesisFilterWidthHz: 2_000,
       zeroSpanPoints: 900, zeroSpanSamplePeriodSeconds: 1 / 9_000, zeroSpanFrequencyHz: scenario.centerHz,
     });
     const peaks = strongLocalPeakFrequencies(observation.frequencyHz, observation.powerDbm, -100);
@@ -437,6 +456,18 @@ describe('canonical scalar classification corpus', () => {
     expect(() => canonicalClassificationScenario('missing')).toThrow(/unknown canonical/i);
     expect(() => synthesizeCanonicalObservation('cw-rbw-line', { lookIndex: 0, points: 2 })).toThrow(/at least 16/i);
     expect(() => synthesizeCanonicalObservation('cw-rbw-line', { lookIndex: -1 })).toThrow(/non-negative integers/i);
+    expect(() => synthesizeCanonicalObservation('cw-rbw-line', {
+      lookIndex: 0,
+      detectedPowerSynthesisFilterWidthHz: 0,
+    })).toThrow(/synthesis filter widths must be positive/i);
+    expect(() => synthesizeCanonicalObservation('cw-rbw-line', {
+      lookIndex: 0,
+      detectedPowerSynthesisFilterWidthHz: -1,
+    })).toThrow(/synthesis filter widths must be positive/i);
+    expect(() => synthesizeCanonicalObservation('cw-rbw-line', {
+      lookIndex: 0,
+      detectedPowerSynthesisFilterWidthHz: Number.NaN,
+    })).toThrow(/must be finite/i);
   });
 });
 

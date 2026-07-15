@@ -4,9 +4,13 @@ import {
   synthesizedSignalProfileSchema,
   type ReplayChannelConfiguration,
 } from './contracts.js';
-import { canonicalClassificationScenario } from './classification-corpus.js';
+import {
+  canonicalClassificationScenario,
+  synthesizeCanonicalObservation,
+} from './classification-corpus.js';
 import {
   CANONIZED_KNOWN_SCENARIOS,
+  CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
   CANONIZED_REPLAY_PROFILE_SCENARIOS,
   DEFAULT_REPLAY_CHANNEL,
   requireConformanceValidated,
@@ -154,7 +158,8 @@ describe('qualified waveform replay engine', () => {
       profile: 'am', tuneFrequencyHz: descriptor.centerHz, points, sweepIndex, samplePeriodSeconds, channel: DEFAULT_REPLAY_CHANNEL,
     });
     const expected = synthesizeCanonizedKnownEnvelope({
-      scenarioId: 'am-dsb-25k', points, samplePeriodSeconds, actualRbwHz: 100_000,
+      scenarioId: 'am-dsb-25k', points, samplePeriodSeconds,
+      synthesisFilterWidthHz: CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
       noiseFloorDbm: DEFAULT_REPLAY_CHANNEL.noiseFloorDbm, snrDb: 32,
       seed: DEFAULT_REPLAY_CHANNEL.seed, lookIndex: sweepIndex,
       tuneFrequencyHz: descriptor.centerHz, centerHz: descriptor.centerHz,
@@ -163,6 +168,43 @@ describe('qualified waveform replay engine', () => {
     expect(live).not.toEqual(synthesizeZeroSpan({
       profile: 'am', tuneFrequencyHz: descriptor.centerHz, points, sweepIndex, samplePeriodSeconds: 1 / 9_000, channel: DEFAULT_REPLAY_CHANNEL,
     }));
+  });
+
+  it('uses the exact corpus source and explicit synthesis filter for every public detected-power replay', () => {
+    const points = 450;
+    const samplePeriodSeconds = 1 / 9_000;
+    const lookIndex = 17;
+    for (const [profile, scenarioId] of Object.entries(CANONIZED_REPLAY_PROFILE_SCENARIOS)) {
+      if (!scenarioId) continue;
+      const descriptor = waveformDescriptor(profile as keyof typeof CANONIZED_REPLAY_PROFILE_SCENARIOS);
+      const range = suggestedAnalyzerRange(descriptor);
+      const actualRbwHz = (range.stopHz - range.startHz) / (points - 1);
+      const live = synthesizeZeroSpan({
+        profile: descriptor.id,
+        tuneFrequencyHz: descriptor.centerHz,
+        points,
+        sweepIndex: lookIndex,
+        samplePeriodSeconds,
+        channel: DEFAULT_REPLAY_CHANNEL,
+      });
+      const corpus = synthesizeCanonicalObservation(scenarioId, {
+        lookIndex,
+        points,
+        actualRbwHz,
+        zeroSpanPoints: points,
+        zeroSpanSamplePeriodSeconds: samplePeriodSeconds,
+        zeroSpanFrequencyHz: descriptor.centerHz,
+        detectedPowerSynthesisFilterWidthHz: CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
+        noiseFloorDbm: DEFAULT_REPLAY_CHANNEL.noiseFloorDbm,
+        snrDb: 32,
+        seed: DEFAULT_REPLAY_CHANNEL.seed,
+      });
+      expect(corpus.actualRbwHz, profile).toBe(actualRbwHz);
+      expect(corpus.detectedPowerActualRbwHz, profile).toBeNull();
+      expect(corpus.detectedPowerSynthesisFilterWidthHz, profile)
+        .toBe(CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ);
+      expect(live, profile).toEqual(corpus.zeroSpanPowerDbm);
+    }
   });
 
   it('receiver-filters every canonized public envelope at the exact requested integer-Hz tune', () => {

@@ -50,7 +50,7 @@ These are spectrum/time projections, not conformance-grade I/Q. A profile cannot
 
 `src/waveforms.ts` owns the executable definitions and synthesis kernel shared
 by the public canonized observable profiles and `src/classification-corpus.ts`.
-Corpus v11 canonizes deterministic scalar observations for Bayesian
+Corpus v12 canonizes deterministic scalar observations for Bayesian
 detector/classifier development, including CW, physical DSB full-carrier AM
 sideband ratios, Bessel-series FM, standards-parameterized heuristic
 projections of GSM, LTE FDD/TDD, NR FDD/TDD, Wi-Fi DSSS/OFDM and Bluetooth
@@ -62,7 +62,11 @@ versioned 3GPP specifications never share an invented aggregate revision or a
 URL that resolves only half of the stated basis. Live profile identity remains
 status-only and never enters the shared measurement evidence or classifier.
 
-Version 11 makes every TDD and LE timing choice explicit. The LTE Band 38
+Version 12 retains the explicit TDD and LE timing choices introduced in v11.
+It also separates swept-spectrum bin-equivalent RBW from the generator-internal
+receiver-filter width used for detected-power synthesis. Public replays and the
+corpus both pin that synthesis width to 100 kHz, record it for reproducibility,
+and never represent it as observed or calibrated measurement metadata. The LTE Band 38
 projection is downlink-only UL/DL configuration 0 with normal downlink/uplink
 cyclic prefixes and special-subframe configuration 7 (`srs-UpPtsAdd` absent):
 DwPTS is 21,952 `Ts`, while GP and UpPTS are 4,384 `Ts` each. Guard and UpPTS
@@ -84,7 +88,7 @@ Bluetooth activity leaf: scalar frequency agility cannot establish protocol
 or emitter identity. Simultaneous lines likewise cannot establish a shared
 emitter, oscillator, modulation process, or message identity.
 
-The v11 corpus also contains byte-for-byte scalar-equivalence null pairs: a
+The v12 corpus also contains byte-for-byte scalar-equivalence null pairs: a
 receiver spur versus CW, coherent independent tones versus DSB-FC AM, an
 independent Bessel-weighted comb versus FM, generic OFDM versus LTE/NR or
 Wi-Fi-shaped projections, and proprietary DSSS versus HR-DSSS. A classifier

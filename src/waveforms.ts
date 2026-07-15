@@ -108,7 +108,12 @@ export const CANONIZED_REPLAY_PROFILE_SCENARIOS: Readonly<Partial<Record<Synthes
 
 const CANONIZED_REPLAY_SNR_DB = 32;
 const CANONIZED_REPLAY_SWEEP_TIME_SECONDS = 0.05;
-const CANONIZED_ZERO_SPAN_RBW_HZ = 100_000;
+/**
+ * Internal receiver-filter width used to synthesize public detected-power
+ * replays. The measurement bridge intentionally does not report this as an
+ * observed or calibrated instrument RBW.
+ */
+export const CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ = 100_000;
 
 export interface CanonizedSpectrumInput {
   readonly scenarioId: CanonizedKnownScenarioId;
@@ -130,7 +135,8 @@ export interface CanonizedEnvelopeInput {
   readonly scenarioId: CanonizedKnownScenarioId;
   readonly points: number;
   readonly samplePeriodSeconds: number;
-  readonly actualRbwHz: number;
+  /** Generator-internal receiver-filter width; not observed measurement metadata. */
+  readonly synthesisFilterWidthHz: number;
   readonly noiseFloorDbm: number;
   readonly snrDb: number;
   readonly seed: number;
@@ -219,7 +225,7 @@ export function synthesizeZeroSpan(input: ZeroSpanSynthesisInput): number[] {
       scenarioId,
       points: input.points,
       samplePeriodSeconds: input.samplePeriodSeconds,
-      actualRbwHz: CANONIZED_ZERO_SPAN_RBW_HZ,
+      synthesisFilterWidthHz: CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
       noiseFloorDbm: channel.noiseFloorDbm,
       snrDb: CANONIZED_REPLAY_SNR_DB,
       seed: channel.seed,
@@ -261,7 +267,11 @@ function legacyReceiverResponseDb(descriptor: WaveformDescriptor, tuneFrequencyH
     signalCenterHz += positions[sweepIndex % positions.length]! * fullGridHz;
     occupiedBandwidthHz = spacingHz * 12;
   }
-  return occupiedBandReceiverResponseDb(tuneFrequencyHz - signalCenterHz, occupiedBandwidthHz, CANONIZED_ZERO_SPAN_RBW_HZ);
+  return occupiedBandReceiverResponseDb(
+    tuneFrequencyHz - signalCenterHz,
+    occupiedBandwidthHz,
+    CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
+  );
 }
 
 function canonizedReplayScenarioId(profile: ReplayProfile): CanonizedKnownScenarioId | undefined {
@@ -617,31 +627,31 @@ function canonizedEnvelopeRelativePowerDb(
   scenario: CanonizedKnownScenario,
   timeSeconds: number,
   tuneFrequencyHz: number,
-  configuration: Pick<CanonizedEnvelopeInput, 'actualRbwHz' | 'seed'>,
+  configuration: Pick<CanonizedEnvelopeInput, 'synthesisFilterWidthHz' | 'seed'>,
 ): number {
   switch (scenario.envelopeModel) {
     case 'steady': return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds)
-      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
-    case 'sinusoidal-am': return canonizedReceiverFilteredAmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
-    case 'receiver-filtered-fm': return canonizedReceiverFilteredFmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
+      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
+    case 'sinusoidal-am': return canonizedReceiverFilteredAmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
+    case 'receiver-filtered-fm': return canonizedReceiverFilteredFmPowerDb(scenarioId, scenario, timeSeconds, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
     case 'one-of-eight-tdma': return canonizedGsmTrafficActive(scenarioId, scenario, timeSeconds)
-      ? canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
+      ? canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz)
       : Number.NEGATIVE_INFINITY;
     case 'continuous-gsm-loaded': return -0.35 + 0.25 * canonizedDeterministicTexture(timeSeconds * 1_733, configuration.seed)
-      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
+      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
     case 'continuous-ofdm': return -0.7 + 0.55 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed)
-      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
+      + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz);
     case LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1: return lteTddConfig0Ssp7NormalCpDownlinkActive(scenario.parameters, timeSeconds)
       ? -0.5 + 0.4 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed)
-        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
+        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz)
       : Number.NEGATIVE_INFINITY;
     case NR_TDD_7DL_3UL_ENGINEERING_V1: return nrTdd7Dl3UlEngineeringDownlinkActive(scenario.parameters, timeSeconds)
       ? -0.5 + 0.45 * canonizedDeterministicTexture(timeSeconds * 4_000, configuration.seed)
-        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
+        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz)
       : Number.NEGATIVE_INFINITY;
     case 'csma-bursts': return canonizedCsmaTrafficActive(timeSeconds, configuration.seed)
       ? -0.5 + 0.7 * canonizedDeterministicTexture(timeSeconds * 3_000, configuration.seed)
-        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
+        + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.synthesisFilterWidthHz)
       : Number.NEGATIVE_INFINITY;
     case 'classic-slots': {
       const slot = canonizedRequiredParameter(scenarioId, scenario, 'slotSeconds');
@@ -649,7 +659,7 @@ function canonizedEnvelopeRelativePowerDb(
       const hopCenterHz = canonizedClassicHopCenter(timeSeconds, configuration.seed);
       const receiverResponseDb = canonizedGaussianFilterDb(
         tuneFrequencyHz - hopCenterHz,
-        Math.max(configuration.actualRbwHz, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz')),
+        Math.max(configuration.synthesisFilterWidthHz, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz')),
       );
       return canonizedClassicSlotActive(timeSeconds) && receiverResponseDb > -60
         ? -0.4 + 0.25 * canonizedDeterministicTexture(index, configuration.seed) + receiverResponseDb
@@ -660,7 +670,7 @@ function canonizedEnvelopeRelativePowerDb(
       if (packetCenterHz === undefined) return Number.NEGATIVE_INFINITY;
       const receiverResponseDb = canonizedGaussianFilterDb(
         tuneFrequencyHz - packetCenterHz,
-        Math.max(configuration.actualRbwHz, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz')),
+        Math.max(configuration.synthesisFilterWidthHz, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz')),
       );
       return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
@@ -922,8 +932,9 @@ function validateCanonizedSpectrum(input: CanonizedSpectrumInput): void {
 function validateCanonizedEnvelope(input: CanonizedEnvelopeInput): void {
   if (!Number.isInteger(input.points) || input.points < 1) throw new Error('Canonized envelope requires at least one point');
   if (!Number.isFinite(input.samplePeriodSeconds) || input.samplePeriodSeconds <= 0 || !Number.isFinite(input.tuneFrequencyHz)) throw new Error('Canonized envelope geometry must be finite and positive');
+  if (!Number.isFinite(input.synthesisFilterWidthHz) || input.synthesisFilterWidthHz <= 0) throw new Error('Canonized envelope synthesis filter width must be finite and positive');
   validateCanonizedSignalGain(input.points, input.signalGainDb);
-  validateCanonizedCommon(input);
+  validateCanonizedLevelsAndIdentity(input);
 }
 
 function validateCanonizedSignalGain(points: number, signalGainDb: readonly number[] | undefined): void {
@@ -934,7 +945,14 @@ function validateCanonizedSignalGain(points: number, signalGainDb: readonly numb
 }
 
 function validateCanonizedCommon(input: Pick<CanonizedSpectrumInput, 'actualRbwHz' | 'noiseFloorDbm' | 'snrDb' | 'seed' | 'lookIndex' | 'centerHz'>): void {
-  if (!Number.isFinite(input.actualRbwHz) || input.actualRbwHz <= 0 || !Number.isFinite(input.noiseFloorDbm) || !Number.isFinite(input.snrDb)) throw new Error('Canonized projection levels and RBW must be finite and RBW must be positive');
+  if (!Number.isFinite(input.actualRbwHz) || input.actualRbwHz <= 0) throw new Error('Canonized spectrum RBW must be finite and positive');
+  validateCanonizedLevelsAndIdentity(input);
+}
+
+function validateCanonizedLevelsAndIdentity(
+  input: Pick<CanonizedSpectrumInput, 'noiseFloorDbm' | 'snrDb' | 'seed' | 'lookIndex' | 'centerHz'>,
+): void {
+  if (!Number.isFinite(input.noiseFloorDbm) || !Number.isFinite(input.snrDb)) throw new Error('Canonized projection levels must be finite');
   if (!Number.isInteger(input.seed) || !Number.isInteger(input.lookIndex) || input.lookIndex < 0) throw new Error('Canonized projection seed/look index must be non-negative integers');
   if (input.centerHz !== undefined && !Number.isFinite(input.centerHz)) throw new Error('Canonized projection center must be finite');
 }

@@ -9,6 +9,7 @@
 
 import {
   CANONIZED_KNOWN_SCENARIOS,
+  CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
   synthesizeCanonizedKnownEnvelope,
   synthesizeCanonizedKnownSpectrum,
   type CanonizedKnownScenarioId,
@@ -35,7 +36,7 @@ import {
   type SourceBasis,
 } from './source-provenance.js';
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v11' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v12' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -118,12 +119,18 @@ export interface CanonicalClassificationScenario {
 
 export interface CanonicalInstrumentConfiguration {
   points: number;
+  /** Swept-spectrum bin-equivalent RBW. */
   actualRbwHz: number;
   sweepTimeSeconds: number;
   zeroSpanPoints: number;
   zeroSpanSamplePeriodSeconds: number;
   /** Fixed analyzer tune for the detected-power capture. Defaults to the scenario center. */
   zeroSpanFrequencyHz?: number;
+  /**
+   * Generator-internal receiver-filter width for detected-power synthesis.
+   * It is recorded for reproducibility but is not observed measurement metadata.
+   */
+  detectedPowerSynthesisFilterWidthHz: number;
   noiseFloorDbm: number;
   snrDb: number;
   seed: number;
@@ -140,8 +147,13 @@ export interface CanonicalScalarObservation {
   frequencyHz: readonly number[];
   powerDbm: readonly number[];
   sweepTimeSeconds: number;
+  /** Swept-spectrum bin-equivalent RBW; detected-power actual RBW is unavailable. */
   actualRbwHz: number;
   zeroSpanFrequencyHz: number;
+  /** SignalLab does not claim an observed or calibrated detected-power RBW. */
+  detectedPowerActualRbwHz: null;
+  /** Generator-internal provenance; never an observed or calibrated instrument RBW. */
+  detectedPowerSynthesisFilterWidthHz: number;
   zeroSpanPowerDbm: readonly number[];
   zeroSpanSamplePeriodSeconds: number;
   source: CanonicalSource;
@@ -279,6 +291,7 @@ export const DEFAULT_CANONICAL_INSTRUMENT: Omit<CanonicalInstrumentConfiguration
   sweepTimeSeconds: 0.05,
   zeroSpanPoints: 450,
   zeroSpanSamplePeriodSeconds: 1 / 9_000,
+  detectedPowerSynthesisFilterWidthHz: CANONIZED_REPLAY_DETECTED_POWER_SYNTHESIS_FILTER_WIDTH_HZ,
   noiseFloorDbm: -108,
   snrDb: 24,
   seed: 407,
@@ -334,7 +347,7 @@ export function synthesizeCanonicalObservation(
       scenarioId: knownScenarioId,
       points: configuration.zeroSpanPoints,
       samplePeriodSeconds: configuration.zeroSpanSamplePeriodSeconds,
-      actualRbwHz: configuration.actualRbwHz,
+      synthesisFilterWidthHz: configuration.detectedPowerSynthesisFilterWidthHz,
       noiseFloorDbm: configuration.noiseFloorDbm,
       snrDb: configuration.snrDb,
       seed: configuration.seed,
@@ -353,6 +366,8 @@ export function synthesizeCanonicalObservation(
     sweepTimeSeconds: configuration.sweepTimeSeconds,
     actualRbwHz: configuration.actualRbwHz,
     zeroSpanFrequencyHz,
+    detectedPowerActualRbwHz: null,
+    detectedPowerSynthesisFilterWidthHz: configuration.detectedPowerSynthesisFilterWidthHz,
     zeroSpanPowerDbm,
     zeroSpanSamplePeriodSeconds: configuration.zeroSpanSamplePeriodSeconds,
     source: structuredClone(scenario.source),
@@ -531,8 +546,8 @@ function envelopeRelativePowerDb(
 ): number {
   switch (scenario.envelopeModel) {
     case 'steady': return -0.12 + 0.12 * Math.sin(2 * Math.PI * 7 * timeSeconds);
-    case 'sinusoidal-am': return receiverFilteredAmPowerDb(scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
-    case 'receiver-filtered-fm': return receiverFilteredFmPowerDb(scenario, timeSeconds, tuneFrequencyHz, configuration.actualRbwHz);
+    case 'sinusoidal-am': return receiverFilteredAmPowerDb(scenario, timeSeconds, tuneFrequencyHz, configuration.detectedPowerSynthesisFilterWidthHz);
+    case 'receiver-filtered-fm': return receiverFilteredFmPowerDb(scenario, timeSeconds, tuneFrequencyHz, configuration.detectedPowerSynthesisFilterWidthHz);
     case 'one-of-eight-tdma': {
       return gsmTrafficActive(scenario, timeSeconds) ? 0 : Number.NEGATIVE_INFINITY;
     }
@@ -557,7 +572,7 @@ function envelopeRelativePowerDb(
       const slot = requiredParameter(scenario, 'slotSeconds');
       const index = Math.floor(timeSeconds / slot);
       const hopCenterHz = classicHopCenter(timeSeconds, configuration.seed);
-      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - hopCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - hopCenterHz, Math.max(configuration.detectedPowerSynthesisFilterWidthHz, requiredParameter(scenario, 'channelWidthHz')));
       return classicSlotActive(timeSeconds) && receiverResponseDb > -60
         ? -0.4 + 0.25 * deterministicTexture(index, configuration.seed) + receiverResponseDb
         : Number.NEGATIVE_INFINITY;
@@ -565,34 +580,34 @@ function envelopeRelativePowerDb(
     case BLE_PRIMARY_ADVERTISING_ENGINEERING_V1: {
       const packetCenterHz = bleAdvertisingCenter(scenario, timeSeconds, configuration.seed);
       if (packetCenterHz === undefined) return Number.NEGATIVE_INFINITY;
-      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - packetCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - packetCenterHz, Math.max(configuration.detectedPowerSynthesisFilterWidthHz, requiredParameter(scenario, 'channelWidthHz')));
       return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'stationary-bursts': {
-      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - scenario.centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - scenario.centerHz, Math.max(configuration.detectedPowerSynthesisFilterWidthHz, requiredParameter(scenario, 'channelWidthHz')));
       return periodicBurstActive(timeSeconds, requiredParameter(scenario, 'burstPeriodSeconds'), requiredParameter(scenario, 'burstDuty'))
         && receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'simultaneous-raster-fixed-tune': {
       const receiverResponseDb = combineRelativeDb(rasterCenters(scenario).map((centerHz) =>
-        gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')))));
+        gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.detectedPowerSynthesisFilterWidthHz, requiredParameter(scenario, 'channelWidthHz')))));
       return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'interleaved-fixed-tune': {
       const centerHz = interleavedCenter(scenario, configuration.lookIndex);
-      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.detectedPowerSynthesisFilterWidthHz, requiredParameter(scenario, 'channelWidthHz')));
       return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'proprietary-fhss-fixed-tune': {
       const centerHz = proprietaryFhssCenter(scenario, configuration.lookIndex, configuration.seed);
-      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
+      const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - centerHz, Math.max(configuration.detectedPowerSynthesisFilterWidthHz, requiredParameter(scenario, 'channelWidthHz')));
       return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'fsk-steady': return -0.4 + 0.25 * Math.sin(2 * Math.PI * 1_700 * timeSeconds);
     case 'chirp-sweep': return -0.8 + 0.7 * Math.sin(2 * Math.PI * 250 * timeSeconds);
     case 'multitone-fixed-tune': {
       const receiverResponseDb = combineRelativeDb(multitoneOffsets(scenario).map((lineOffsetHz, index) =>
-        multitoneLevelDb(scenario, index) + gaussianFilterDb(tuneFrequencyHz - (scenario.centerHz + lineOffsetHz), configuration.actualRbwHz)));
+        multitoneLevelDb(scenario, index) + gaussianFilterDb(tuneFrequencyHz - (scenario.centerHz + lineOffsetHz), configuration.detectedPowerSynthesisFilterWidthHz)));
       return receiverResponseDb > -60 ? receiverResponseDb : Number.NEGATIVE_INFINITY;
     }
     case 'impulsive': return pseudoUniform(Math.floor(timeSeconds * 50_000), 17, configuration.seed) < 0.08 ? 0 : Number.NEGATIVE_INFINITY;
@@ -892,6 +907,9 @@ function validateInstrument(value: CanonicalInstrumentConfiguration): void {
   if (!Number.isInteger(value.points) || value.points < 16) throw new Error('Canonical spectrum requires at least 16 points');
   if (!Number.isInteger(value.zeroSpanPoints) || value.zeroSpanPoints < 20) throw new Error('Canonical zero span requires at least 20 points');
   for (const [key, item] of Object.entries(value)) if (!Number.isFinite(item)) throw new Error(`Canonical instrument ${key} must be finite`);
-  if (value.actualRbwHz <= 0 || value.sweepTimeSeconds <= 0 || value.zeroSpanSamplePeriodSeconds <= 0) throw new Error('Canonical acquisition intervals and RBW must be positive');
+  if (value.actualRbwHz <= 0 || value.detectedPowerSynthesisFilterWidthHz <= 0
+    || value.sweepTimeSeconds <= 0 || value.zeroSpanSamplePeriodSeconds <= 0) {
+    throw new Error('Canonical acquisition intervals and synthesis filter widths must be positive');
+  }
   if (!Number.isInteger(value.seed) || !Number.isInteger(value.lookIndex) || value.lookIndex < 0) throw new Error('Canonical seed/look index must be non-negative integers');
 }

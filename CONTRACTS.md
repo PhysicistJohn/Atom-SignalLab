@@ -79,7 +79,7 @@ Guarantees:
 - A changed sweep index evolves the live replay.
 - Canonized AM uses the physical DSB full-carrier power ratio and receiver-filtered envelope projection.
 - Canonized FM uses the sinusoidal-FM Bessel-series line-power and receiver-filtered envelope projections; non-line adjacent bins retain the channel noise floor rather than a false occupied pedestal.
-- Canonized detected-power synthesis uses both the exact admitted sample period and exact requested integer-Hz receiver tune rather than a hidden clock or profile-center tune.
+- Canonized detected-power synthesis uses the exact admitted sample period, exact requested integer-Hz receiver tune, and an explicit generator-internal 100 kHz receiver-filter width rather than a hidden clock, profile-center tune, or swept-spectrum bin width. The synthesis width is reproducibility provenance, not an observed or calibrated measurement RBW, and the bridge does not publish it as measurement evidence.
 - Every canonized fixed-frequency profile applies its source-model occupied-band response at that tune; Bluetooth Classic and LE retain their time-varying hopping/advertising-channel receiver responses.
 - Canonized LTE Band 38 is explicitly downlink-only UL/DL configuration 0 with normal-CP special-subframe configuration 7 and `srs-UpPtsAdd` absent. A special subframe contributes downlink energy only during its 21,952-`Ts` DwPTS; its 4,384-`Ts` guard period and 4,384-`Ts` UpPTS are inactive.
 - Canonized NR n78 uses the versioned engineering schedule `nr-tdd-7dl-3ul-engineering-v1`: a valid 5 ms, 30 kHz-SCS `TDD-UL-DL-Pattern` selection with seven complete DL slots and three complete UL slots. It is not an n78 or deployment default.
@@ -154,7 +154,7 @@ Every local API request settles exactly once as a validated new status or an exp
 - Every profile produces finite spectrum output.
 - Seeded AWGN is repeatable and evolves by sweep.
 - Rayleigh fading is reproducible and measurably frequency-selective.
-- Every public canonized observable profile is byte-identical to its shared corpus source under equal geometry, seed, SNR, and look index.
+- Every public canonized observable profile is byte-identical to its shared corpus source under equal spectrum and detected-power geometry, seed, SNR, and look index. Tests independently vary swept-spectrum RBW and detected-power synthesis-filter width so one cannot silently substitute for the other.
 - Every live descriptor and corpus source carries one immutable HTTPS reference per independently versioned document; combined specification names, aggregate revisions, duplicate references, and partial provenance URLs are rejected. The 12 public canonized descriptors and their corpus scenarios must carry the same source basis exactly.
 - LTE/NR FDD/TDD and Bluetooth BR/EDR/LE profiles are explicit selectable capabilities with non-conformance and observable-equivalence disclosures.
 - LTE special-subframe tests pin the exact normal-CP configuration-7 `Ts` partition and prove GP/UpPTS inactivity; NR and BLE tests pin their engineering-schedule versions and non-universal disclosures; n3 metadata pins the ordinary 100 kHz band-specific channel raster.
