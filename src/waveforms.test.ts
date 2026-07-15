@@ -34,6 +34,12 @@ describe('qualified waveform replay engine', () => {
     expect(waveformDescriptor('nr-n78-tdd-100m').projection.duplex).toBe('tdd');
     expect(waveformDescriptor('bluetooth-classic-connected')).toMatchObject({ family: 'bluetooth', qualification: 'standards-derived' });
     expect(waveformDescriptor('bluetooth-le-advertising').disclosure).toMatch(/observable-class equivalence/i);
+    expect(waveformDescriptor('lte-band38-tdd-10m').disclosure).toMatch(/only DwPTS is downlink-active/i);
+    expect(waveformDescriptor('lte-band38-tdd-10m').source.references[1]?.clause).toMatch(/special-subframe configuration 7/i);
+    expect(waveformDescriptor('nr-n78-tdd-100m').disclosure).toMatch(/engineering schedule.*seven complete downlink slots/i);
+    expect(waveformDescriptor('nr-n78-tdd-100m').source.references.map((reference) => reference.specification))
+      .toEqual(['TS 38.104', 'TS 38.211', 'TS 38.331', 'TS 38.213']);
+    expect(waveformDescriptor('bluetooth-le-advertising').disclosure).toMatch(/scenario choices, not universal Bluetooth timing/i);
     expect(() => requireConformanceValidated('lte-etm1.1')).toThrow(/not installed/i);
   });
 

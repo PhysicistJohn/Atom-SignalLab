@@ -9,7 +9,7 @@ import {
 
 describe('canonical scalar classification corpus', () => {
   it('covers every declared observable class with immutable provenance and hard negatives', () => {
-    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v10');
+    expect(CLASSIFICATION_CORPUS_VERSION).toBe('observable-scalar-corpus-v11');
     expect(canonicalClassificationScenarios).toHaveLength(35);
     expect(new Set(canonicalClassificationScenarios.map((item) => item.id)).size).toBe(canonicalClassificationScenarios.length);
     const represented = new Set(canonicalClassificationScenarios.map((item) => item.truthClass));
@@ -122,9 +122,22 @@ describe('canonical scalar classification corpus', () => {
     const fddDuty = activeDuty(fdd.zeroSpanPowerDbm, -100);
     const tddDuty = activeDuty(tdd.zeroSpanPowerDbm, -100);
     expect(fddDuty).toBeGreaterThan(0.98);
-    expect(tddDuty).toBeGreaterThan(0.35);
-    expect(tddDuty).toBeLessThan(0.45);
-    expect(canonicalClassificationScenario('lte-band38-tdd-10m').parameters.ulDlConfiguration).toBe(0);
+    expect(tddDuty).toBeGreaterThan(0.34);
+    expect(tddDuty).toBeLessThan(0.38);
+    const scenario = canonicalClassificationScenario('lte-band38-tdd-10m');
+    expect(scenario.parameters).toMatchObject({
+      downlinkOnly: 1,
+      ulDlConfiguration: 0,
+      specialSubframeConfiguration: 7,
+      downlinkCyclicPrefixNormal: 1,
+      uplinkCyclicPrefixNormal: 1,
+      srsUpPtsAdd: 0,
+      dwPtsBasicTimeUnits: 21_952,
+      guardPeriodBasicTimeUnits: 4_384,
+      upPtsBasicTimeUnits: 4_384,
+    });
+    expect(scenario.disclosure).toMatch(/only DwPTS is downlink-active/i);
+    expect(scenario.disclosure).toMatch(/not implied by Band 38/i);
   });
 
   it('applies TDMA, TDD, and burst schedules during the sequential swept acquisition', () => {
@@ -150,12 +163,30 @@ describe('canonical scalar classification corpus', () => {
     expect(duty('gsm-900-tdma')).toBeGreaterThan(0.08);
     expect(duty('gsm-900-tdma')).toBeLessThan(0.18);
     expect(duty('gsm-900-loaded-bcch')).toBeGreaterThan(0.98);
-    expect(duty('lte-band38-tdd-10m')).toBeGreaterThan(0.32);
-    expect(duty('lte-band38-tdd-10m')).toBeLessThan(0.48);
+    expect(duty('lte-band38-tdd-10m')).toBeGreaterThan(0.30);
+    expect(duty('lte-band38-tdd-10m')).toBeLessThan(0.39);
     expect(duty('nr-n78-tdd-40m')).toBeGreaterThan(0.62);
     expect(duty('nr-n78-tdd-40m')).toBeLessThan(0.78);
     expect(duty('wifi-ofdm-20m')).toBeGreaterThan(0.2);
     expect(duty('wifi-ofdm-20m')).toBeLessThan(0.85);
+  });
+
+  it('pins the ordinary n3 channel raster and labels NR TDD as engineering schedule v1', () => {
+    const n3 = canonicalClassificationScenario('nr-n3-fdd-20m');
+    const n78 = canonicalClassificationScenario('nr-n78-tdd-100m');
+    expect(n3.carrierRasterHz).toBe(100_000);
+    expect(n78.parameters).toMatchObject({
+      engineeringScheduleVersion: 1,
+      referenceSubcarrierSpacingHz: 30_000,
+      dlUlTransmissionPeriodicitySeconds: 0.005,
+      nrofDownlinkSlots: 7,
+      nrofDownlinkSymbols: 0,
+      nrofUplinkSlots: 3,
+      nrofUplinkSymbols: 0,
+      downlinkOnly: 1,
+    });
+    expect(n78.disclosure).toMatch(/engineering schedule nr-tdd-7dl-3ul-engineering-v1/i);
+    expect(n78.disclosure).toMatch(/not .*prescribed for n78|not .*universal/i);
   });
 
   it('models Bluetooth rasters and primary LE advertising centers without claiming decoded PHY', () => {
@@ -164,8 +195,17 @@ describe('canonical scalar classification corpus', () => {
     expect(classic.carrierRasterHz).toBe(1_000_000);
     expect(classic.parameters.hopRateHz).toBe(1_600);
     expect(le.carrierRasterHz).toBe(2_000_000);
-    expect(le.parameters.packetSpacingSeconds).toBe(0.0015);
+    expect(le.parameters.engineeringScheduleVersion).toBe(1);
+    expect(le.parameters.advertisingDelayGeneratorVersion).toBe(1);
+    expect(le.parameters.advertisingIntervalSeconds).toBe(0.020);
+    expect(le.parameters.advertisingDelayMinimumSeconds).toBe(0);
+    expect(le.parameters.advertisingDelayMaximumSeconds).toBe(0.010);
+    expect(le.parameters.packetStartSpacingSeconds).toBe(0.0015);
     expect(le.parameters.packetDurationSeconds).toBe(0.000376);
+    expect([0, 1, 2].map((index) => le.parameters[`packet${index}CenterHz`]))
+      .toEqual([2_402_000_000, 2_426_000_000, 2_480_000_000]);
+    expect(le.disclosure).toMatch(/engineering schedule ble-primary-advertising-engineering-v1/i);
+    expect(le.disclosure).toMatch(/not universal Bluetooth timing/i);
     const observations = Array.from({ length: 12 }, (_, lookIndex) => synthesizeCanonicalObservation(le.id, {
       lookIndex,
       points: 901,
@@ -249,6 +289,7 @@ describe('canonical scalar classification corpus', () => {
     expect(gaps.length).toBeGreaterThan(10);
     expect(Math.min(...gaps)).toBeGreaterThanOrEqual(0.0199);
     expect(Math.max(...gaps)).toBeLessThanOrEqual(0.0301);
+    expect(new Set(gaps.map((gap) => Math.round(gap / samplePeriodSeconds))).size).toBeGreaterThan(3);
   });
 
   it('canonizes stationary, simultaneous, interleaved, and proprietary 2.4 GHz association nulls', () => {
@@ -308,11 +349,21 @@ describe('canonical scalar classification corpus', () => {
       ['TS 36.101', '19.5.0'],
       ['TS 36.211', '19.3.0'],
     ]);
+    expect(canonicalClassificationScenario('lte-band38-tdd-10m').source.references[1]?.clause)
+      .toMatch(/Tables 4\.2-1 and 4\.2-2/i);
+    expect(canonicalClassificationScenario('nr-n3-fdd-20m').source.references.map((reference) => [
+      reference.specification, reference.revision,
+    ])).toEqual([
+      ['TS 38.104', '19.4.0'],
+      ['TS 38.211', '19.3.0'],
+    ]);
     expect(canonicalClassificationScenario('nr-n78-tdd-100m').source.references.map((reference) => [
       reference.specification, reference.revision,
     ])).toEqual([
       ['TS 38.104', '19.4.0'],
       ['TS 38.211', '19.3.0'],
+      ['TS 38.331', '19.1.0'],
+      ['TS 38.213', '19.3.0'],
     ]);
     expect(canonicalClassificationScenario('bluetooth-classic-connected').source.references).toHaveLength(4);
   });

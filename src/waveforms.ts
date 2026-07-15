@@ -9,6 +9,16 @@ import {
   type WaveformProjection,
 } from './contracts.js';
 import { waveformDescriptor } from './catalog.js';
+import {
+  BLE_PRIMARY_ADVERTISING_ENGINEERING_PARAMETERS,
+  BLE_PRIMARY_ADVERTISING_ENGINEERING_V1,
+  LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1,
+  LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
+  NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS,
+  NR_TDD_7DL_3UL_ENGINEERING_V1,
+  lteTddConfig0Ssp7NormalCpDownlinkActive,
+  nrTdd7Dl3UlEngineeringDownlinkActive,
+} from './canonical-timing.js';
 
 export { requireConformanceValidated, suggestedAnalyzerRange, waveformCatalog, waveformDescriptor } from './catalog.js';
 
@@ -46,7 +56,7 @@ export interface CanonizedKnownScenario {
   readonly occupiedBandwidthHz: number;
   readonly recommendedSpanHz: number;
   readonly spectrumModel: 'rbw-line' | 'am-dsb-full-carrier' | 'fm-bessel' | 'gaussian-channel' | 'ofdm-channel' | 'dsss-channel' | 'classic-hop' | 'ble-advertising';
-  readonly envelopeModel: 'steady' | 'sinusoidal-am' | 'receiver-filtered-fm' | 'one-of-eight-tdma' | 'continuous-gsm-loaded' | 'continuous-ofdm' | 'lte-tdd-pattern' | 'nr-tdd-pattern' | 'csma-bursts' | 'classic-slots' | 'ble-advertising-events';
+  readonly envelopeModel: 'steady' | 'sinusoidal-am' | 'receiver-filtered-fm' | 'one-of-eight-tdma' | 'continuous-gsm-loaded' | 'continuous-ofdm' | typeof LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1 | typeof NR_TDD_7DL_3UL_ENGINEERING_V1 | 'csma-bursts' | 'classic-slots' | typeof BLE_PRIMARY_ADVERTISING_ENGINEERING_V1;
   readonly parameters: Readonly<Record<string, number>>;
 }
 
@@ -65,18 +75,19 @@ export const CANONIZED_KNOWN_SCENARIOS = Object.freeze({
   'gsm-900-loaded-bcch': knownScenario(947_400_000, 200_000, 2_000_000, 'gaussian-channel', 'continuous-gsm-loaded', { slotSeconds: 15 / 26_000, frameSeconds: 60 / 13_000 }),
   'lte-band3-fdd-5m': knownScenario(1_842_500_000, 4_500_000, 10_000_000, 'ofdm-channel', 'continuous-ofdm', { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }),
   'lte-band3-fdd-20m': knownScenario(1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001 }),
-  'lte-band38-tdd-10m': knownScenario(2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', 'lte-tdd-pattern', { subcarrierSpacingHz: 15_000, subframeSeconds: 0.001, ulDlConfiguration: 0 }),
+  'lte-band38-tdd-10m': knownScenario(2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1, {
+    subcarrierSpacingHz: 15_000,
+    ...LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
+  }),
   'nr-n3-fdd-20m': knownScenario(1_840_000_000, 19_080_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', { subcarrierSpacingHz: 15_000, slotSeconds: 0.001 }),
-  'nr-n78-tdd-40m': knownScenario(3_500_000_000, 38_160_000, 60_000_000, 'ofdm-channel', 'nr-tdd-pattern', { subcarrierSpacingHz: 30_000, slotSeconds: 0.0005 }),
-  'nr-n78-tdd-100m': knownScenario(3_500_000_000, 98_280_000, 120_000_000, 'ofdm-channel', 'nr-tdd-pattern', { subcarrierSpacingHz: 30_000, slotSeconds: 0.0005 }),
+  'nr-n78-tdd-40m': knownScenario(3_500_000_000, 38_160_000, 60_000_000, 'ofdm-channel', NR_TDD_7DL_3UL_ENGINEERING_V1, NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS),
+  'nr-n78-tdd-100m': knownScenario(3_500_000_000, 98_280_000, 120_000_000, 'ofdm-channel', NR_TDD_7DL_3UL_ENGINEERING_V1, NR_TDD_7DL_3UL_ENGINEERING_PARAMETERS),
   'wifi-hr-dsss-11m': knownScenario(2_437_000_000, 22_000_000, 30_000_000, 'dsss-channel', 'csma-bursts', { chipRateHz: 11_000_000 }),
   'wifi-ofdm-20m': knownScenario(2_437_000_000, 16_600_000, 30_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
   'wifi-ofdm-40m': knownScenario(5_190_000_000, 36_600_000, 60_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
   'wifi-ofdm-80m': knownScenario(5_210_000_000, 76_600_000, 100_000_000, 'ofdm-channel', 'csma-bursts', { subcarrierSpacingHz: 312_500 }),
   'bluetooth-classic-connected': knownScenario(2_441_000_000, 79_000_000, 84_000_000, 'classic-hop', 'classic-slots', { channelWidthHz: 1_000_000, slotSeconds: 0.000625, hopRateHz: 1_600 }),
-  'bluetooth-le-advertising': knownScenario(2_441_000_000, 80_000_000, 84_000_000, 'ble-advertising', 'ble-advertising-events', {
-    channelWidthHz: 2_000_000, advertisingIntervalSeconds: 0.02, packetSpacingSeconds: 0.0015, packetDurationSeconds: 0.000376,
-  }),
+  'bluetooth-le-advertising': knownScenario(2_441_000_000, 80_000_000, 84_000_000, 'ble-advertising', BLE_PRIMARY_ADVERTISING_ENGINEERING_V1, BLE_PRIMARY_ADVERTISING_ENGINEERING_PARAMETERS),
 });
 
 /** Public replay profiles whose live measurements use the fitted corpus source. */
@@ -593,13 +604,7 @@ function canonizedSpectrumRelativePowerDb(
       return canonizedGaussianOccupiedChannelDb(frequencyHz - hop, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz'));
     }
     case 'ble-advertising': {
-      const center = canonizedBleAdvertisingCenter(
-        timeSeconds,
-        canonizedRequiredParameter(scenarioId, scenario, 'advertisingIntervalSeconds'),
-        canonizedRequiredParameter(scenarioId, scenario, 'packetSpacingSeconds'),
-        canonizedRequiredParameter(scenarioId, scenario, 'packetDurationSeconds'),
-        configuration.seed,
-      );
+      const center = canonizedBleAdvertisingCenter(scenarioId, scenario, timeSeconds, configuration.seed);
       return center === undefined
         ? Number.NEGATIVE_INFINITY
         : canonizedGaussianOccupiedChannelDb(frequencyHz - center, canonizedRequiredParameter(scenarioId, scenario, 'channelWidthHz'));
@@ -626,11 +631,11 @@ function canonizedEnvelopeRelativePowerDb(
       + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
     case 'continuous-ofdm': return -0.7 + 0.55 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed)
       + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz);
-    case 'lte-tdd-pattern': return canonizedLteTddDownlinkActive(scenarioId, scenario, timeSeconds)
+    case LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1: return lteTddConfig0Ssp7NormalCpDownlinkActive(scenario.parameters, timeSeconds)
       ? -0.5 + 0.4 * canonizedDeterministicTexture(timeSeconds * 2_000, configuration.seed)
         + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
       : Number.NEGATIVE_INFINITY;
-    case 'nr-tdd-pattern': return canonizedNrTddDownlinkActive(scenarioId, scenario, timeSeconds)
+    case NR_TDD_7DL_3UL_ENGINEERING_V1: return nrTdd7Dl3UlEngineeringDownlinkActive(scenario.parameters, timeSeconds)
       ? -0.5 + 0.45 * canonizedDeterministicTexture(timeSeconds * 4_000, configuration.seed)
         + canonizedFixedReceiverResponseDb(scenarioId, scenario, tuneFrequencyHz, configuration.actualRbwHz)
       : Number.NEGATIVE_INFINITY;
@@ -650,14 +655,8 @@ function canonizedEnvelopeRelativePowerDb(
         ? -0.4 + 0.25 * canonizedDeterministicTexture(index, configuration.seed) + receiverResponseDb
         : Number.NEGATIVE_INFINITY;
     }
-    case 'ble-advertising-events': {
-      const packetCenterHz = canonizedBleAdvertisingCenter(
-        timeSeconds,
-        canonizedRequiredParameter(scenarioId, scenario, 'advertisingIntervalSeconds'),
-        canonizedRequiredParameter(scenarioId, scenario, 'packetSpacingSeconds'),
-        canonizedRequiredParameter(scenarioId, scenario, 'packetDurationSeconds'),
-        configuration.seed,
-      );
+    case BLE_PRIMARY_ADVERTISING_ENGINEERING_V1: {
+      const packetCenterHz = canonizedBleAdvertisingCenter(scenarioId, scenario, timeSeconds, configuration.seed);
       if (packetCenterHz === undefined) return Number.NEGATIVE_INFINITY;
       const receiverResponseDb = canonizedGaussianFilterDb(
         tuneFrequencyHz - packetCenterHz,
@@ -692,8 +691,8 @@ function canonizedFixedReceiverResponseDb(
 function canonizedSweptTrafficActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number, seed: number): boolean {
   switch (scenario.envelopeModel) {
     case 'one-of-eight-tdma': return canonizedGsmTrafficActive(scenarioId, scenario, timeSeconds);
-    case 'lte-tdd-pattern': return canonizedLteTddDownlinkActive(scenarioId, scenario, timeSeconds);
-    case 'nr-tdd-pattern': return canonizedNrTddDownlinkActive(scenarioId, scenario, timeSeconds);
+    case LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1: return lteTddConfig0Ssp7NormalCpDownlinkActive(scenario.parameters, timeSeconds);
+    case NR_TDD_7DL_3UL_ENGINEERING_V1: return nrTdd7Dl3UlEngineeringDownlinkActive(scenario.parameters, timeSeconds);
     case 'csma-bursts': return canonizedCsmaTrafficActive(timeSeconds, seed);
     default: return true;
   }
@@ -702,18 +701,6 @@ function canonizedSweptTrafficActive(scenarioId: CanonizedKnownScenarioId, scena
 function canonizedGsmTrafficActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number): boolean {
   const slot = canonizedRequiredParameter(scenarioId, scenario, 'slotSeconds');
   return Math.floor(timeSeconds / slot) % 8 === 0;
-}
-
-function canonizedLteTddDownlinkActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number): boolean {
-  const configurationIndex = canonizedRequiredParameter(scenarioId, scenario, 'ulDlConfiguration');
-  if (configurationIndex !== 0) throw new Error(`${scenarioId} supports only LTE UL/DL configuration 0`);
-  const index = Math.floor(timeSeconds / canonizedRequiredParameter(scenarioId, scenario, 'subframeSeconds')) % 10;
-  return 'DSUUUDSUUU'[index] !== 'U';
-}
-
-function canonizedNrTddDownlinkActive(scenarioId: CanonizedKnownScenarioId, scenario: CanonizedKnownScenario, timeSeconds: number): boolean {
-  const index = Math.floor(timeSeconds / canonizedRequiredParameter(scenarioId, scenario, 'slotSeconds')) % 10;
-  return index <= 6;
 }
 
 function canonizedCsmaTrafficActive(timeSeconds: number, seed: number): boolean {
@@ -801,26 +788,52 @@ function canonizedClassicSlotActive(timeSeconds: number): boolean {
 
 const canonizedBleEventStartCache = new Map<string, number[]>();
 
-function canonizedBleAdvertisingCenter(timeSeconds: number, intervalSeconds: number, packetSpacingSeconds: number, packetDurationSeconds: number, seed: number): number | undefined {
-  if (packetDurationSeconds <= 0 || packetDurationSeconds > packetSpacingSeconds) throw new Error('BLE advertising packet duration must be positive and no longer than the packet start spacing');
-  const starts = canonizedBleAdvertisingEventStartsThrough(timeSeconds, intervalSeconds, seed);
+function canonizedBleAdvertisingCenter(
+  scenarioId: CanonizedKnownScenarioId,
+  scenario: CanonizedKnownScenario,
+  timeSeconds: number,
+  seed: number,
+): number | undefined {
+  const engineeringScheduleVersion = canonizedRequiredParameter(scenarioId, scenario, 'engineeringScheduleVersion');
+  const advertisingDelayGeneratorVersion = canonizedRequiredParameter(scenarioId, scenario, 'advertisingDelayGeneratorVersion');
+  const intervalSeconds = canonizedRequiredParameter(scenarioId, scenario, 'advertisingIntervalSeconds');
+  const advertisingDelayMinimumSeconds = canonizedRequiredParameter(scenarioId, scenario, 'advertisingDelayMinimumSeconds');
+  const advertisingDelayMaximumSeconds = canonizedRequiredParameter(scenarioId, scenario, 'advertisingDelayMaximumSeconds');
+  const packetStartSpacingSeconds = canonizedRequiredParameter(scenarioId, scenario, 'packetStartSpacingSeconds');
+  const packetDurationSeconds = canonizedRequiredParameter(scenarioId, scenario, 'packetDurationSeconds');
+  const packetCount = canonizedRequiredParameter(scenarioId, scenario, 'packetCount');
+  if (engineeringScheduleVersion !== 1 || advertisingDelayGeneratorVersion !== 1 || packetCount !== 3) {
+    throw new Error(`${scenarioId} requires ${BLE_PRIMARY_ADVERTISING_ENGINEERING_V1}`);
+  }
+  if (packetDurationSeconds <= 0 || packetDurationSeconds > packetStartSpacingSeconds) throw new Error('BLE advertising packet duration must be positive and no longer than the packet start spacing');
+  const starts = canonizedBleAdvertisingEventStartsThrough(
+    timeSeconds,
+    intervalSeconds,
+    advertisingDelayMinimumSeconds,
+    advertisingDelayMaximumSeconds,
+    seed,
+  );
   const event = canonizedGreatestIndexAtOrBefore(starts, timeSeconds);
   if (event < 0) return undefined;
   const eventPhase = timeSeconds - starts[event]!;
   if (eventPhase < 0) return undefined;
-  const packet = Math.floor(eventPhase / packetSpacingSeconds);
-  if (packet < 0 || packet > 2) return undefined;
-  if (eventPhase - packet * packetSpacingSeconds >= packetDurationSeconds) return undefined;
-  return [2_402_000_000, 2_426_000_000, 2_480_000_000][packet];
+  const packet = Math.floor(eventPhase / packetStartSpacingSeconds);
+  if (packet < 0 || packet >= packetCount) return undefined;
+  if (eventPhase - packet * packetStartSpacingSeconds >= packetDurationSeconds) return undefined;
+  return canonizedRequiredParameter(scenarioId, scenario, `packet${packet}CenterHz`);
 }
 
-function canonizedBleAdvertisingEventStartsThrough(timeSeconds: number, intervalSeconds: number, seed: number): readonly number[] {
-  if (!(intervalSeconds > 0)) throw new Error('BLE advertising interval must be positive');
-  const key = `${intervalSeconds}:${seed}`;
+function canonizedBleAdvertisingEventStartsThrough(timeSeconds: number, intervalSeconds: number, advertisingDelayMinimumSeconds: number, advertisingDelayMaximumSeconds: number, seed: number): readonly number[] {
+  if (!(intervalSeconds > 0) || !(advertisingDelayMinimumSeconds >= 0) || advertisingDelayMaximumSeconds < advertisingDelayMinimumSeconds) {
+    throw new Error('BLE advertising interval and delay bounds must be valid');
+  }
+  const key = `${intervalSeconds}:${advertisingDelayMinimumSeconds}:${advertisingDelayMaximumSeconds}:${seed}`;
   const starts = canonizedBleEventStartCache.get(key) ?? [0];
   while (starts.at(-1)! <= timeSeconds) {
     const event = starts.length - 1;
-    starts.push(starts.at(-1)! + intervalSeconds + canonizedPseudoUniform(event, 43, seed) * 0.010);
+    const advertisingDelaySeconds = advertisingDelayMinimumSeconds
+      + canonizedPseudoUniform(event, 43, seed) * (advertisingDelayMaximumSeconds - advertisingDelayMinimumSeconds);
+    starts.push(starts.at(-1)! + intervalSeconds + advertisingDelaySeconds);
   }
   canonizedBleEventStartCache.set(key, starts);
   return starts;

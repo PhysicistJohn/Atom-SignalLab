@@ -81,6 +81,9 @@ Guarantees:
 - Canonized FM uses the sinusoidal-FM Bessel-series line-power and receiver-filtered envelope projections; non-line adjacent bins retain the channel noise floor rather than a false occupied pedestal.
 - Canonized detected-power synthesis uses both the exact admitted sample period and exact requested integer-Hz receiver tune rather than a hidden clock or profile-center tune.
 - Every canonized fixed-frequency profile applies its source-model occupied-band response at that tune; Bluetooth Classic and LE retain their time-varying hopping/advertising-channel receiver responses.
+- Canonized LTE Band 38 is explicitly downlink-only UL/DL configuration 0 with normal-CP special-subframe configuration 7 and `srs-UpPtsAdd` absent. A special subframe contributes downlink energy only during its 21,952-`Ts` DwPTS; its 4,384-`Ts` guard period and 4,384-`Ts` UpPTS are inactive.
+- Canonized NR n78 uses the versioned engineering schedule `nr-tdd-7dl-3ul-engineering-v1`: a valid 5 ms, 30 kHz-SCS `TDD-UL-DL-Pattern` selection with seven complete DL slots and three complete UL slots. It is not an n78 or deployment default.
+- Canonized BLE primary advertising uses a versioned engineering schedule with fixed 37/38/39 center order, 1.5 ms packet-start spacing, fixed 376 us packet duration, a 20 ms interval, and a seeded per-event pseudorandom `advDelay` in `[0, 10 ms)`. These are not universal Bluetooth timing or channel-map requirements.
 - Non-canonized standards-derived zero span uses an explicitly approximate descriptor-bounded occupied-band receiver response. Single-PRB profiles follow their deterministic swept allocation, while frequency-unmapped `survey` zero span fails instead of inventing a center. This remains a visual projection, not a calibrated filter or conformance waveform.
 - GSM and WLAN zero-span projections preserve burst behavior.
 - Every accepted profile produces finite, correctly sized spectrum and zero-span arrays or fails.
@@ -154,6 +157,7 @@ Every local API request settles exactly once as a validated new status or an exp
 - Every public canonized observable profile is byte-identical to its shared corpus source under equal geometry, seed, SNR, and look index.
 - Every live descriptor and corpus source carries one immutable HTTPS reference per independently versioned document; combined specification names, aggregate revisions, duplicate references, and partial provenance URLs are rejected. The 12 public canonized descriptors and their corpus scenarios must carry the same source basis exactly.
 - LTE/NR FDD/TDD and Bluetooth BR/EDR/LE profiles are explicit selectable capabilities with non-conformance and observable-equivalence disclosures.
+- LTE special-subframe tests pin the exact normal-CP configuration-7 `Ts` partition and prove GP/UpPTS inactivity; NR and BLE tests pin their engineering-schedule versions and non-universal disclosures; n3 metadata pins the ordinary 100 kHz band-specific channel raster.
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
 - Detected-power requests require a bounded integer-Hz tune, ready advertises the exact 1 Hz grid, results echo the admitted tune, every canonized public profile changes under an out-of-band tune, and non-canonized zero span never silently ignores frequency.
@@ -174,6 +178,7 @@ Cross-repository release additionally requires the byte-identical trio-v4 manife
 | Atomizer measurement schemas and bridge manifest | `src/measurement-contract.ts`, `contracts/signal-lab-measurement-bridge-v1.json` |
 | Stateful measurement source and bounded NDJSON process | `src/measurement-service.ts`, `src/measurement-bridge.ts`, `src/atomizer-bridge.ts` |
 | Catalog and standards clauses | `src/catalog.ts`, `src/source-provenance.ts` |
+| Versioned LTE/NR/BLE timing choices | `src/canonical-timing.ts` |
 | Spectrum/zero-span/channel synthesis | `src/waveforms.ts` |
 | Standalone Electron boundary | `src/main-process.ts`, `src/preload.ts` |
 | Operator UI | `src/DemoLab.tsx` |

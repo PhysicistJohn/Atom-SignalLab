@@ -11,7 +11,9 @@ import {
   BLUETOOTH_OBSERVABLE_SOURCE,
   GSM_OBSERVABLE_SOURCE,
   LTE_OBSERVABLE_SOURCE,
+  LTE_TDD_OBSERVABLE_SOURCE,
   NR_OBSERVABLE_SOURCE,
+  NR_TDD_OBSERVABLE_SOURCE,
   WIFI_OBSERVABLE_SOURCE,
   sourceBasis,
 } from './source-provenance.js';
@@ -22,6 +24,9 @@ const GSM_URL = 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00
 const WIFI_URL = 'https://standards.ieee.org/ieee/802.11/10548/';
 const observableEquivalenceDisclosure = 'Canonized scalar power projection for observable Bayesian inference. It is not bit-exact or protocol-decodable I/Q, is not a conformance vector, and supports only observable-class equivalence rather than protocol or emitter identity.';
 const agileObservableEquivalenceDisclosure = `${observableEquivalenceDisclosure} Frequency-agile scalar activity is also compatible with proprietary FHSS, scanning interference, or time-interleaved independent sources.`;
+const lteTddObservableDisclosure = `${observableEquivalenceDisclosure} This downlink-only replay explicitly selects UL/DL configuration 0 and normal-CP special-subframe configuration 7 with srs-UpPtsAdd absent; only DwPTS is downlink-active in each special subframe. That special-subframe selection is not implied by Band 38 or UL/DL configuration 0.`;
+const nrTddEngineeringDisclosure = `${observableEquivalenceDisclosure} The versioned SignalLab engineering schedule uses one valid 5 ms, 30 kHz-SCS pattern with seven complete downlink slots followed by three complete uplink slots. It is a downlink-only scenario, not a pattern prescribed for n78 or universal across NR deployments.`;
+const bleEngineeringDisclosure = `${agileObservableEquivalenceDisclosure} The versioned engineering schedule uses all three primary advertising centers in fixed 37, 38, 39 order, 1.5 ms packet-start spacing, fixed 376 us packet duration, a 20 ms interval, and a seeded per-event pseudorandom advDelay in [0, 10 ms). These are scenario choices, not universal Bluetooth timing, channel-map, order, or PDU behavior.`;
 
 const visualDescriptors: WaveformDescriptor[] = [
   makeDescriptor({
@@ -66,12 +71,12 @@ const canonizedLteDescriptors: WaveformDescriptor[] = [
     disclosure: observableEquivalenceDisclosure,
   }),
   makeDescriptor({
-    id: 'lte-band38-tdd-10m', label: 'LTE Band 38 TDD observable', family: 'e-utra',
-    model: 'Canonized scalar observable · 10 MHz · UL/DL config 0', centerHz: 2_595_000_000,
+    id: 'lte-band38-tdd-10m', label: 'LTE Band 38 TDD downlink observable', family: 'e-utra',
+    model: 'Canonized scalar observable · 10 MHz · UL/DL config 0 · normal-CP SSP config 7', centerHz: 2_595_000_000,
     occupiedBandwidthHz: 9_000_000, recommendedSpanHz: 20_000_000,
     projection: { allocation: 'full', modulation: 'ofdm-mixed', timing: 'tdd-frame', duplex: 'tdd', subcarrierSpacingHz: 15_000, nominalResourceBlocks: 50 },
-    source: LTE_OBSERVABLE_SOURCE,
-    disclosure: observableEquivalenceDisclosure,
+    source: LTE_TDD_OBSERVABLE_SOURCE,
+    disclosure: lteTddObservableDisclosure,
   }),
 ];
 
@@ -85,12 +90,12 @@ const canonizedNrDescriptors: WaveformDescriptor[] = [
     disclosure: observableEquivalenceDisclosure,
   }),
   makeDescriptor({
-    id: 'nr-n78-tdd-100m', label: '5G NR n78 TDD observable', family: 'nr',
-    model: 'Canonized scalar observable · 100 MHz · 30 kHz SCS', centerHz: 3_500_000_000,
+    id: 'nr-n78-tdd-100m', label: '5G NR n78 TDD downlink observable', family: 'nr',
+    model: 'Canonized scalar observable · 100 MHz · 30 kHz SCS · engineering 7DL/3UL v1', centerHz: 3_500_000_000,
     occupiedBandwidthHz: 98_280_000, recommendedSpanHz: 120_000_000,
     projection: { allocation: 'full', modulation: 'ofdm-mixed', timing: 'tdd-frame', duplex: 'tdd', subcarrierSpacingHz: 30_000, nominalResourceBlocks: 273 },
-    source: NR_OBSERVABLE_SOURCE,
-    disclosure: observableEquivalenceDisclosure,
+    source: NR_TDD_OBSERVABLE_SOURCE,
+    disclosure: nrTddEngineeringDisclosure,
   }),
 ];
 
@@ -124,11 +129,11 @@ const canonizedBluetoothDescriptors: WaveformDescriptor[] = [
   }),
   makeDescriptor({
     id: 'bluetooth-le-advertising', label: 'Bluetooth LE advertising observable', family: 'bluetooth',
-    model: 'Canonized scalar observable · primary advertising channels', centerHz: 2_441_000_000,
+    model: 'Canonized scalar observable · primary advertising engineering schedule v1', centerHz: 2_441_000_000,
     occupiedBandwidthHz: 80_000_000, recommendedSpanHz: 84_000_000,
     projection: { allocation: 'advertising-channels', modulation: 'ble-1m', timing: 'advertising-events' },
     source: BLUETOOTH_OBSERVABLE_SOURCE,
-    disclosure: agileObservableEquivalenceDisclosure,
+    disclosure: bleEngineeringDisclosure,
   }),
 ];
 

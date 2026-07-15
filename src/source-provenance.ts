@@ -65,13 +65,15 @@ export const GSM_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
   },
 ]);
 
+const LTE_BAND_SOURCE_REFERENCE = {
+  specification: 'TS 36.101',
+  clause: '5.5 and 5.6: operating bands and transmission bandwidth configuration',
+  revision: '19.5.0',
+  url: 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136101/19.05.00_60/ts_136101v190500p.pdf',
+} as const;
+
 export const LTE_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
-  {
-    specification: 'TS 36.101',
-    clause: '5.5 and 5.6: operating bands and transmission bandwidth configuration',
-    revision: '19.5.0',
-    url: 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136101/19.05.00_60/ts_136101v190500p.pdf',
-  },
+  LTE_BAND_SOURCE_REFERENCE,
   {
     specification: 'TS 36.211',
     clause: '4 and 6: frame structure, resource grid and OFDM physical channels',
@@ -80,10 +82,20 @@ export const LTE_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
   },
 ]);
 
-export const NR_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
+export const LTE_TDD_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
+  LTE_BAND_SOURCE_REFERENCE,
+  {
+    specification: 'TS 36.211',
+    clause: '4.2 Tables 4.2-1 and 4.2-2: frame-structure type 2, UL/DL configuration 0 and normal-CP special-subframe configuration 7; clause 6 resource grid',
+    revision: '19.3.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/136200_136299/136211/19.03.00_60/ts_136211v190300p.pdf',
+  },
+]);
+
+const NR_BASE_SOURCE_REFERENCES = [
   {
     specification: 'TS 38.104',
-    clause: '5.2 and 5.3: FR1 operating bands and channel bandwidths',
+    clause: '5.2 through 5.4, especially 5.4.2.3: FR1 operating bands, channel bandwidths and band-specific channel raster',
     revision: '19.4.0',
     url: 'https://www.etsi.org/deliver/etsi_ts/138100_138199/138104/19.04.00_60/ts_138104v190400p.pdf',
   },
@@ -92,6 +104,24 @@ export const NR_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
     clause: '4.2 through 4.4: numerologies, frame structure and resource grids',
     revision: '19.3.0',
     url: 'https://www.etsi.org/deliver/etsi_ts/138200_138299/138211/19.03.00_60/ts_138211v190300p.pdf',
+  },
+] as const;
+
+export const NR_OBSERVABLE_SOURCE = sourceBasis('3GPP', NR_BASE_SOURCE_REFERENCES);
+
+export const NR_TDD_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
+  ...NR_BASE_SOURCE_REFERENCES,
+  {
+    specification: 'TS 38.331',
+    clause: '6.3.2: TDD-UL-DL-ConfigCommon and TDD-UL-DL-Pattern information elements',
+    revision: '19.1.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/138300_138399/138331/19.01.00_60/ts_138331v190100p.pdf',
+  },
+  {
+    specification: 'TS 38.213',
+    clause: '11.1: slot configuration from TDD-UL-DL-ConfigCommon',
+    revision: '19.3.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/138200_138299/138213/19.03.00_60/ts_138213v190300p.pdf',
   },
 ]);
 
@@ -130,7 +160,7 @@ export const BLUETOOTH_OBSERVABLE_SOURCE = sourceBasis('Bluetooth SIG', [
   },
   {
     specification: 'Bluetooth Core 6.3, Vol 6, Part B',
-    clause: 'LE physical channels, advertising events and link-layer timing',
+    clause: '2.3.1, 4.4.2.1 and 4.4.2.2.1: primary-channel order, advertising events, channel use, advInterval, advDelay and consecutive-PDU timing bounds',
     revision: '6.3',
     url: 'https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/low-energy-controller/link-layer-specification.html',
   },

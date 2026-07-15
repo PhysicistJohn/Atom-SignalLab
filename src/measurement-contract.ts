@@ -13,6 +13,7 @@ export const ATOMIZER_MEASUREMENT_CONTRACT_VERSION = 1 as const;
 export const ATOMIZER_MEASUREMENT_PROTOCOL = 'signal-lab-measurement-bridge' as const;
 export const MEASUREMENT_GENERATOR_ARTIFACTS = Object.freeze([
   'atomizer-bridge.js',
+  'canonical-timing.js',
   'catalog.js',
   'contracts.js',
   'measurement-bridge.js',

@@ -14,18 +14,28 @@ import {
   type CanonizedKnownScenarioId,
 } from './waveforms.js';
 import {
+  BLE_PRIMARY_ADVERTISING_ENGINEERING_V1,
+  LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1,
+  LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
+  NR_TDD_7DL_3UL_ENGINEERING_V1,
+  lteTddConfig0Ssp7NormalCpDownlinkActive,
+  nrTdd7Dl3UlEngineeringDownlinkActive,
+} from './canonical-timing.js';
+import {
   ANALYTIC_SCALAR_SOURCE,
   BLUETOOTH_OBSERVABLE_SOURCE,
   GSM_OBSERVABLE_SOURCE,
   IEEE_802154_SOURCE,
   LTE_OBSERVABLE_SOURCE,
+  LTE_TDD_OBSERVABLE_SOURCE,
   NR_OBSERVABLE_SOURCE,
+  NR_TDD_OBSERVABLE_SOURCE,
   WIFI_OBSERVABLE_SOURCE,
   sourceBasis,
   type SourceBasis,
 } from './source-provenance.js';
 
-export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v10' as const;
+export const CLASSIFICATION_CORPUS_VERSION = 'observable-scalar-corpus-v11' as const;
 
 export const OBSERVABLE_SIGNAL_CLASSES = [
   'cw-like',
@@ -70,11 +80,11 @@ type EnvelopeModel =
   | 'one-of-eight-tdma'
   | 'continuous-gsm-loaded'
   | 'continuous-ofdm'
-  | 'lte-tdd-pattern'
-  | 'nr-tdd-pattern'
+  | typeof LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1
+  | typeof NR_TDD_7DL_3UL_ENGINEERING_V1
   | 'csma-bursts'
   | 'classic-slots'
-  | 'ble-advertising-events'
+  | typeof BLE_PRIMARY_ADVERTISING_ENGINEERING_V1
   | 'stationary-bursts'
   | 'simultaneous-raster-fixed-tune'
   | 'interleaved-fixed-tune'
@@ -98,6 +108,7 @@ export interface CanonicalClassificationScenario {
   recommendedSpanHz: number;
   spectrumModel: SpectrumModel;
   envelopeModel: EnvelopeModel;
+  /** Ordinary band-specific RF channel raster, not a global ARFCN step or enhanced raster. */
   carrierRasterHz?: number;
   duplex?: 'fdd' | 'tdd';
   parameters: Readonly<Record<string, number>>;
@@ -140,7 +151,9 @@ export interface CanonicalScalarObservation {
 const TINYSA_SOURCE = ANALYTIC_SCALAR_SOURCE;
 const GSM_SOURCE = GSM_OBSERVABLE_SOURCE;
 const LTE_SOURCE = LTE_OBSERVABLE_SOURCE;
+const LTE_TDD_SOURCE = LTE_TDD_OBSERVABLE_SOURCE;
 const NR_SOURCE = NR_OBSERVABLE_SOURCE;
+const NR_TDD_SOURCE = NR_TDD_OBSERVABLE_SOURCE;
 const WIFI_SOURCE = WIFI_OBSERVABLE_SOURCE;
 const BLUETOOTH_SOURCE = BLUETOOTH_OBSERVABLE_SOURCE;
 
@@ -149,6 +162,10 @@ const multitoneDisclosure = `${nonConformance} Simultaneous regular lines are as
 const agileEquivalenceDisclosure = `${nonConformance} The observed frequency-agile scalar activity is also compatible with Bluetooth, proprietary FHSS, a scanning interferer, or time-interleaved independent sources; it cannot prove protocol or emitter identity.`;
 const stationaryDisclosure = `${nonConformance} Intermittence at one fixed center is negative evidence for frequency agility, but its scalar line may remain CW-like.`;
 const exactScalarEquivalenceDisclosure = `${nonConformance} This deliberately independent source model produces the same admitted scalar observables as a fitted known scenario, so the measurement cannot establish waveform or protocol identity.`;
+const lteTddDisclosure = `${nonConformance} This downlink-only scenario explicitly selects UL/DL configuration 0 and normal-CP special-subframe configuration 7 with srs-UpPtsAdd absent; only DwPTS is downlink-active in each special subframe. The special-subframe selection is not implied by Band 38 or UL/DL configuration 0.`;
+const nrTddEngineeringDisclosure = `${nonConformance} Engineering schedule nr-tdd-7dl-3ul-engineering-v1 selects one valid 5 ms TDD-UL-DL-Pattern at 30 kHz SCS with seven complete downlink slots followed by three complete uplink slots. It is a downlink-only SignalLab scenario, not a pattern prescribed for n78 or universal across NR deployments.`;
+const bleEngineeringDisclosure = `${nonConformance} Engineering schedule ble-primary-advertising-engineering-v1 sends one fixed-duration packet on each primary advertising center in the fixed 37, 38, 39 order with 1.5 ms packet-start spacing, a 20 ms advertising interval, and a seeded per-event pseudorandom advDelay in [0, 10 ms). This schedule is an acquisition scenario, not universal Bluetooth timing, channel-map, order, or PDU behavior.`;
+const lteTddExactEquivalenceDisclosure = `${exactScalarEquivalenceDisclosure} Equality is only to the fitted downlink-only UL/DL-configuration-0, normal-CP special-subframe-configuration-7 SignalLab projection, not to every LTE configuration-0 carrier.`;
 
 export const canonicalClassificationScenarios: readonly CanonicalClassificationScenario[] = Object.freeze([
   canonizedKnownScenario('cw-rbw-line', 'cw-like', 'analog', 'CW through an RBW filter', TINYSA_SOURCE),
@@ -168,11 +185,23 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
 
   canonizedKnownScenario('lte-band3-fdd-5m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 5 MHz', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
   canonizedKnownScenario('lte-band3-fdd-20m', 'lte-fdd-like', 'e-utra', 'LTE Band 3 FDD, 20 MHz', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
-  canonizedKnownScenario('lte-band38-tdd-10m', 'lte-tdd-like', 'e-utra', 'LTE Band 38 TDD, 10 MHz · UL/DL config 0', LTE_SOURCE, { carrierRasterHz: 100_000, duplex: 'tdd' }),
+  canonizedKnownScenario('lte-band38-tdd-10m', 'lte-tdd-like', 'e-utra', 'LTE Band 38 TDD downlink, 10 MHz · UL/DL config 0 · normal-CP special-subframe config 7', LTE_TDD_SOURCE, {
+    carrierRasterHz: 100_000,
+    duplex: 'tdd',
+    disclosure: lteTddDisclosure,
+  }),
 
-  canonizedKnownScenario('nr-n3-fdd-20m', 'nr-fdd-like', 'nr', 'NR n3 FDD, 20 MHz', NR_SOURCE, { carrierRasterHz: 5_000, duplex: 'fdd' }),
-  canonizedKnownScenario('nr-n78-tdd-40m', 'nr-tdd-like', 'nr', 'NR n78 TDD, 40 MHz', NR_SOURCE, { carrierRasterHz: 15_000, duplex: 'tdd' }),
-  canonizedKnownScenario('nr-n78-tdd-100m', 'nr-tdd-like', 'nr', 'NR n78 TDD, 100 MHz', NR_SOURCE, { carrierRasterHz: 15_000, duplex: 'tdd' }),
+  canonizedKnownScenario('nr-n3-fdd-20m', 'nr-fdd-like', 'nr', 'NR n3 FDD, 20 MHz', NR_SOURCE, { carrierRasterHz: 100_000, duplex: 'fdd' }),
+  canonizedKnownScenario('nr-n78-tdd-40m', 'nr-tdd-like', 'nr', 'NR n78 TDD downlink, 40 MHz · engineering 7DL/3UL schedule v1', NR_TDD_SOURCE, {
+    carrierRasterHz: 15_000,
+    duplex: 'tdd',
+    disclosure: nrTddEngineeringDisclosure,
+  }),
+  canonizedKnownScenario('nr-n78-tdd-100m', 'nr-tdd-like', 'nr', 'NR n78 TDD downlink, 100 MHz · engineering 7DL/3UL schedule v1', NR_TDD_SOURCE, {
+    carrierRasterHz: 15_000,
+    duplex: 'tdd',
+    disclosure: nrTddEngineeringDisclosure,
+  }),
 
   canonizedKnownScenario('wifi-hr-dsss-11m', 'wifi-hr-dsss-like', 'wlan', '2.4 GHz HR-DSSS channel', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
   canonizedKnownScenario('wifi-ofdm-20m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 20 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
@@ -180,7 +209,10 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   canonizedKnownScenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz', WIFI_SOURCE, { carrierRasterHz: 5_000_000 }),
 
   canonizedKnownScenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR/EDR connected hopping', BLUETOOTH_SOURCE, { carrierRasterHz: 1_000_000 }),
-  canonizedKnownScenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising', BLUETOOTH_SOURCE, { carrierRasterHz: 2_000_000 }),
+  canonizedKnownScenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising · engineering schedule v1', BLUETOOTH_SOURCE, {
+    carrierRasterHz: 2_000_000,
+    disclosure: bleEngineeringDisclosure,
+  }),
 
   scenario('unknown-narrow-fsk', 'unknown-signal', 'unknown', 'Proprietary narrow FSK hard negative', 433_920_000, 45_000, 500_000, 'fsk-pair', 'fsk-steady', TINYSA_SOURCE, { deviationHz: 18_000 }),
   scenario('unknown-chirp', 'unknown-signal', 'unknown', 'Swept chirp hard negative', 915_000_000, 5_000_000, 10_000_000, 'chirp', 'chirp-sweep', TINYSA_SOURCE, { chirpPeriodSeconds: 0.004 }),
@@ -226,9 +258,10 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
   scenario('unknown-generic-ofdm-20m', 'unknown-signal', 'unknown', 'Generic 20 MHz OFDM exactly matching the fitted LTE/NR scalar projection', 1_840_000_000, 18_000_000, 30_000_000, 'ofdm-channel', 'continuous-ofdm', TINYSA_SOURCE, {
     subcarrierSpacingHz: 15_000,
   }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'lte-fdd-like', 'nr-fdd-like'] }),
-  scenario('unknown-generic-tdd-ofdm-10m', 'unknown-signal', 'unknown', 'Generic TDD OFDM exactly matching LTE UL/DL configuration 0 scalar power', 2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', 'lte-tdd-pattern', TINYSA_SOURCE, {
-    subcarrierSpacingHz: 15_000, subframeSeconds: 0.001, ulDlConfiguration: 0,
-  }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'lte-tdd-like'] }),
+  scenario('unknown-generic-tdd-ofdm-10m', 'unknown-signal', 'unknown', 'Generic TDD OFDM scalar-equivalent to the fitted LTE config-0 / normal-CP special-subframe-config-7 downlink projection', 2_595_000_000, 9_000_000, 20_000_000, 'ofdm-channel', LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1, TINYSA_SOURCE, {
+    subcarrierSpacingHz: 15_000,
+    ...LTE_TDD_CONFIG0_SSP7_NORMAL_CP_PARAMETERS,
+  }, { disclosure: lteTddExactEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'lte-tdd-like'] }),
   scenario('unknown-generic-ofdm-80m', 'unknown-signal', 'unknown', 'Generic 80 MHz OFDM exactly matching the Wi-Fi scalar projection', 5_210_000_000, 76_600_000, 100_000_000, 'ofdm-channel', 'csma-bursts', TINYSA_SOURCE, {
     subcarrierSpacingHz: 312_500,
   }, { disclosure: exactScalarEquivalenceDisclosure, allowedObservableClasses: ['unknown-signal', 'wifi-ofdm-like'] }),
@@ -450,13 +483,7 @@ function spectrumRelativePowerDb(
       return gaussianOccupiedChannelDb(frequencyHz - hop, requiredParameter(scenario, 'channelWidthHz'));
     }
     case 'ble-advertising': {
-      const center = bleAdvertisingCenter(
-        timeSeconds,
-        requiredParameter(scenario, 'advertisingIntervalSeconds'),
-        requiredParameter(scenario, 'packetSpacingSeconds'),
-        requiredParameter(scenario, 'packetDurationSeconds'),
-        configuration.seed,
-      );
+      const center = bleAdvertisingCenter(scenario, timeSeconds, configuration.seed);
       return center === undefined ? Number.NEGATIVE_INFINITY : gaussianOccupiedChannelDb(frequencyHz - center, requiredParameter(scenario, 'channelWidthHz'));
     }
     case 'stationary-burst': {
@@ -511,13 +538,13 @@ function envelopeRelativePowerDb(
     }
     case 'continuous-gsm-loaded': return -0.35 + 0.25 * deterministicTexture(timeSeconds * 1_733, configuration.seed);
     case 'continuous-ofdm': return -0.7 + 0.55 * deterministicTexture(timeSeconds * 2_000, configuration.seed);
-    case 'lte-tdd-pattern': {
-      return lteTddDownlinkActive(scenario, timeSeconds)
+    case LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1: {
+      return lteTddConfig0Ssp7NormalCpDownlinkActive(scenario.parameters, timeSeconds)
         ? -0.5 + 0.4 * deterministicTexture(timeSeconds * 2_000, configuration.seed)
         : Number.NEGATIVE_INFINITY;
     }
-    case 'nr-tdd-pattern': {
-      return nrTddDownlinkActive(scenario, timeSeconds)
+    case NR_TDD_7DL_3UL_ENGINEERING_V1: {
+      return nrTdd7Dl3UlEngineeringDownlinkActive(scenario.parameters, timeSeconds)
         ? -0.5 + 0.45 * deterministicTexture(timeSeconds * 4_000, configuration.seed)
         : Number.NEGATIVE_INFINITY;
     }
@@ -535,15 +562,8 @@ function envelopeRelativePowerDb(
         ? -0.4 + 0.25 * deterministicTexture(index, configuration.seed) + receiverResponseDb
         : Number.NEGATIVE_INFINITY;
     }
-    case 'ble-advertising-events': {
-      const interval = requiredParameter(scenario, 'advertisingIntervalSeconds');
-      const packetCenterHz = bleAdvertisingCenter(
-        timeSeconds,
-        interval,
-        requiredParameter(scenario, 'packetSpacingSeconds'),
-        requiredParameter(scenario, 'packetDurationSeconds'),
-        configuration.seed,
-      );
+    case BLE_PRIMARY_ADVERTISING_ENGINEERING_V1: {
+      const packetCenterHz = bleAdvertisingCenter(scenario, timeSeconds, configuration.seed);
       if (packetCenterHz === undefined) return Number.NEGATIVE_INFINITY;
       const receiverResponseDb = gaussianFilterDb(tuneFrequencyHz - packetCenterHz, Math.max(configuration.actualRbwHz, requiredParameter(scenario, 'channelWidthHz')));
       return receiverResponseDb > -60 ? -0.35 + receiverResponseDb : Number.NEGATIVE_INFINITY;
@@ -586,8 +606,8 @@ function sweptTrafficActive(
 ): boolean {
   switch (scenario.envelopeModel) {
     case 'one-of-eight-tdma': return gsmTrafficActive(scenario, timeSeconds);
-    case 'lte-tdd-pattern': return lteTddDownlinkActive(scenario, timeSeconds);
-    case 'nr-tdd-pattern': return nrTddDownlinkActive(scenario, timeSeconds);
+    case LTE_TDD_CONFIG0_SSP7_NORMAL_CP_DOWNLINK_V1: return lteTddConfig0Ssp7NormalCpDownlinkActive(scenario.parameters, timeSeconds);
+    case NR_TDD_7DL_3UL_ENGINEERING_V1: return nrTdd7Dl3UlEngineeringDownlinkActive(scenario.parameters, timeSeconds);
     case 'csma-bursts': return csmaTrafficActive(timeSeconds, seed);
     default: return true;
   }
@@ -596,25 +616,6 @@ function sweptTrafficActive(
 function gsmTrafficActive(scenario: CanonicalClassificationScenario, timeSeconds: number): boolean {
   const slot = requiredParameter(scenario, 'slotSeconds');
   return Math.floor(timeSeconds / slot) % 8 === 0;
-}
-
-function lteTddDownlinkActive(scenario: CanonicalClassificationScenario, timeSeconds: number): boolean {
-  const configurationIndex = requiredParameter(scenario, 'ulDlConfiguration');
-  if (configurationIndex !== 0) throw new Error(`${scenario.id} supports only LTE UL/DL configuration 0`);
-  const subframe = requiredParameter(scenario, 'subframeSeconds');
-  const index = Math.floor(timeSeconds / subframe) % 10;
-  // TS 36.211 Table 4.2-2 configuration 0: D S U U U D S U U U.
-  // This coarse downlink observation treats S as active DwPTS energy and does
-  // not model the DwPTS/GP/UpPTS symbol split.
-  return 'DSUUUDSUUU'[index] !== 'U';
-}
-
-function nrTddDownlinkActive(scenario: CanonicalClassificationScenario, timeSeconds: number): boolean {
-  const slot = requiredParameter(scenario, 'slotSeconds');
-  const index = Math.floor(timeSeconds / slot) % 10;
-  // This is an explicitly heuristic 7-DL/3-UL slot pattern, not an inference
-  // that every NR deployment uses one standardized configuration.
-  return index <= 6;
 }
 
 function csmaTrafficActive(timeSeconds: number, seed: number): boolean {
@@ -736,36 +737,54 @@ function classicSlotActive(timeSeconds: number): boolean {
 }
 
 function bleAdvertisingCenter(
+  scenario: CanonicalClassificationScenario,
   timeSeconds: number,
-  intervalSeconds: number,
-  packetSpacingSeconds: number,
-  packetDurationSeconds: number,
   seed: number,
 ): number | undefined {
-  if (packetDurationSeconds <= 0 || packetDurationSeconds > packetSpacingSeconds) {
+  const engineeringScheduleVersion = requiredParameter(scenario, 'engineeringScheduleVersion');
+  const advertisingDelayGeneratorVersion = requiredParameter(scenario, 'advertisingDelayGeneratorVersion');
+  const intervalSeconds = requiredParameter(scenario, 'advertisingIntervalSeconds');
+  const advertisingDelayMinimumSeconds = requiredParameter(scenario, 'advertisingDelayMinimumSeconds');
+  const advertisingDelayMaximumSeconds = requiredParameter(scenario, 'advertisingDelayMaximumSeconds');
+  const packetStartSpacingSeconds = requiredParameter(scenario, 'packetStartSpacingSeconds');
+  const packetDurationSeconds = requiredParameter(scenario, 'packetDurationSeconds');
+  const packetCount = requiredParameter(scenario, 'packetCount');
+  if (engineeringScheduleVersion !== 1 || advertisingDelayGeneratorVersion !== 1 || packetCount !== 3) {
+    throw new Error(`${scenario.id} requires ${BLE_PRIMARY_ADVERTISING_ENGINEERING_V1}`);
+  }
+  if (packetDurationSeconds <= 0 || packetDurationSeconds > packetStartSpacingSeconds) {
     throw new Error('BLE advertising packet duration must be positive and no longer than the packet start spacing');
   }
-  const starts = bleAdvertisingEventStartsThrough(timeSeconds, intervalSeconds, seed);
+  const starts = bleAdvertisingEventStartsThrough(
+    timeSeconds,
+    intervalSeconds,
+    advertisingDelayMinimumSeconds,
+    advertisingDelayMaximumSeconds,
+    seed,
+  );
   const event = greatestIndexAtOrBefore(starts, timeSeconds);
   if (event < 0) return undefined;
   const eventPhase = timeSeconds - starts[event]!;
   if (eventPhase < 0) return undefined;
-  const packet = Math.floor(eventPhase / packetSpacingSeconds);
-  if (packet < 0 || packet > 2) return undefined;
-  const packetPhase = eventPhase - packet * packetSpacingSeconds;
+  const packet = Math.floor(eventPhase / packetStartSpacingSeconds);
+  if (packet < 0 || packet >= packetCount) return undefined;
+  const packetPhase = eventPhase - packet * packetStartSpacingSeconds;
   if (packetPhase >= packetDurationSeconds) return undefined;
-  return [2_402_000_000, 2_426_000_000, 2_480_000_000][packet];
+  return requiredParameter(scenario, `packet${packet}CenterHz`);
 }
 
 const bleEventStartCache = new Map<string, number[]>();
 
-function bleAdvertisingEventStartsThrough(timeSeconds: number, intervalSeconds: number, seed: number): readonly number[] {
-  if (!(intervalSeconds > 0)) throw new Error('BLE advertising interval must be positive');
-  const key = `${intervalSeconds}:${seed}`;
+function bleAdvertisingEventStartsThrough(timeSeconds: number, intervalSeconds: number, advertisingDelayMinimumSeconds: number, advertisingDelayMaximumSeconds: number, seed: number): readonly number[] {
+  if (!(intervalSeconds > 0) || !(advertisingDelayMinimumSeconds >= 0) || advertisingDelayMaximumSeconds < advertisingDelayMinimumSeconds) {
+    throw new Error('BLE advertising interval and delay bounds must be valid');
+  }
+  const key = `${intervalSeconds}:${advertisingDelayMinimumSeconds}:${advertisingDelayMaximumSeconds}:${seed}`;
   const starts = bleEventStartCache.get(key) ?? [0];
   while (starts.at(-1)! <= timeSeconds) {
     const event = starts.length - 1;
-    const advertisingDelaySeconds = pseudoUniform(event, 43, seed) * 0.010;
+    const advertisingDelaySeconds = advertisingDelayMinimumSeconds
+      + pseudoUniform(event, 43, seed) * (advertisingDelayMaximumSeconds - advertisingDelayMinimumSeconds);
     starts.push(starts.at(-1)! + intervalSeconds + advertisingDelaySeconds);
   }
   bleEventStartCache.set(key, starts);
