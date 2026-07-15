@@ -20,7 +20,9 @@ import {
 
 const LTE_URL = 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136141/19.01.00_60/ts_136141v190100p.pdf';
 const NR_URL = 'https://www.etsi.org/deliver/etsi_ts/138100_138199/13814101/19.04.00_60/ts_13814101v190400p.pdf';
-const GSM_URL = 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00.00_60/ts_145005v190000p.pdf';
+const GSM_MODULATION_URL = 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145004/19.00.00_60/ts_145004v190000p.pdf';
+const GSM_MULTIPLEXING_URL = 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145002/19.00.00_60/ts_145002v190000p.pdf';
+const GSM_RADIO_URL = 'https://www.etsi.org/deliver/etsi_ts/145000_145099/145005/19.00.00_60/ts_145005v190000p.pdf';
 const WIFI_URL = 'https://standards.ieee.org/ieee/802.11/10548/';
 const observableEquivalenceDisclosure = 'Canonized scalar power projection for observable Bayesian inference. It is not bit-exact or protocol-decodable I/Q, is not a conformance vector, and supports only observable-class equivalence rather than protocol or emitter identity.';
 const agileObservableEquivalenceDisclosure = `${observableEquivalenceDisclosure} Frequency-agile scalar activity is also compatible with proprietary FHSS, scanning interference, or time-interleaved independent sources.`;
@@ -138,19 +140,23 @@ const canonizedBluetoothDescriptors: WaveformDescriptor[] = [
 ];
 
 const gsmDefinitions = [
-  ['gsm-normal-burst', 'GSM GMSK normal burst', 'GMSK normal burst', 'gmsk', 200_000],
-  ['gsm-qpsk-normal-burst', 'GSM QPSK normal burst', 'QPSK normal burst', 'qpsk', 325_000],
-  ['gsm-aqpsk-normal-burst', 'GSM AQPSK normal burst', 'AQPSK normal burst', 'aqpsk', 250_000],
-  ['gsm-8psk-normal-burst', 'EDGE 8-PSK normal burst', '8-PSK normal burst', '8psk', 250_000],
-  ['gsm-16qam-normal-burst', 'EGPRS2 16-QAM normal burst', '16-QAM normal burst', '16qam', 325_000],
-  ['gsm-32qam-normal-burst', 'EGPRS2 32-QAM normal burst', '32-QAM normal burst', '32qam', 325_000],
+  ['gsm-normal-burst', 'GSM GMSK normal burst', 'GMSK normal burst', 'gmsk', 200_000, 'Clause 2, especially 2.1: GMSK format at the normal 1 625/6 ksymb/s symbol rate'],
+  ['gsm-qpsk-normal-burst', 'GSM QPSK normal burst', 'QPSK normal burst', 'qpsk', 325_000, 'Clause 5, especially 5.1: QPSK format at the higher 325 ksymb/s symbol rate'],
+  ['gsm-aqpsk-normal-burst', 'GSM AQPSK normal burst', 'AQPSK normal burst', 'aqpsk', 250_000, 'Clause 6, especially 6.1: AQPSK format at the normal 1 625/6 ksymb/s symbol rate'],
+  ['gsm-8psk-normal-burst', 'EDGE 8-PSK normal burst', '8-PSK normal burst', '8psk', 250_000, 'Clause 3, especially 3.1: 8-PSK format at the normal 1 625/6 ksymb/s symbol rate'],
+  ['gsm-16qam-normal-burst', 'EGPRS2 16-QAM normal burst', '16-QAM normal burst', '16qam', 325_000, 'Clause 5, especially 5.1: 16-QAM format at the higher 325 ksymb/s symbol rate'],
+  ['gsm-32qam-normal-burst', 'EGPRS2 32-QAM normal burst', '32-QAM normal burst', '32qam', 325_000, 'Clause 5, especially 5.1: 32-QAM format at the higher 325 ksymb/s symbol rate'],
 ] as const;
 
-const gsmDescriptors = gsmDefinitions.map(([id, label, model, modulation, occupiedBandwidthHz]) => makeDescriptor({
+const gsmDescriptors = gsmDefinitions.map(([id, label, model, modulation, occupiedBandwidthHz, modulationClause]) => makeDescriptor({
   id, label, family: 'geran', model, centerHz: 947_400_000, occupiedBandwidthHz, recommendedSpanHz: 2_000_000,
   projection: { allocation: 'narrowband', modulation, timing: 'burst' },
-  source: sourceBasis('3GPP', [{ specification: 'TS 45.005', clause: 'Clause 4.6.2 and Annexes A/B · normal-burst modulation', revision: '19.0.0', url: GSM_URL }]),
-  disclosure: `Standards-derived ${model} occupancy and time-slot replay; it is not a bit-exact or conformance-validated I/Q vector.`,
+  source: sourceBasis('3GPP', [
+    { specification: 'TS 45.004', clause: modulationClause, revision: '19.0.0', url: GSM_MODULATION_URL },
+    { specification: 'TS 45.002', clause: 'Clauses 4.3, 5.2.3, and 5.2.3a: TDMA time-slot/frame and normal/higher-symbol-rate burst structures', revision: '19.0.0', url: GSM_MULTIPLEXING_URL },
+    { specification: 'TS 45.005', clause: 'Clause 4.2.1 and Annex A: output RF modulation-spectrum context for the engineering occupied-width projection', revision: '19.0.0', url: GSM_RADIO_URL },
+  ]),
+  disclosure: `Standards-derived ${model} modulation, symbol-rate, spectral-occupancy context, and time-slot replay; the occupied width is an engineering projection, not a bit-exact or conformance-validated I/Q vector.`,
 }));
 
 interface ModelDefinition {

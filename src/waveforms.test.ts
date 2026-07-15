@@ -40,6 +40,27 @@ describe('qualified waveform replay engine', () => {
     expect(waveformDescriptor('bluetooth-le-advertising').disclosure).toMatch(/observable-class equivalence/i);
     expect(waveformDescriptor('lte-band38-tdd-10m').disclosure).toMatch(/only DwPTS is downlink-active/i);
     expect(waveformDescriptor('lte-band38-tdd-10m').source.references[1]?.clause).toMatch(/special-subframe configuration 7/i);
+    expect(waveformDescriptor('gsm-normal-burst').source.references.map((reference) => reference.specification))
+      .toEqual(['TS 45.004', 'TS 45.002', 'TS 45.005']);
+    expect(waveformDescriptor('gsm-normal-burst').source.references.map((reference) => reference.revision))
+      .toEqual(['19.0.0', '19.0.0', '19.0.0']);
+    for (const [profile, clause, symbolRate] of [
+      ['gsm-normal-burst', '2', '1 625/6'],
+      ['gsm-qpsk-normal-burst', '5', '325'],
+      ['gsm-aqpsk-normal-burst', '6', '1 625/6'],
+      ['gsm-8psk-normal-burst', '3', '1 625/6'],
+      ['gsm-16qam-normal-burst', '5', '325'],
+      ['gsm-32qam-normal-burst', '5', '325'],
+    ] as const) {
+      expect(waveformDescriptor(profile).source.references[0]?.clause)
+        .toContain(`Clause ${clause}`);
+      expect(waveformDescriptor(profile).source.references[0]?.clause)
+        .toContain(`${symbolRate} ksymb/s`);
+    }
+    expect(waveformDescriptor('gsm-normal-burst').source.references[1]?.clause)
+      .toMatch(/4\.3.*5\.2\.3.*5\.2\.3a.*time-slot.*burst/i);
+    expect(waveformDescriptor('gsm-normal-burst').source.references[2]?.clause)
+      .toMatch(/4\.2\.1.*Annex A.*modulation-spectrum.*occupied-width/i);
     expect(waveformDescriptor('nr-n78-tdd-100m').disclosure).toMatch(/engineering schedule.*seven complete downlink slots/i);
     expect(waveformDescriptor('nr-n78-tdd-100m').source.references.map((reference) => reference.specification))
       .toEqual(['TS 38.104', 'TS 38.211', 'TS 38.331', 'TS 38.213']);
