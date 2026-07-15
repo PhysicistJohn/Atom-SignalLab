@@ -1,0 +1,82 @@
+{
+  "documentType": "contract-manifest",
+  "contractId": "tinysa-signal-lab-atomizer-measurement",
+  "contractVersion": 1,
+  "status": "producer-available-consumer-not-yet-composed",
+  "owner": "TinySA_SignalLab",
+  "purpose": "high-level-synthetic-measurement-source-for-atomizer",
+  "framing": {
+    "encoding": "utf-8",
+    "format": "ndjson",
+    "lineTerminator": "lf",
+    "firstMessage": "ready",
+    "stdout": "protocol-messages-only",
+    "stderr": "diagnostics-only"
+  },
+  "commands": [
+    {
+      "method": "status",
+      "stateChange": false,
+      "result": "status"
+    },
+    {
+      "method": "select_profile",
+      "stateChange": true,
+      "result": "status"
+    },
+    {
+      "method": "configure_channel",
+      "stateChange": true,
+      "result": "status"
+    },
+    {
+      "method": "acquire_spectrum",
+      "stateChange": false,
+      "result": "swept-spectrum"
+    },
+    {
+      "method": "acquire_detected_power",
+      "stateChange": false,
+      "result": "detected-power-timeseries"
+    },
+    {
+      "method": "shutdown",
+      "stateChange": true,
+      "result": "shutdown"
+    }
+  ],
+  "limits": {
+    "maxRequestLineBytes": 65536,
+    "maxResponseLineBytes": 1048576,
+    "maxQueuedRequests": 32,
+    "maxSessionRequests": 10000,
+    "requestTimeoutMs": 5000
+  },
+  "semantics": {
+    "replies": "one-response-per-input-line-and-no-request-id-executes-twice",
+    "ordering": "accepted-requests-execute-serially",
+    "retry": "none",
+    "selectedProfileVisibility": "status-only-never-copied-into-measurement-results",
+    "configurationRevision": "opaque-and-replaced-after-every-accepted-configuration-change",
+    "measurementQualification": "synthetic-visual-projection-not-a-conformance-vector"
+  },
+  "identityHashes": {
+    "contractSha256": "sha256-of-the-exact-loaded-contract-json-bytes",
+    "catalogSha256": "sha256-of-the-runtime-canonical-catalog-json",
+    "generatorSha256": "sha256-length-framed-aggregate-of-every-shipped-runtime-javascript-artifact"
+  },
+  "claims": {
+    "usbEmulated": false,
+    "firmwareExecuted": false,
+    "rfEmitted": false
+  },
+  "prohibitedIdentityFields": [
+    "usbMatch",
+    "vendorId",
+    "productId",
+    "serialPath",
+    "firmwareVersion",
+    "firmwareRevision",
+    "usbIdentityVerified"
+  ]
+}

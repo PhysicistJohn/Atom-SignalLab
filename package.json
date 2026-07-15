@@ -4,11 +4,21 @@
   "private": true,
   "type": "module",
   "main": "dist/main/main-process.js",
+  "bin": {
+    "tinysa-signal-lab-atomizer-bridge": "dist/bridge/atomizer-bridge.js"
+  },
+  "files": [
+    "dist/bridge",
+    "contracts/signal-lab-measurement-bridge-v1.json"
+  ],
   "scripts": {
     "dev": "npm run build:main && concurrently -k \"vite --port 5174\" \"wait-on http://localhost:5174 && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 electron .\"",
     "build:main": "tsup src/main-process.ts --format esm --out-dir dist/main --external electron && tsup src/preload.ts --format cjs --out-dir dist/main --external electron",
-    "build": "npm run build:main && vite build",
+    "build:bridge": "node scripts/build-atomizer-bridge.mjs",
+    "bridge": "node scripts/run-atomizer-bridge.mjs",
+    "build": "npm run build:main && npm run build:bridge && vite build",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run build:bridge",
     "test": "vitest run",
     "check": "npm run typecheck && npm run build && npm test"
   },
