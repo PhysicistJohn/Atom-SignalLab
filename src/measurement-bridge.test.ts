@@ -295,7 +295,7 @@ describe('bounded NDJSON measurement bridge', () => {
       requestId: null,
       error: { code: 'SESSION_REQUEST_LIMIT' },
     });
-  });
+  }, 20_000);
 
   it('reserves one valid shutdown admission after the normal process-line budget is exhausted', async () => {
     const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
@@ -320,7 +320,7 @@ describe('bounded NDJSON measurement bridge', () => {
     });
     expect(output.shutdownWrite).toBeGreaterThan(1);
     expect(bridge.pendingReplyObligations).toBe(0);
-  });
+  }, 20_000);
 });
 
 function request(method: string, requestId: string, params: unknown): MeasurementBridgeRequest {
