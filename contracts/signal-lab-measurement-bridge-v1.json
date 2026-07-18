@@ -3,7 +3,7 @@
   "contractId": "tinysa-signal-lab-atomizer-measurement",
   "contractVersion": 1,
   "status": "active",
-  "owner": "TinySA_SignalLab",
+  "owner": "Atom-SignalLab",
   "purpose": "high-level-synthetic-measurement-source-for-atomizer",
   "framing": {
     "encoding": "utf-8",
@@ -40,6 +40,11 @@
       "result": "detected-power-timeseries"
     },
     {
+      "method": "acquire_iq",
+      "stateChange": false,
+      "result": "complex-iq"
+    },
+    {
       "method": "shutdown",
       "stateChange": true,
       "result": "shutdown"
@@ -62,7 +67,14 @@
     "selectedProfileVisibility": "status-only-never-copied-into-measurement-results",
     "configurationRevision": "opaque-and-replaced-after-every-accepted-configuration-change",
     "detectedPowerTuning": "required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune",
-    "measurementQualification": "synthetic-visual-projection-not-a-conformance-vector"
+    "complexIqEncoding": "canonical-base64-of-interleaved-cf32le-with-exact-byte-geometry-and-sha256",
+    "complexIqCentering": "requested-center-hz-is-the-complex-envelope-reference-and-profile-components-may-have-baseband-offsets",
+    "complexIqBandwidth": "independent-safe-integer-hz-no-greater-than-sample-rate-two-sided-minus-3db-span-of-bounded-first-order-real-coefficient-low-pass-initialized-from-first-sample",
+    "complexIqUndersampling": "wideband-standards-engineering-profiles-may-be-deterministically-aliased-below-their-catalogued-occupied-support",
+    "complexIqChannel": "replay-channel-configuration-is-not-applied-to-clean-analytic-iq-v1",
+    "complexIqAvailability": "all-closed-catalog-profiles-with-standards-labelled-results-explicitly-non-conformance",
+    "scalarMeasurementQualification": "synthetic-visual-projection-not-a-conformance-vector",
+    "complexIqMeasurementQualification": "profile-dependent-analytic-laboratory-or-standards-derived-engineering-not-a-conformance-vector"
   },
   "identityHashes": {
     "contractSha256": "sha256-of-the-exact-loaded-contract-json-bytes",

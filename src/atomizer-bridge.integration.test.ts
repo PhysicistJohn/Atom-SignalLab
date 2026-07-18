@@ -48,6 +48,11 @@ describe('shipped Atomizer measurement bridge executable', () => {
       expect(ready.identity.contractSha256).toBe(sha256Hex(await readFile(contractUrl)));
       expect(ready.identity.generatorSha256).toBe(await aggregateGeneratorHash());
       expect(ready.identity.claims).toEqual({ usbEmulated: false, firmwareExecuted: false, rfEmitted: false });
+      expect(ready.capabilities.find(({ kind }) => kind === 'complex-iq')).toMatchObject({
+        minimumBandwidthHz: 1_000,
+        maximumBandwidthHz: 245_760_000,
+        bandwidthMode: 'independent',
+      });
 
       const status = await exchange(child, lines, request('status', 'status', {}));
       expect(status).toMatchObject({ ok: true, requestId: 'status', result: { kind: 'status', profile: 'cw' } });
@@ -73,7 +78,56 @@ describe('shipped Atomizer measurement bridge executable', () => {
         requestId: 'detected',
         result: { kind: 'detected-power-timeseries', centerFrequencyHz: 98_012_345, points: 64 },
       });
-      for (const response of [spectrum, detected]) {
+      const iq = await exchange(child, lines, request('acquire_iq', 'iq', {
+        centerHz: 915_000_000,
+        sampleRateHz: 2_000_000,
+        bandwidthHz: 100_000,
+        sampleCount: 1_024,
+        sampleFormat: 'cf32le',
+      }));
+      expect(iq).toMatchObject({
+        ok: true,
+        requestId: 'iq',
+        result: {
+          kind: 'complex-iq',
+          centerHz: 915_000_000,
+          sampleRateHz: 2_000_000,
+          bandwidthHz: 100_000,
+          sampleCount: 1_024,
+          byteLength: 8_192,
+          sampleFormat: 'cf32le',
+          encoding: 'base64',
+          qualification: 'analytic-complex-baseband',
+        },
+      });
+      if (!iq.ok || iq.result.kind !== 'complex-iq') throw new Error('Expected successful complex-I/Q measurement');
+      const iqBytes = Buffer.from(iq.result.samplesBase64, 'base64');
+      expect(iqBytes.byteLength).toBe(iq.result.byteLength);
+      expect(sha256Hex(iqBytes)).toBe(iq.result.samplesSha256);
+      const selectedStandard = await exchange(child, lines, request('select_profile', 'select-standard', { profile: 'lte-etm1.1' }));
+      expect(selectedStandard).toMatchObject({ ok: true, result: { kind: 'status', profile: 'lte-etm1.1' } });
+      const standardIq = await exchange(child, lines, request('acquire_iq', 'iq-standard', {
+        centerHz: 1_842_500_000,
+        sampleRateHz: 30_720_000,
+        bandwidthHz: 20_000_000,
+        sampleCount: 1_024,
+        sampleFormat: 'cf32le',
+      }));
+      expect(standardIq).toMatchObject({
+        ok: true,
+        requestId: 'iq-standard',
+        result: {
+          kind: 'complex-iq',
+          sampleCount: 1_024,
+          byteLength: 8_192,
+          qualification: 'standards-derived-complex-baseband',
+        },
+      });
+      if (!standardIq.ok || standardIq.result.kind !== 'complex-iq') throw new Error('Expected successful standards-derived complex-I/Q measurement');
+      const standardIqBytes = Buffer.from(standardIq.result.samplesBase64, 'base64');
+      expect(standardIqBytes.some((byte) => byte !== 0)).toBe(true);
+      expect(sha256Hex(standardIqBytes)).toBe(standardIq.result.samplesSha256);
+      for (const response of [spectrum, detected, iq, standardIq]) {
         if (!response.ok) throw new Error('Expected successful measurement');
         expect(deepKeys(response.result)).not.toContain('profile');
       }
@@ -90,7 +144,7 @@ describe('shipped Atomizer measurement bridge executable', () => {
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
     }
-  });
+  }, 30_000);
 });
 
 async function exchange(
@@ -113,7 +167,10 @@ function writeLine(child: ChildProcessWithoutNullStreams, line: string): Promise
 }
 
 async function nextLine(lines: AsyncIterator<string>): Promise<string> {
-  const result = await withDeadline(lines.next(), 2_000, 'Timed out waiting for a measurement bridge protocol line');
+  // CI can run this subprocess beside CPU-heavy synthesis tests. Keep the
+  // protocol wait bounded without conflating scheduler contention with a
+  // bridge failure.
+  const result = await withDeadline(lines.next(), 10_000, 'Timed out waiting for a measurement bridge protocol line');
   if (result.done) throw new Error('Measurement bridge stdout closed before the expected protocol line');
   return result.value;
 }
@@ -122,7 +179,7 @@ function waitForExit(child: ChildProcessWithoutNullStreams): Promise<{ code: num
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve({ code: child.exitCode, signal: child.signalCode });
   return withDeadline(new Promise((resolve) => {
     child.once('exit', (code, signal) => resolve({ code, signal }));
-  }), 2_000, 'Timed out waiting for measurement bridge exit');
+  }), 10_000, 'Timed out waiting for measurement bridge exit');
 }
 
 async function aggregateGeneratorHash(): Promise<string> {

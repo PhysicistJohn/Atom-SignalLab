@@ -47,7 +47,7 @@ export const ANALYTIC_SCALAR_SOURCE = sourceBasis('TinySA SignalLab', [{
   specification: 'TinySA SignalLab canonical scalar kernel',
   clause: 'RBW-filtered CW, DSB full-carrier AM, sinusoidal FM and explicit hard-negative models',
   revision: 'canonical-scalar-kernel-v1',
-  url: 'https://github.com/PhysicistJohn/TinySA_SignalLab/blob/main/src/waveforms.ts',
+  url: 'https://github.com/PhysicistJohn/Atom-SignalLab/blob/main/src/waveforms.ts',
 }]);
 
 export const GSM_OBSERVABLE_SOURCE = sourceBasis('3GPP', [

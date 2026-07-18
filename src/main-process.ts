@@ -71,7 +71,11 @@ async function createWindow(): Promise<void> {
   const developmentUrl = selectDevelopmentServerUrl(process.env.VITE_DEV_SERVER_URL, app.isPackaged);
   const trust = developmentUrl ? developmentRendererTrust(developmentUrl) : productionRendererTrust(rendererPath);
   const next = new BrowserWindow({
-    width: 520, height: 590, minWidth: 520, minHeight: 590, maxWidth: 520, maxHeight: 590, resizable: false,
+    // 520 px is the Studio's compact six-tab width. The densest collapsed
+    // standards profile plus the three-row Rayleigh controls needs 709 px to
+    // remain fully visible without turning the catalog into a scroll region.
+    width: 520, height: 709, minWidth: 520, minHeight: 709, maxWidth: 520, maxHeight: 709,
+    useContentSize: true, resizable: false,
     title: 'SignalLab', titleBarStyle: 'hiddenInset', backgroundColor: '#08080a',
     webPreferences: {
       preload: join(here, 'preload.cjs'),

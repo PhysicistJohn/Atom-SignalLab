@@ -133,6 +133,65 @@ describe('bounded NDJSON measurement bridge', () => {
     await running;
   });
 
+  it('carries the maximum canonical cf32le payload below the line bound and returns qualified standards projections', async () => {
+    const service = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
+    service.selectProfile({ profile: 'fm' });
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const capture = captureLines(output);
+    const bridge = new AtomizerNdjsonMeasurementBridge(service, { input, output, diagnostics: () => undefined });
+    const running = bridge.run();
+    await capture.waitFor(1);
+
+    input.write(`${JSON.stringify(request('acquire_iq', 'iq-maximum', {
+      centerHz: 915_000_000,
+      sampleRateHz: 245_760_000,
+      bandwidthHz: 1_000,
+      sampleCount: 65_536,
+      sampleFormat: 'cf32le',
+    }))}\n`);
+    await capture.waitFor(2);
+    expect(Buffer.byteLength(capture.lines[1]!, 'utf8')).toBeLessThanOrEqual(MEASUREMENT_BRIDGE_LIMITS.maxResponseLineBytes);
+    const iqResponse = measurementBridgeResponseSchema.parse(JSON.parse(capture.lines[1]!));
+    expect(iqResponse).toMatchObject({
+      ok: true,
+      requestId: 'iq-maximum',
+      result: {
+        kind: 'complex-iq',
+        sampleRateHz: 245_760_000,
+        bandwidthHz: 1_000,
+        sampleCount: 65_536,
+        byteLength: 524_288,
+        sampleFormat: 'cf32le',
+      },
+    });
+    if (!iqResponse.ok || iqResponse.result.kind !== 'complex-iq') throw new Error('Expected a complex-I/Q response');
+    expect(Buffer.from(iqResponse.result.samplesBase64, 'base64').byteLength).toBe(524_288);
+
+    input.write(`${JSON.stringify(request('select_profile', 'select-standard', { profile: 'lte-etm1.1' }))}\n`);
+    await capture.waitFor(3);
+    input.write(`${JSON.stringify(request('acquire_iq', 'iq-standard-derived', {
+      centerHz: 1_842_500_000,
+      sampleRateHz: 30_720_000,
+      bandwidthHz: 30_720_000,
+      sampleCount: 1_024,
+      sampleFormat: 'cf32le',
+    }))}\n`);
+    await capture.waitFor(4);
+    expect(measurementBridgeResponseSchema.parse(JSON.parse(capture.lines[3]!))).toMatchObject({
+      ok: true,
+      requestId: 'iq-standard-derived',
+      result: {
+        kind: 'complex-iq',
+        qualification: 'standards-derived-complex-baseband',
+        sampleCount: 1_024,
+      },
+    });
+
+    input.end(`${JSON.stringify(request('shutdown', 'iq-shutdown', {}))}\n`);
+    await running;
+  });
+
   it('makes an uncertain execution timeout terminal before any later state mutation can dispatch', async () => {
     const base = new AtomizerMeasurementService({ contractSha256: HASH_A, generatorSha256: HASH_B });
     const calls: string[] = [];

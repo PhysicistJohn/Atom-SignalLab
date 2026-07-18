@@ -25,6 +25,17 @@ The public source boundary is `src/contracts.ts`:
 
 Every request is runtime validated. Invalid input rejects before state change; no profile, channel, seed, asset, or sink is substituted.
 
+### Reusable Studio view
+
+`SignalLabStudio` is a controlled React view, not a second state owner. It
+renders the admitted catalog as `LAB`, `GSM`, `LTE`, `5G NR`, `WI-FI`, and
+`BLUETOOTH` tabs plus AWGN/Rayleigh replay-channel controls. Standalone
+SignalLab supplies state from its local API; Atomizer supplies state and actions
+from its admitted `signal-lab` driver. The component reads no preload or window
+global, and an embedding host may mark all source-truth controls human-only.
+Profile and channel mutations still cross the owning host's validated boundary;
+the view cannot mutate either repository directly.
+
 ## Atomizer measurement boundary
 
 The separately built `dist/bridge/atomizer-bridge.js` implements [`contracts/signal-lab-measurement-bridge-v1.json`](./contracts/signal-lab-measurement-bridge-v1.json). Atomizer launches it behind the `signal-lab` driver as a high-level source; the bridge is never a byte transport or TinySA protocol peer.
@@ -34,12 +45,14 @@ Its UTF-8 NDJSON session is closed and bounded:
 - The first stdout line is one exact `ready` declaration; stdout contains protocol messages only and stderr diagnostics only.
 - Ready identity binds measurement contract version 1 plus exact contract, catalog, and shipped runtime-generator SHA-256 values.
 - Claims are always `usbEmulated=false`, `firmwareExecuted=false`, and `rfEmitted=false`.
-- The only methods are `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, and `shutdown`.
+- The only methods are `status`, `select_profile`, `configure_channel`, `acquire_spectrum`, `acquire_detected_power`, `acquire_iq`, and `shutdown`.
 - Accepted requests execute serially, each request ID executes at most once, every admitted line receives one response (correlated whenever the bounded input exposes a valid request ID), and neither producer nor consumer retries.
 - Every LF-delimited line and final unterminated fragment—including malformed, duplicate, oversized, and overloaded input—consumes the lifetime session-line budget and a reply obligation. At most 33 reply obligations exist at once; input pauses until blocked stdout releases one.
 - Input chunks, lines, pending replies, queue depth, session lines, execution time, point counts, frequency, sample period, and response size are hard bounded.
 - Detected-power capability declares `minimumFrequencyHz=1`, `maximumFrequencyHz=17922600000`, `frequencyStepHz=1`, and `frequencyUnit=Hz`. Every request supplies one safe-integer `centerFrequencyHz` in that range, synthesis is receiver-filtered at that exact tune, and the result returns the same integer exactly.
-- Every measurement is complete, finite, unit-declared, qualified `synthetic-visual-projection`, and bound to an opaque session/configuration revision and monotonic sequence.
+- Swept-spectrum and detected-power measurements are complete, finite, unit-declared, qualified `synthetic-visual-projection`, and bound to an opaque session/configuration revision and monotonic sequence.
+- Complex-I/Q capability covers all 34 closed catalog profiles. `acquire_iq` accepts safe-integer `centerHz` from 1 through 17,922,600,000, `sampleRateHz` from 1,000,000 through 245,760,000, independent `bandwidthHz` from 1,000 through 245,760,000 with `bandwidthHz <= sampleRateHz`, and `sampleCount` from 1 through 65,536. Ready declares `bandwidthMode=independent`. The bandwidth is the two-sided steady-state -3 dB span of the bounded causal real-coefficient low-pass applied identically to I and Q; initialization from the first sample preserves constant CW exactly. `sampleFormat=cf32le` is required.
+- A complex-I/Q result is one complete canonical-base64 buffer of little-endian interleaved float32 I/Q, exactly eight bytes per complex sample, with exact byte length and SHA-256. It is a normalized, unit-peak complex envelope with `simulation-exact` timing. CW, AM, and FM results are qualified `analytic-complex-baseband`; the other 31 results are qualified `standards-derived-complex-baseband`. The requested center is the envelope reference and frequency-agile profiles can contain component offsets around it. Wideband standards profiles requested below their catalogued occupied support produce a disclosed deterministic discrete-time alias projection, not an alias-free full-channel reconstruction. The v1 result explicitly declares `channelApplication=not-applied`.
 - Profile/channel changes replace the producer configuration revision. Atomizer invalidates its admitted acquisition configuration before any later acquisition.
 - Selected profile, waveform label, and catalog state appear only in status; measurements never copy them into detector, classifier, or exported-observation evidence.
 
@@ -60,7 +73,7 @@ With no persisted Atomizer preference, `signal-lab` is Atomizer's factory defaul
 
 Every descriptor carries a stable ID, label, family/model, center, occupied bandwidth, recommended span, resource/timing projection, one normalized source basis with an ordered per-document specification/clause/revision/HTTPS reference list, qualification, and disclosure.
 
-`standards-derived` means a visual resource-allocation and timing projection. It is not bit-exact I/Q and is not a conformance vector. `conformance-validated` is impossible unless an immutable SHA-256 asset identity is present and independently admitted.
+Catalog qualification `standards-derived` means a resource-allocation and timing projection rather than a conformance claim. The corresponding complex-I/Q results are deterministic engineering envelopes qualified `standards-derived-complex-baseband`; they are not packet-decodable, bit-exact protocol reproductions, or conformance vectors. Framework-generated independently validated assets remain future work. `conformance-validated` is impossible unless an immutable SHA-256 asset identity is present and independently admitted.
 
 ## Channel and playback guarantees
 
@@ -95,7 +108,7 @@ Guarantees:
 
 Consumer assumption `A_A`: Atomizer launches the separately built bridge and public contract as admitted regular files, accepts only an exact version-1 ready identity, binds its own source/session evidence, permits one request in flight, and treats protocol or process failure as terminal without retry or fallback.
 
-Producer guarantee `G_M`: SignalLab returns only bounded high-level swept-spectrum and detected-power results with exact source identity, opaque state correlation, declared units and `synthetic-visual-projection` qualification. It exposes no USB, firmware, serial, RF-generator, display, touch, or complex-I/Q identity or capability. Selected profile remains status-only.
+Producer guarantee `G_M`: SignalLab returns bounded high-level swept-spectrum and detected-power results with exact source identity, opaque state correlation, declared units and `synthetic-visual-projection` qualification. It additionally exposes bounded deterministic complex-I/Q for all 34 closed profiles, with exact payload geometry, content digest, profile-dependent `analytic-complex-baseband` or `standards-derived-complex-baseband` qualification, and an explicit no-channel declaration. Standards-labelled envelopes are engineering projections, not packet-decodable or conformance vectors. It exposes no USB, firmware, serial, RF-generator, display, or touch identity or capability. Selected profile remains status-only.
 
 Trio composition v4 proves this edge active only while `G_M => A_A` and the three repositories' v4 manifests remain byte-identical.
 
@@ -110,9 +123,9 @@ The edge may activate only when `G_S => A_F` is proven by a coordinated trio con
 ### Repository ownership
 
 - SignalLab owns synthetic measurement generation, the measurement bridge, waveform/profile/channel state, and stimulus intent.
-- `TinySA_Firmware` owns executable-twin state and the future intent sink.
-- `TinySA` owns Atomizer, its driver registry/manager, physical USB, factory-default preference, Atom, approvals, and instrument orchestration.
-- `TinySA_Flasher` independently owns firmware artifacts and physical update transactions. Its active interface catalog v3 retains active application contract v2 (`deviceContractVersion: 2`); interface catalog v2 and legacy application contract v1 are frozen. It is not a runtime-trio party.
+- `Atom-Firmware` owns executable-twin state and the future intent sink.
+- `Atom-Atomizer` owns Atomizer, its driver registry/manager, physical USB, factory-default preference, Atom, approvals, and instrument orchestration.
+- `Atom-Flasher` independently owns firmware artifacts and physical update transactions. Its active interface catalog v3 retains active application contract v2 (`deviceContractVersion: 2`); interface catalog v2 and legacy application contract v1 are frozen. It is not a runtime-trio party.
 
 No repository may reach into another repository's state directly or silently infer it. Cross-owner state changes occur only through the admitted versioned request, validation, response, and evidence boundary; ownership remains with the producer.
 
@@ -126,8 +139,9 @@ No repository may reach into another repository's state directly or silently inf
 6. SignalLab never identifies as a tinySA or USB device.
 7. The active Atomizer measurement edge does not imply or activate the absent Firmware sink.
 8. Failure never activates another profile, channel, driver, transport, or process.
-9. Neither SignalLab nor TinySA's present drivers claim complex I/Q; NeptuneSDR remains a future Atomizer driver/contract evolution, not current support.
+9. Complex-I/Q capability is source-declared and driver-neutral. SignalLab admits one bounded `cf32le` complex envelope for every closed profile, while preserving analytic-laboratory versus standards-derived-engineering qualification; no current result claims RF calibration, packet decoding, protocol identity, conformance, continuous streaming, or NeptuneSDR support.
 10. Standalone IPC is admitted only from the exact current main frame and renderer origin; packaged execution cannot select a development renderer, request an Electron permission, open a child window, or navigate to an untrusted URL.
+11. The standalone content viewport is fixed at 520 × 709 CSS px, the measured no-scroll floor across all 34 collapsed profiles with Rayleigh controls.
 
 ## Liveness and failure algebra
 
@@ -139,6 +153,8 @@ Every local API request settles exactly once as a validated new status or an exp
 | Invalid channel/range/seed | Reject before mutation |
 | Missing descriptor/source | Fail catalog initialization |
 | Non-finite synthesis | Reject the frame |
+| Missing or mismatched complex-envelope generator for a closed profile | Reject without substituting another profile or qualification |
+| Invalid I/Q rate, bandwidth, count, format, base64, byte geometry, or digest | Reject the request/result; never coerce, truncate, or substitute samples |
 | Ready/hash/framing/correlation mismatch | Terminate the measurement session; no retry or fallback |
 | Measurement timeout/process exit | Terminate the measurement session; no retry or fallback |
 | Missing conformance asset | Refuse conformance promotion |
@@ -162,14 +178,17 @@ Every local API request settles exactly once as a validated new status or an exp
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
 - Detected-power requests require a bounded integer-Hz tune, ready advertises the exact 1 Hz grid, results echo the admitted tune, every canonized public profile changes under an out-of-band tune, and non-canonized zero span never silently ignores frequency.
+- Ready advertises complex-I/Q for all 34 closed profiles; deterministic generation produces finite `cf32le` samples with exact base64, byte geometry, and SHA-256 through the public bridge. CW/AM/FM retain `analytic-complex-baseband`; every standards-labelled profile retains `standards-derived-complex-baseband`.
+- I/Q requests pin the center/rate/bandwidth/count bounds, advertise independent bandwidth, and enforce `bandwidthHz <= sampleRateHz`. Tests prove the exact steady-state -3 dB response, bandwidth-dependent spectra, bit-exact CW invariance, finite unit-peak maximum-size output, complete catalog generator coverage, and explicit non-conformance qualification for all standards-labelled envelopes. Replay channel state is never silently applied to the clean v1 buffer.
 - Invalid conformance promotion fails.
 - The shipped bridge and public contract interoperate through the exact ready identity and every admitted method.
 - Bridge bounds, duplicate IDs, malformed input, overload, timeout, shutdown and process exit settle once without retry or fallback.
 - Permanently blocked stdout plus invalid, duplicate, oversized, or overloaded input cannot exceed the total reply-obligation bound.
 - Exact renderer/WebContents/frame trust, strict IPC arity, permission denial, navigation denial, and production CSP are adversarially tested.
 - Electron main/preload and renderer build from this repository alone.
+- The validation-only Auto-v4 corpus pins four SHA-256-addressed competing-emission sweeps: both narrow/wide integrated-power orders, an exact deterministic tie, and a runtime-unavailable rank-0 winner with no lower-rank substitution. It remains outside the 34-profile catalog and all classifier likelihood, training, calibration, and model artifacts.
 
-Cross-repository release additionally requires the byte-identical trio-v4 manifest check and real producer/consumer interoperation from `../TinySA`. Activating the stimulus edge requires a new coordinated trio version and tests in both SignalLab and Firmware.
+Cross-repository release additionally requires the byte-identical trio-v4 manifest check and real producer/consumer interoperation from `../Atom-Atomizer`. Activating the stimulus edge requires a new coordinated trio version and tests in both SignalLab and Firmware.
 
 ## Source traceability
 
@@ -181,6 +200,9 @@ Cross-repository release additionally requires the byte-identical trio-v4 manife
 | Catalog and standards clauses | `src/catalog.ts`, `src/source-provenance.ts` |
 | Versioned LTE/NR/BLE timing choices | `src/canonical-timing.ts` |
 | Spectrum/zero-span/channel synthesis | `src/waveforms.ts` |
+| Profile-dependent complex-I/Q synthesis | `src/complex-iq.ts`, `src/geran-iq.ts`, `src/ofdm-iq.ts`, `src/bluetooth-iq.ts` |
+| Provider-neutral standards preset/evidence schema | `src/standards-waveform.ts` |
+| Auto-v4 integrated-excess selection fixtures | `src/auto-target-selection-corpus.ts`, `src/auto-target-selection-corpus.test.ts` |
 | Standalone Electron boundary | `src/main-process.ts`, `src/preload.ts` |
-| Operator UI | `src/DemoLab.tsx` |
-| Contract evidence | `src/waveforms.test.ts`, `src/measurement-service.test.ts`, `src/measurement-bridge.test.ts`, `src/atomizer-bridge.integration.test.ts` |
+| Reusable and standalone operator UI | `src/SignalLabStudio.tsx`, `src/DemoLab.tsx` |
+| Contract evidence | `src/waveforms.test.ts`, `src/complex-iq.test.ts`, `src/geran-iq.test.ts`, `src/ofdm-iq.test.ts`, `src/bluetooth-iq.test.ts`, `src/standards-waveform.test.ts`, `src/measurement-service.test.ts`, `src/measurement-bridge.test.ts`, `src/atomizer-bridge.integration.test.ts` |

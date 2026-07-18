@@ -8,13 +8,20 @@ import {
   type SynthesizedSignalProfile,
 } from './contracts.js';
 import {
+  complexIqGeneratorBasis,
+  isAnalyticComplexIqProfile,
+  synthesizeAnalyticComplexIq,
+} from './complex-iq.js';
+import {
   ATOMIZER_MEASUREMENT_CONTRACT_ID,
   ATOMIZER_MEASUREMENT_CONTRACT_VERSION,
   ATOMIZER_MEASUREMENT_PROTOCOL,
   MEASUREMENT_BRIDGE_CLAIMS,
   MEASUREMENT_CAPABILITIES,
   acquireDetectedPowerRequestSchema,
+  acquireIqRequestSchema,
   acquireSpectrumRequestSchema,
+  complexIqMeasurementSchema,
   configureChannelRequestSchema,
   detectedPowerMeasurementSchema,
   measurementSourceIdentitySchema,
@@ -22,6 +29,7 @@ import {
   selectProfileRequestSchema,
   sweptSpectrumMeasurementSchema,
   type DetectedPowerMeasurement,
+  type ComplexIqMeasurement,
   type MeasurementBridgeRequest,
   type MeasurementResult,
   type MeasurementSourceIdentity,
@@ -60,9 +68,9 @@ export const measurementServiceContinuationSchema = z.object({
 export type MeasurementServiceContinuation = z.infer<typeof measurementServiceContinuationSchema>;
 
 export class MeasurementServiceError extends Error {
-  readonly code: 'SERVICE_CLOSED';
+  readonly code: 'SERVICE_CLOSED' | 'IQ_PROFILE_UNAVAILABLE';
 
-  constructor(code: 'SERVICE_CLOSED', message: string) {
+  constructor(code: 'SERVICE_CLOSED' | 'IQ_PROFILE_UNAVAILABLE', message: string) {
     super(message);
     this.name = 'MeasurementServiceError';
     this.code = code;
@@ -171,6 +179,7 @@ export class AtomizerMeasurementService {
       request.startHz + (request.stopHz - request.startHz) * index / (request.points - 1));
     return sweptSpectrumMeasurementSchema.parse({
       ...this.#measurementBase(sequence, started),
+      qualification: 'synthetic-visual-projection',
       kind: 'swept-spectrum',
       startHz: request.startHz,
       stopHz: request.stopHz,
@@ -195,11 +204,54 @@ export class AtomizerMeasurementService {
     });
     return detectedPowerMeasurementSchema.parse({
       ...this.#measurementBase(sequence, started),
+      qualification: 'synthetic-visual-projection',
       kind: 'detected-power-timeseries',
       centerFrequencyHz: request.centerFrequencyHz,
       points: request.points,
       samplePeriodSeconds: request.samplePeriodSeconds,
       powerDbm,
+    });
+  }
+
+  acquireIq(input: unknown): ComplexIqMeasurement {
+    this.#requireOpen();
+    const request = acquireIqRequestSchema.shape.params.parse(input);
+    if (!isAnalyticComplexIqProfile(this.#profile)) {
+      throw new MeasurementServiceError(
+        'IQ_PROFILE_UNAVAILABLE',
+        `${this.#profile} has no truthful complex-I/Q generator installed`,
+      );
+    }
+    const started = this.#monotonicMilliseconds();
+    const sequence = this.#nextSequence();
+    const samples = synthesizeAnalyticComplexIq({
+      profile: this.#profile,
+      sampleRateHz: request.sampleRateHz,
+      bandwidthHz: request.bandwidthHz,
+      sampleCount: request.sampleCount,
+    });
+    const samplesBuffer = Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength);
+    return complexIqMeasurementSchema.parse({
+      ...this.#measurementBase(sequence, started),
+      kind: 'complex-iq',
+      centerHz: request.centerHz,
+      sampleRateHz: request.sampleRateHz,
+      bandwidthHz: request.bandwidthHz,
+      sampleFormat: request.sampleFormat,
+      sampleCount: request.sampleCount,
+      byteLength: samples.byteLength,
+      encoding: 'base64',
+      layout: 'interleaved-iq',
+      byteOrder: 'little-endian',
+      samplesBase64: samplesBuffer.toString('base64'),
+      samplesSha256: createHash('sha256').update(samplesBuffer).digest('hex'),
+      timingQualification: 'simulation-exact',
+      qualification: complexIqGeneratorBasis(this.#profile) === 'analytic-laboratory'
+        ? 'analytic-complex-baseband'
+        : 'standards-derived-complex-baseband',
+      representation: 'normalized-complex-envelope',
+      normalization: 'unit-peak',
+      channelApplication: 'not-applied',
     });
   }
 
@@ -211,6 +263,7 @@ export class AtomizerMeasurementService {
       case 'configure_channel': return this.configureChannel(request.params);
       case 'acquire_spectrum': return this.acquireSpectrum(request.params);
       case 'acquire_detected_power': return this.acquireDetectedPower(request.params);
+      case 'acquire_iq': return this.acquireIq(request.params);
       case 'shutdown':
         this.#closed = true;
         return { kind: 'shutdown', closed: true };
@@ -227,7 +280,6 @@ export class AtomizerMeasurementService {
       capturedAt: this.#nextInstant(),
       elapsedSeconds,
       complete: true as const,
-      qualification: 'synthetic-visual-projection' as const,
       provenance: this.identity,
     };
   }
