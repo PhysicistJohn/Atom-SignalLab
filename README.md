@@ -1,4 +1,4 @@
-# TinySA SignalLab
+# SignalLab
 
 SignalLab is the standalone synthetic-measurement and stimulus-authoring member of the TinySA trio. It owns deterministic CW, AM, FM, standards-derived GERAN/E-UTRA/NR/WLAN visual projections, seeded AWGN/Rayleigh channel models, and the separately built high-level measurement bridge used by Atomizer's `signal-lab` driver.
 

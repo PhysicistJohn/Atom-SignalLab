@@ -33,7 +33,7 @@ describe('SignalLab renderer trust', () => {
   });
 
   it('requires the exact packaged file or exact selected development origin', () => {
-    const production = productionRendererTrust('/Applications/TinySA SignalLab.app/Contents/Resources/renderer/index.html');
+    const production = productionRendererTrust('/Applications/SignalLab.app/Contents/Resources/renderer/index.html');
     const development = developmentRendererTrust(validateDevelopmentServerUrl('http://localhost:5174/app'));
     expect(isTrustedRendererUrl(production.url, production)).toBe(true);
     expect(isTrustedRendererUrl(`${production.url}?forged=1`, production)).toBe(false);

@@ -1,4 +1,4 @@
-# TinySA SignalLab contract
+# SignalLab contract
 
 Status: active standalone application and Atomizer measurement producer
 

@@ -20,7 +20,7 @@ let rendererTrust: RendererTrust | undefined;
 let profile: SynthesizedSignalProfile = 'cw';
 let channel: ReplayChannelConfiguration = DEFAULT_REPLAY_CHANNEL;
 let sequence = 0;
-app.setName('TinySA SignalLab');
+app.setName('SignalLab');
 
 function status(): SignalLabStatus {
   return {
@@ -72,7 +72,7 @@ async function createWindow(): Promise<void> {
   const trust = developmentUrl ? developmentRendererTrust(developmentUrl) : productionRendererTrust(rendererPath);
   const next = new BrowserWindow({
     width: 520, height: 590, minWidth: 520, minHeight: 590, maxWidth: 520, maxHeight: 590, resizable: false,
-    title: 'TinySA SignalLab', titleBarStyle: 'hiddenInset', backgroundColor: '#08080a',
+    title: 'SignalLab', titleBarStyle: 'hiddenInset', backgroundColor: '#08080a',
     webPreferences: {
       preload: join(here, 'preload.cjs'),
       nodeIntegration: false,
@@ -98,6 +98,6 @@ async function createWindow(): Promise<void> {
   else await next.loadFile(rendererPath);
 }
 
-app.whenReady().then(createWindow).catch((error) => { console.error('TinySA SignalLab startup failed', error); app.exit(1); });
+app.whenReady().then(createWindow).catch((error) => { console.error('SignalLab startup failed', error); app.exit(1); });
 app.on('window-all-closed', () => app.quit());
 app.on('will-quit', unregisterIpc);

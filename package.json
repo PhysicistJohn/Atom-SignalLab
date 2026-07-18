@@ -50,7 +50,7 @@
   "engines": { "node": ">=22", "npm": "10.9.8" },
   "build": {
     "appId": "com.physicistjohn.atomos-signallab",
-    "productName": "TinySA SignalLab",
+    "productName": "SignalLab",
     "directories": {
       "output": "release"
     },

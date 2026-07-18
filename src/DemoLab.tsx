@@ -69,7 +69,7 @@ export function DemoLab() {
   }
 
   return <main className="demo-lab">
-    <header><div className="demo-orbit"><i/><i/><i/><b/></div><strong>TinySA SignalLab</strong><span><i/>{status?.playback ? 'LIVE' : 'PAUSED'}</span></header>
+    <header><div className="demo-orbit"><i/><i/><b/></div><div className="demo-brand"><small>AtomOS</small><strong>SignalLab</strong></div><span><i/>{status?.playback ? 'LIVE' : 'PAUSED'}</span></header>
     <section className="profile-catalog" aria-label="Synthesized waveform catalog">
       <nav className="catalog-tabs" aria-label="Waveform families">{groups.map((item) => {
         const count = status?.catalog.filter((descriptor) => catalogGroup(descriptor) === item.id).length ?? 0;

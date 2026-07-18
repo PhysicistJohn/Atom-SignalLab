@@ -84,6 +84,6 @@ function writeDiagnostic(message: string): void {
 
 void main().catch((cause: unknown) => {
   const error = cause instanceof Error ? cause : new Error(String(cause));
-  writeDiagnostic(`TinySA SignalLab measurement bridge startup failed: ${error.stack ?? error.message}`);
+  writeDiagnostic(`SignalLab measurement bridge startup failed: ${error.stack ?? error.message}`);
   process.exitCode = 1;
 });
