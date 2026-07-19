@@ -53,6 +53,13 @@ export interface AnalyticComplexIqSynthesisInput {
   readonly sampleRateHz: number;
   readonly bandwidthHz: number;
   readonly sampleCount: number;
+  /**
+   * Absolute sample coordinate of the first output sample. Successive
+   * captures pass their running cursor here so complex-I/Q evolves in time
+   * exactly like every other acquisition kind (a repeated capture with the
+   * same coordinate remains bit-identical). Defaults to 0.
+   */
+  readonly startSampleIndex?: number;
 }
 
 /**
@@ -97,16 +104,22 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
   if (!Number.isSafeInteger(byteLength) || byteLength > MAX_ANALYTIC_COMPLEX_IQ_BYTES) {
     throw new RangeError(`Analytic complex-I/Q payload may not exceed ${MAX_ANALYTIC_COMPLEX_IQ_BYTES} bytes`);
   }
+  const startSampleIndex = input.startSampleIndex ?? 0;
+  if (!Number.isSafeInteger(startSampleIndex) || startSampleIndex < 0
+    || !Number.isSafeInteger(startSampleIndex + input.sampleCount)) {
+    throw new RangeError('Analytic complex-I/Q start sample index must be a non-negative safe integer');
+  }
 
   if (isGeranComplexIqProfile(profile)) {
     return synthesizeGeranComplexIq({
       ...input,
       profile,
       seed: DEFAULT_STANDARDS_ENGINEERING_COMPLEX_IQ_SEED,
+      startSampleIndex,
     });
   }
   if (isStandardsEngineeringComplexIqProfile(profile)) {
-    return synthesizeStandardsEngineeringComplexIq({ ...input, profile });
+    return synthesizeStandardsEngineeringComplexIq({ ...input, profile, startSample: startSampleIndex });
   }
   if (isBluetoothAnalyticIqProfile(profile)) {
     const analytic = synthesizeBluetoothAnalyticSamples({
@@ -114,6 +127,7 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
       sampleRateHz: input.sampleRateHz,
       sampleCount: input.sampleCount,
       seed: DEFAULT_STANDARDS_ENGINEERING_COMPLEX_IQ_SEED,
+      startSampleIndex,
     });
     return filterAndEncodeInterleavedSamples(analytic, input);
   }
@@ -127,7 +141,7 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
   let previousInPhase = 0;
   let previousQuadrature = 0;
   for (let index = 0; index < input.sampleCount; index += 1) {
-    const timeSeconds = index / input.sampleRateHz;
+    const timeSeconds = (startSampleIndex + index) / input.sampleRateHz;
     const [rawInPhase, rawQuadrature] = analyticSample(profile, timeSeconds);
     const inPhase = index === 0
       ? rawInPhase

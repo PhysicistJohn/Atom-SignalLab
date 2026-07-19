@@ -250,7 +250,7 @@ describe('Atomizer high-level measurement source contract', () => {
     }
   });
 
-  it('produces deterministic bounded bytes and keeps the maximum response below the NDJSON line ceiling', () => {
+  it('advances successive I/Q captures in time and keeps the maximum response below the NDJSON line ceiling', () => {
     const service = deterministicService();
     service.selectProfile({ profile: 'fm' });
     const params = {
@@ -260,10 +260,14 @@ describe('Atomizer high-level measurement source contract', () => {
       sampleCount: MAX_COMPLEX_IQ_SAMPLES,
       sampleFormat: 'cf32le' as const,
     };
+    // Successive captures are successive moments of the same signal — a Run
+    // must render a moving waveform, never one bit-frozen buffer (synthesis
+    // determinism per capture coordinate is pinned in complex-iq.test.ts).
     const first = service.acquireIq(params);
     const second = service.acquireIq(params);
-    expect(first.samplesBase64).toBe(second.samplesBase64);
-    expect(first.samplesSha256).toBe(second.samplesSha256);
+    expect(second.sequence).toBe(first.sequence + 1);
+    expect(first.samplesBase64).not.toBe(second.samplesBase64);
+    expect(first.samplesSha256).not.toBe(second.samplesSha256);
     expect(first.byteLength).toBe(MAX_COMPLEX_IQ_SAMPLES * COMPLEX_IQ_BYTES_PER_SAMPLE);
     expect(Buffer.byteLength(JSON.stringify(first), 'utf8')).toBeLessThan(1_048_576);
   });

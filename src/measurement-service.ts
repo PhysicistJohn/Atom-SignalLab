@@ -228,6 +228,11 @@ export class AtomizerMeasurementService {
       sampleRateHz: request.sampleRateHz,
       bandwidthHz: request.bandwidthHz,
       sampleCount: request.sampleCount,
+      // Same time-evolution rule as every other acquisition kind (zero-span
+      // passes sweepIndex): each capture starts where a capture with the
+      // prior sequence would have ended, so a Run renders a moving signal
+      // instead of one bit-frozen buffer per configuration.
+      startSampleIndex: (sequence - 1) * request.sampleCount,
     });
     const samplesBytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
     return complexIqMeasurementSchema.parse({

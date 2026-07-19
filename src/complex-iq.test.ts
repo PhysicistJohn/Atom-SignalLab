@@ -16,6 +16,31 @@ import {
 } from './complex-iq.js';
 
 describe('analytic complex-I/Q synthesis', () => {
+  it('evolves every non-constant profile across successive capture coordinates while staying deterministic', () => {
+    const geometry = { sampleRateHz: 2_000_000, bandwidthHz: 1_500_000, sampleCount: 4_096 };
+    for (const profile of ANALYTIC_COMPLEX_IQ_PROFILES) {
+      const first = synthesizeAnalyticComplexIq({ ...geometry, profile });
+      const explicitZero = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: 0 });
+      const advanced = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount });
+      const advancedAgain = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount });
+      // Omitting the coordinate is exactly coordinate 0 (pins the goldens).
+      expect(explicitZero).toEqual(first);
+      // Same coordinate is bit-identical; this is a coordinate, not a RNG.
+      expect(advancedAgain).toEqual(advanced);
+      // A later coordinate is a later moment of the same signal. CW is the
+      // one physically constant envelope and stays bit-frozen.
+      if (profile === 'cw') expect(advanced).toEqual(first);
+      else expect(advanced).not.toEqual(first);
+    }
+  });
+
+  it('rejects a negative or unsafe capture coordinate', () => {
+    const geometry = { profile: 'fm' as const, sampleRateHz: 2_000_000, bandwidthHz: 1_500_000, sampleCount: 16 };
+    expect(() => synthesizeAnalyticComplexIq({ ...geometry, startSampleIndex: -1 })).toThrow(/non-negative safe integer/);
+    expect(() => synthesizeAnalyticComplexIq({ ...geometry, startSampleIndex: Number.MAX_SAFE_INTEGER }))
+      .toThrow(/non-negative safe integer/);
+  });
+
   it('keeps CW bit-exact across the full independent bandwidth range', () => {
     const input = {
       profile: 'cw' as const,
