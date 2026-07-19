@@ -22,22 +22,6 @@ import {
 export const ATOMIZER_MEASUREMENT_CONTRACT_ID = 'tinysa-signal-lab-atomizer-measurement' as const;
 export const ATOMIZER_MEASUREMENT_CONTRACT_VERSION = 1 as const;
 export const ATOMIZER_MEASUREMENT_PROTOCOL = 'signal-lab-measurement-bridge' as const;
-export const MEASUREMENT_GENERATOR_ARTIFACTS = Object.freeze([
-  'atomizer-bridge.js',
-  'bluetooth-iq.js',
-  'canonical-timing.js',
-  'catalog.js',
-  'complex-iq.js',
-  'contracts.js',
-  'geran-iq.js',
-  'measurement-bridge.js',
-  'measurement-contract.js',
-  'measurement-service.js',
-  'ofdm-iq.js',
-  'platform-bytes.js',
-  'source-provenance.js',
-  'waveforms.js',
-] as const);
 
 export { MAX_MEASUREMENT_FREQUENCY_HZ } from './contracts.js';
 export const MAX_SPECTRUM_POINTS = 4_096 as const;
