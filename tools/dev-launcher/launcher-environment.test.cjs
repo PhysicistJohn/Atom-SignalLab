@@ -23,7 +23,8 @@ describe('development launcher environment', () => {
     assert.equal(environment.FORCE_COLOR, '0');
   });
 
-  it('lets an npm-style lifecycle shell resolve the exact configured Node binary', () => {
+  // The launcher only ever runs on macOS; this subtest needs a POSIX /bin/sh.
+  it('lets an npm-style lifecycle shell resolve the exact configured Node binary', { skip: process.platform === 'win32' }, () => {
     const environment = createDevelopmentHostEnvironment(process.execPath, { PATH: `/usr/bin${delimiter}/bin` });
     const result = spawnSync('/bin/sh', ['-c', 'node -p process.execPath'], { encoding: 'utf8', env: environment });
 
