@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { base64ToBytes, bytesToBase64, sha256HexOfBytes } from './platform-bytes.js';
 import {
   ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE,
   ANALYTIC_COMPLEX_IQ_PROFILES,
@@ -34,6 +34,7 @@ export const MEASUREMENT_GENERATOR_ARTIFACTS = Object.freeze([
   'measurement-contract.js',
   'measurement-service.js',
   'ofdm-iq.js',
+  'platform-bytes.js',
   'source-provenance.js',
   'waveforms.js',
 ] as const);
@@ -321,14 +322,14 @@ export const complexIqMeasurementSchema = measurementCorrelationBaseSchema.exten
   if (measurement.byteLength !== expectedByteLength) {
     context.addIssue({ code: 'custom', path: ['byteLength'], message: 'cf32le requires exactly eight bytes per complex sample' });
   }
-  const bytes = Buffer.from(measurement.samplesBase64, 'base64');
-  if (bytes.toString('base64') !== measurement.samplesBase64) {
+  const bytes = base64ToBytes(measurement.samplesBase64);
+  if (bytesToBase64(bytes) !== measurement.samplesBase64) {
     context.addIssue({ code: 'custom', path: ['samplesBase64'], message: 'I/Q payload must use canonical RFC 4648 base64' });
   }
   if (bytes.byteLength !== measurement.byteLength) {
     context.addIssue({ code: 'custom', path: ['samplesBase64'], message: 'Decoded I/Q payload length must match byteLength' });
   }
-  if (createHash('sha256').update(bytes).digest('hex') !== measurement.samplesSha256) {
+  if (sha256HexOfBytes(bytes) !== measurement.samplesSha256) {
     context.addIssue({ code: 'custom', path: ['samplesSha256'], message: 'I/Q payload hash must match the exact decoded bytes' });
   }
 });

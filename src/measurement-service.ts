@@ -1,6 +1,5 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { performance } from 'node:perf_hooks';
 import { z } from 'zod';
+import { bytesToBase64, sha256HexOfBytes } from './platform-bytes.js';
 import {
   replayChannelConfigurationSchema,
   synthesizedSignalProfileSchema,
@@ -99,7 +98,7 @@ export class AtomizerMeasurementService {
   readonly #monotonicMilliseconds: () => number;
 
   constructor(buildIdentity: MeasurementBuildIdentity, dependencies: MeasurementServiceDependencies = {}) {
-    this.#uuid = dependencies.uuid ?? randomUUID;
+    this.#uuid = dependencies.uuid ?? (() => crypto.randomUUID());
     this.#now = dependencies.now ?? (() => new Date());
     this.#monotonicMilliseconds = dependencies.monotonicMilliseconds ?? (() => performance.now());
     const continuation = dependencies.continuation
@@ -230,7 +229,7 @@ export class AtomizerMeasurementService {
       bandwidthHz: request.bandwidthHz,
       sampleCount: request.sampleCount,
     });
-    const samplesBuffer = Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength);
+    const samplesBytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
     return complexIqMeasurementSchema.parse({
       ...this.#measurementBase(sequence, started),
       kind: 'complex-iq',
@@ -243,8 +242,8 @@ export class AtomizerMeasurementService {
       encoding: 'base64',
       layout: 'interleaved-iq',
       byteOrder: 'little-endian',
-      samplesBase64: samplesBuffer.toString('base64'),
-      samplesSha256: createHash('sha256').update(samplesBuffer).digest('hex'),
+      samplesBase64: bytesToBase64(samplesBytes),
+      samplesSha256: sha256HexOfBytes(samplesBytes),
       timingQualification: 'simulation-exact',
       qualification: complexIqGeneratorBasis(this.#profile) === 'analytic-laboratory'
         ? 'analytic-complex-baseband'
@@ -313,7 +312,7 @@ export class AtomizerMeasurementService {
 }
 
 function sha256Hex(value: string): string {
-  return createHash('sha256').update(value, 'utf8').digest('hex');
+  return sha256HexOfBytes(value);
 }
 
 function zUuid(value: string): boolean {
