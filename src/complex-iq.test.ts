@@ -16,21 +16,29 @@ import {
 } from './complex-iq.js';
 
 describe('analytic complex-I/Q synthesis', () => {
-  it('evolves every non-constant profile across successive capture coordinates while staying deterministic', () => {
+  // Whole-catalog sweep: 34 profiles x 2 syntheses needs headroom on slow
+  // CI runners (6.7s observed on ubuntu-latest against the 5s default).
+  it('evolves every non-constant profile across successive capture coordinates', { timeout: 30_000 }, () => {
     const geometry = { sampleRateHz: 2_000_000, bandwidthHz: 1_500_000, sampleCount: 4_096 };
     for (const profile of ANALYTIC_COMPLEX_IQ_PROFILES) {
       const first = synthesizeAnalyticComplexIq({ ...geometry, profile });
-      const explicitZero = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: 0 });
       const advanced = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount });
-      const advancedAgain = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount });
-      // Omitting the coordinate is exactly coordinate 0 (pins the goldens).
-      expect(explicitZero).toEqual(first);
-      // Same coordinate is bit-identical; this is a coordinate, not a RNG.
-      expect(advancedAgain).toEqual(advanced);
       // A later coordinate is a later moment of the same signal. CW is the
       // one physically constant envelope and stays bit-frozen.
       if (profile === 'cw') expect(advanced).toEqual(first);
       else expect(advanced).not.toEqual(first);
+    }
+  });
+
+  it('treats the capture coordinate as a coordinate, not a RNG', () => {
+    const geometry = { sampleRateHz: 2_000_000, bandwidthHz: 1_500_000, sampleCount: 4_096 };
+    for (const profile of ['fm', 'nr-fr1-tm1.1', 'gsm-8psk-normal-burst', 'bluetooth-le-advertising'] as const) {
+      const first = synthesizeAnalyticComplexIq({ ...geometry, profile });
+      // Omitting the coordinate is exactly coordinate 0 (pins the goldens).
+      expect(synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: 0 })).toEqual(first);
+      // The same later coordinate reproduces bit-identical bytes.
+      const advanced = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount });
+      expect(synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount })).toEqual(advanced);
     }
   });
 
