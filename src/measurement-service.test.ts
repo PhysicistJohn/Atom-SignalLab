@@ -21,7 +21,7 @@ import {
   type MeasurementBridgeRequest,
 } from './measurement-contract.js';
 import { SYNTHESIZED_SIGNAL_PROFILES } from './contracts.js';
-import { AtomizerMeasurementService } from './measurement-service.js';
+import { AtomizerMeasurementService, MeasurementServiceError } from './measurement-service.js';
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
@@ -327,6 +327,14 @@ describe('Atomizer high-level measurement source contract', () => {
     expect(service.dispatch(request('shutdown', {}) as MeasurementBridgeRequest)).toEqual({ kind: 'shutdown', closed: true });
     expect(() => service.status()).toThrow(/closed/i);
     expect(() => service.acquireSpectrum({ startHz: 1, stopHz: 2, points: 2 })).toThrow(/closed/i);
+    let rejection: unknown;
+    try {
+      service.dispatch(request('status', {}) as MeasurementBridgeRequest);
+    } catch (error) {
+      rejection = error;
+    }
+    expect(rejection).toBeInstanceOf(MeasurementServiceError);
+    expect((rejection as MeasurementServiceError).code).toBe('SERVICE_CLOSED');
   });
 
   it('continues exact producer state and sequence in a replacement process generation', () => {
