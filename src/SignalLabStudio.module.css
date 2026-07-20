@@ -133,7 +133,12 @@
   .runtimeState > span { min-width: 48px; }
   .catalogTabs button { gap: 2px; letter-spacing: 0; }
   .catalogTabs button small { display: none; }
-  .channelSection { grid-template-columns: 75px 120px minmax(0, 1fr); }
+  /* Stack the channel controls into one full-width column. The three-column
+     desktop row (heading | model buttons | parameters) crushes the noise-floor
+     and seed ParameterRows into ~75px on a phone, overlapping their value and
+     Apply button. */
+  .channelSection { grid-template-columns: minmax(0, 1fr); row-gap: 10px; align-items: stretch; }
+  .channelButtons, .channelParameters { grid-column: 1; width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
