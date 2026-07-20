@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/brand/logo.jpg" alt="AtomOS SignalLab" width="520"></p>
+
 # SignalLab
 
 SignalLab is the standalone synthetic-measurement and stimulus-authoring member of the TinySA trio. It owns deterministic CW, AM, FM, standards-derived GERAN/E-UTRA/NR/WLAN/Bluetooth visual projections, seeded AWGN/Rayleigh channel models, bounded deterministic complex-envelope generation for all 34 closed profiles, and the separately built high-level measurement bridge used by Atomizer's `signal-lab` driver. CW, AM, and FM use closed-form analytic laboratory envelopes; the other 31 profiles use explicitly standards-derived engineering envelopes.
