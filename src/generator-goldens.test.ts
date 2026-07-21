@@ -1,4 +1,3 @@
-import { release } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { sha256HexOfBytes } from './platform-bytes.js';
 import {
@@ -82,21 +81,34 @@ const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, G
 const GOLDEN_PROFILES = Object.keys(GENERATOR_GOLDEN_PINS) as readonly SynthesizedSignalProfile[];
 
 /**
- * The S1 bit-freeze pins were authored on the darwin-arm64 development host at
- * its current OS release. A handful of synthesis paths route through libm
- * transcendental functions whose last-ulp rounding shifts between macOS
- * releases (and differs on x86_64), so the exact digests only apply on the
- * authoring host class; every platform still asserts output shape here and
- * byte-level determinism in the synthesize-twice coverage. After an OS
- * upgrade, regenerate the pins deliberately and record why in the commit.
+ * The S1 bit-freeze pins apply only on hosts whose libm computes bit-identical
+ * transcendentals to the authoring host. A handful of synthesis paths route
+ * through sin/cos at large arguments (carrier-phase scale), where last-ulp
+ * rounding shifts between macOS releases and differs on x86_64 — OS version
+ * strings cannot separate those flavors, so the gate probes the actual
+ * functions: the canary hashes sin/cos/exp/log10/pow over magnitudes spanning
+ * the generator's argument range, and the pins assert exactly when it matches
+ * the digest recorded at authoring time. Every platform still asserts output
+ * shape here and byte-level determinism in the synthesize-twice coverage.
+ * After regenerating pins (e.g. following an OS upgrade), re-record the canary
+ * digest below and note why in the commit.
  */
-const PINS_AUTHORED_ON_THIS_HOST = process.platform === 'darwin'
-  && process.arch === 'arm64'
-  && osRelease().startsWith('25.');
+const LIBM_CANARY_AT_AUTHORING = '881a501d2ba5dceabb074eadf3336135210cc6184509de76da73a7b7fbd4efdf';
 
-function osRelease(): string {
-  try { return release(); } catch { return ''; }
+function libmCanarySha256(): string {
+  const samples: number[] = [];
+  for (let i = 1; i <= 64; i += 1) {
+    const x = i * 0.37 + 1 / i;
+    samples.push(
+      Math.sin(x * 1_000_003), Math.cos(x * 731_017),
+      Math.sin(x * 2_437_000_000), Math.cos(x * 98_000_017),
+      Math.exp(-x / 7), Math.log10(x * 5), Math.pow(x, 1.7),
+    );
+  }
+  return sha256HexOfBytes(JSON.stringify(Array.from(new Float64Array(samples))));
 }
+
+const PINS_AUTHORED_ON_THIS_HOST = libmCanarySha256() === LIBM_CANARY_AT_AUTHORING;
 
 /** Canonical hash of a scalar trace: Float64Array-normalized values serialized as a JSON array. */
 function scalarSha256(values: readonly number[]): string {
