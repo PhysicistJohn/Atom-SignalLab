@@ -11,12 +11,27 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: Atom-SignalLab
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: Atom-SignalLab
+      - uses: actions/checkout@v4
+        with:
+          repository: PhysicistJohn/Atom-Classifier
+          # reference-iq.test.ts verifies the reference waveforms against the
+          # SAME blind recovery the Atomizer app runs (a zero-dependency module
+          # imported from this exact pinned commit); do not silently follow a
+          # moving default branch. Public repo, so the default token suffices.
+          ref: 4e281ff9ce7d4444bb941f81de793c48ad6634ec
+          path: Atom-Classifier
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.1
           cache: npm
+          cache-dependency-path: Atom-SignalLab/package-lock.json
       - run: npm install --global npm@10.9.8
       - run: node --version && npm --version
       - run: npm ci && npm run check
