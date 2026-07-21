@@ -157,9 +157,10 @@ const PINNED_CATALOG_PROFILE_IDS = [
   'wifi6-he-su', 'wifi6-he-er-su', 'wifi6-he-mu', 'wifi6-he-tb',
   'bluetooth-classic-connected', 'bluetooth-le-advertising',
   'ref-qpsk', 'ref-8psk', 'ref-16qam', 'ref-64qam', 'ref-256qam',
+  'custom-lte', 'custom-nr', 'custom-wifi',
 ] as const;
 
-const PINNED_CATALOG_COUNT = 39;
+const PINNED_CATALOG_COUNT = 42;
 
 /**
  * The generator families as presented by the Generate workspace tabs. The LAB

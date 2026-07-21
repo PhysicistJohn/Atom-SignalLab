@@ -350,6 +350,28 @@ export const configureChannelRequestSchema = z.object({
   params: z.object({ channel: replayChannelConfigurationSchema }).strict(),
 }).strict();
 
+export const customWaveformStandardSchema = z.enum(['lte', 'nr', 'wifi']);
+/**
+ * Operator selections for a custom wideband builder: parameter key -> option
+ * string ('auto' or a legal value). Legality is enforced by the constraint
+ * resolver in custom-waveform.ts, which re-validates on the service side.
+ */
+export const customWaveformSelectionsSchema = z.record(
+  z.string().min(1).max(48).regex(/^[A-Za-z][A-Za-z0-9]*$/),
+  z.string().min(1).max(48),
+).refine((selections) => Object.keys(selections).length <= 32, { message: 'Too many custom-waveform selections' });
+
+export const configureCustomWaveformRequestSchema = z.object({
+  type: z.literal('request'),
+  contractVersion: z.literal(ATOMIZER_MEASUREMENT_CONTRACT_VERSION),
+  requestId: z.string().min(1).max(64).regex(/^[A-Za-z0-9._:-]+$/),
+  method: z.literal('configure_custom_waveform'),
+  params: z.object({
+    standard: customWaveformStandardSchema,
+    selections: customWaveformSelectionsSchema,
+  }).strict(),
+}).strict();
+
 export const acquireSpectrumRequestSchema = z.object({
   type: z.literal('request'),
   contractVersion: z.literal(ATOMIZER_MEASUREMENT_CONTRACT_VERSION),
@@ -408,6 +430,7 @@ export const measurementBridgeRequestSchema = z.discriminatedUnion('method', [
   statusRequestSchema,
   selectProfileRequestSchema,
   configureChannelRequestSchema,
+  configureCustomWaveformRequestSchema,
   acquireSpectrumRequestSchema,
   acquireDetectedPowerRequestSchema,
   acquireIqRequestSchema,
@@ -493,7 +516,7 @@ export const measurementBridgeMessageSchema = z.union([
 ]);
 
 function documentedCommandSchema<
-  Method extends 'status' | 'select_profile' | 'configure_channel' | 'acquire_spectrum' | 'acquire_detected_power' | 'acquire_iq' | 'shutdown',
+  Method extends 'status' | 'select_profile' | 'configure_channel' | 'configure_custom_waveform' | 'acquire_spectrum' | 'acquire_detected_power' | 'acquire_iq' | 'shutdown',
   Result extends 'status' | 'swept-spectrum' | 'detected-power-timeseries' | 'complex-iq' | 'shutdown',
 >(method: Method, stateChange: boolean, result: Result) {
   return z.object({
@@ -523,6 +546,7 @@ export const measurementBridgeContractDocumentSchema = z.object({
     documentedCommandSchema('status', false, 'status'),
     documentedCommandSchema('select_profile', true, 'status'),
     documentedCommandSchema('configure_channel', true, 'status'),
+    documentedCommandSchema('configure_custom_waveform', true, 'status'),
     documentedCommandSchema('acquire_spectrum', false, 'swept-spectrum'),
     documentedCommandSchema('acquire_detected_power', false, 'detected-power-timeseries'),
     documentedCommandSchema('acquire_iq', false, 'complex-iq'),

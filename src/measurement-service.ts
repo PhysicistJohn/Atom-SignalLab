@@ -11,6 +11,7 @@ import {
   isAnalyticComplexIqProfile,
   synthesizeAnalyticComplexIq,
 } from './complex-iq.js';
+import { setCustomWaveformSelections } from './custom-waveform.js';
 import {
   ATOMIZER_MEASUREMENT_CONTRACT_ID,
   ATOMIZER_MEASUREMENT_CONTRACT_VERSION,
@@ -22,6 +23,7 @@ import {
   acquireSpectrumRequestSchema,
   complexIqMeasurementSchema,
   configureChannelRequestSchema,
+  configureCustomWaveformRequestSchema,
   detectedPowerMeasurementSchema,
   measurementSourceIdentitySchema,
   measurementSourceStatusSchema,
@@ -161,6 +163,20 @@ export class AtomizerMeasurementService {
     return this.status();
   }
 
+  /**
+   * Apply operator selections to a custom wideband builder. The constraint
+   * resolver re-validates every pinned value against the standard's lattice
+   * (an illegal pin throws and leaves the previous configuration intact), so
+   * a custom waveform can never leave what the standard allows.
+   */
+  configureCustomWaveform(input: unknown): MeasurementSourceStatus {
+    this.#requireOpen();
+    const request = configureCustomWaveformRequestSchema.shape.params.parse(input);
+    setCustomWaveformSelections(request.standard, request.selections);
+    this.#replaceConfigurationRevision();
+    return this.status();
+  }
+
   acquireSpectrum(input: unknown): SweptSpectrumMeasurement {
     this.#requireOpen();
     const request = acquireSpectrumRequestSchema.shape.params.parse(input);
@@ -265,6 +281,7 @@ export class AtomizerMeasurementService {
       case 'status': return this.status();
       case 'select_profile': return this.selectProfile(request.params);
       case 'configure_channel': return this.configureChannel(request.params);
+      case 'configure_custom_waveform': return this.configureCustomWaveform(request.params);
       case 'acquire_spectrum': return this.acquireSpectrum(request.params);
       case 'acquire_detected_power': return this.acquireDetectedPower(request.params);
       case 'acquire_iq': return this.acquireIq(request.params);

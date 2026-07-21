@@ -6,6 +6,7 @@ import {
   type WaveformDescriptor,
   type WaveformProjection,
 } from './contracts.js';
+import { CUSTOM_WAVEFORM_PROFILES, customWaveformDescriptor, isCustomWaveformProfile } from './custom-waveform.js';
 import {
   ANALYTIC_SCALAR_SOURCE,
   BLUETOOTH_OBSERVABLE_SOURCE,
@@ -371,6 +372,10 @@ const unorderedCatalog = [
   ...canonizedWifiDescriptors,
   ...wifiDescriptors,
   ...canonizedBluetoothDescriptors,
+  // Custom wideband builders: the catalog entry is the all-auto default; the
+  // LIVE descriptor (waveformDescriptor below) reflects the operator's current
+  // spec-validated selections. See custom-waveform.ts for the constraint model.
+  ...CUSTOM_WAVEFORM_PROFILES.map((profile) => customWaveformDescriptor(profile)),
 ];
 
 const catalogById = new Map<SynthesizedSignalProfile, WaveformDescriptor>();
@@ -389,6 +394,8 @@ if (waveformCatalog.length !== catalogById.size) throw new Error('Waveform catal
 
 export function waveformDescriptor(profile: SynthesizedSignalProfile): WaveformDescriptor {
   const id = synthesizedSignalProfileSchema.parse(profile);
+  // Custom builders resolve live so operator selections take effect immediately.
+  if (isCustomWaveformProfile(id)) return customWaveformDescriptor(id);
   const descriptor = catalogById.get(id);
   if (!descriptor) throw new Error(`Waveform catalog is missing ${id}`);
   return structuredClone(descriptor);

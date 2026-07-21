@@ -30,6 +30,11 @@
       "result": "status"
     },
     {
+      "method": "configure_custom_waveform",
+      "stateChange": true,
+      "result": "status"
+    },
+    {
       "method": "acquire_spectrum",
       "stateChange": false,
       "result": "swept-spectrum"

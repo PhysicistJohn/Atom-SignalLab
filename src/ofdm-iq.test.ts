@@ -24,7 +24,7 @@ describe('standards engineering complex-I/Q projection', () => {
       .map((descriptor) => descriptor.id);
 
     expect(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES).toEqual(catalogProfiles);
-    expect(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES).toHaveLength(22);
+    expect(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES).toHaveLength(25);
     for (const profile of STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES) {
       expect(isStandardsEngineeringComplexIqProfile(profile)).toBe(true);
       expect(waveformDescriptor(profile).qualification).toBe('standards-derived');

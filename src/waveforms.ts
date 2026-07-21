@@ -362,6 +362,16 @@ function referenceProjection(descriptor: WaveformDescriptor, offsetHz: number, s
 }
 
 function wlanProjection(descriptor: WaveformDescriptor, offsetHz: number, sweepIndex: number): number {
+  if (descriptor.projection.modulation === 'hr-dsss') {
+    // Single-carrier DSSS/CCK: no tone bank; a sinc-squared main-lobe envelope
+    // over the 22 MHz support with chip-rate texture (custom Wi-Fi 11b path —
+    // the preset wifi-hr-dsss-11m renders through its canonized scenario).
+    const half = descriptor.occupiedBandwidthHz / 2;
+    if (Math.abs(offsetHz) > half * 1.04) return Number.NEGATIVE_INFINITY;
+    const normalized = (Math.PI * offsetHz) / (descriptor.occupiedBandwidthHz / 2);
+    const lobe = normalized === 0 ? 1 : Math.abs(Math.sin(normalized) / normalized);
+    return -52 + 20 * Math.log10(Math.max(lobe, 1e-3)) + 0.5 * Math.cos(offsetHz / 1_000_000 + sweepIndex * 0.3);
+  }
   const spacingHz = descriptor.projection.subcarrierSpacingHz;
   if (!spacingHz) throw new Error(`${descriptor.id} is missing subcarrier spacing`);
   let projected = ofdmProjection(offsetHz, descriptor.occupiedBandwidthHz, -61, spacingHz, sweepIndex, hashText(descriptor.id), 1);

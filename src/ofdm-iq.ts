@@ -42,6 +42,9 @@ export const STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES = [
   'wifi6-he-er-su',
   'wifi6-he-mu',
   'wifi6-he-tb',
+  'custom-lte',
+  'custom-nr',
+  'custom-wifi',
 ] as const satisfies readonly SynthesizedSignalProfile[];
 
 export type StandardsEngineeringComplexIqProfile = typeof STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES[number];
@@ -131,9 +134,10 @@ export function projectStandardsEngineeringComplexIqConfiguration(
   const projection = descriptor.projection;
   let occupiedToneCount: number | undefined;
   let chipRateHz: number | undefined;
-  if (descriptor.id === 'wifi-hr-dsss-11m') {
+  if (descriptor.id === 'wifi-hr-dsss-11m'
+    || (descriptor.id === 'custom-wifi' && projection.modulation === 'hr-dsss')) {
     if (projection.modulation !== 'hr-dsss' || projection.timing !== 'burst') {
-      throw new Error('wifi-hr-dsss-11m descriptor no longer matches its admitted chip-rate projection');
+      throw new Error(`${descriptor.id} descriptor no longer matches its admitted chip-rate projection`);
     }
     chipRateHz = 11_000_000;
   } else if (descriptor.id === 'wifi-ofdm-20m') {
@@ -446,6 +450,15 @@ function timingModelFor(descriptor: WaveformDescriptor): TimingModel {
     if (descriptor.projection.duplex !== 'tdd' || descriptor.projection.timing !== 'tdd-frame') {
       throw new Error(`${descriptor.id} no longer declares its pinned TDD frame`);
     }
+    return 'nr-tdd-7dl-3ul-engineering-v1';
+  }
+  // Custom wideband builders render TDD with the family's admitted engineering
+  // schedule; the operator's exact UL-DL config/pattern is recorded shaping
+  // metadata in the descriptor (see custom-waveform.ts disclosures).
+  if (descriptor.id === 'custom-lte' && descriptor.projection.duplex === 'tdd') {
+    return 'lte-tdd-config0-ssp7-normal-cp-downlink-v1';
+  }
+  if (descriptor.id === 'custom-nr' && descriptor.projection.duplex === 'tdd') {
     return 'nr-tdd-7dl-3ul-engineering-v1';
   }
   if (descriptor.projection.duplex === 'tdd' || descriptor.projection.timing === 'tdd-frame') {

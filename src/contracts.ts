@@ -20,6 +20,7 @@ export const SYNTHESIZED_SIGNAL_PROFILES = [
   'wifi6-he-su', 'wifi6-he-er-su', 'wifi6-he-mu', 'wifi6-he-tb',
   'bluetooth-classic-connected', 'bluetooth-le-advertising',
   'ref-qpsk', 'ref-8psk', 'ref-16qam', 'ref-64qam', 'ref-256qam',
+  'custom-lte', 'custom-nr', 'custom-wifi',
 ] as const;
 
 export const synthesizedSignalProfileSchema = z.enum(SYNTHESIZED_SIGNAL_PROFILES);

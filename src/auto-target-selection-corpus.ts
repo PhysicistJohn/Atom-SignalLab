@@ -1,7 +1,7 @@
 /**
  * Validation-only scalar fixtures for Atomizer Auto-v4 target ranking.
  *
- * This corpus is deliberately separate from both the 39-profile operator
+ * This corpus is deliberately separate from both the 42-profile operator
  * catalog and the Bayesian classification corpus. It supplies deterministic
  * competing-emission source-sweep truth for selection-policy validation; it
  * is never classifier training, calibration, likelihood, or model evidence.
@@ -36,7 +36,7 @@ export const AUTO_TARGET_SELECTION_VALIDATION_SOURCE = sourceBasis('TinySA Signa
 }]);
 
 export const AUTO_TARGET_SELECTION_VALIDATION_DISCLOSURE =
-  'Validation-only deterministic analytic scalar construction for Atomizer Auto-v4 target ranking. It is not part of the 39-profile operator catalog, classifier training or calibration data, a likelihood component, a model artifact, standards or conformance evidence, protocol-decodable I/Q, or an instruction to emit RF. CW-like and OFDM-like are fixture morphology labels only.';
+  'Validation-only deterministic analytic scalar construction for Atomizer Auto-v4 target ranking. It is not part of the 42-profile operator catalog, classifier training or calibration data, a likelihood component, a model artifact, standards or conformance evidence, protocol-decodable I/Q, or an instruction to emit RF. CW-like and OFDM-like are fixture morphology labels only.';
 
 export type AutoTargetSelectionFixtureMorphology = 'cw-like' | 'ofdm-like';
 export type AutoTargetSelectionComparisonRelation = 'less-than' | 'equal' | 'greater-than';
@@ -349,20 +349,20 @@ const CASE_HASHES: Readonly<Record<AutoTargetSelectionValidationCaseId, {
   readonly materializationSha256: string;
 }>> = deepFreeze({
   'cw-peak-wide-integrated-winner': {
-    definitionSha256: '4e3f4963659c168aa9af91f43ed6385b5c6240e8c2d7d6b903162a1cb6133b63',
-    materializationSha256: 'c27639830b6a45751c55c93f5da870bc145d5a0259fa8473f7a524d23fac4c4f',
+    definitionSha256: '6fcf0b6e2557d4d761c564239617488eb97b85f31020222197340f70d551f536',
+    materializationSha256: 'cdc997243a4690f04127408c5a83e765ddadc236f7821ea9325e93879134340a',
   },
   'cw-integrated-winner': {
-    definitionSha256: '4995da1d11aafa780e58fc558cd5001206eef28e2a3cb5b0e6bd3ea8021765e2',
-    materializationSha256: 'b9efce83d08f84bb8e1bfdb9ec86389f53b2c4742accfdfad74bf300841e1328',
+    definitionSha256: '2ba2d7d27ef1407bf2856b843ff5eae614df93f4a3009e11af7372b5dd8ae190',
+    materializationSha256: 'e96a1d012c2ad5c37b5a7d40b84068628bd81f68de61e935c726f3d1e0f354fa',
   },
   'exact-integrated-tie': {
-    definitionSha256: 'd313cc22eb35b97a13cc05794ed2cd21a2c0be0c187b5eee56a6da36bb11352a',
-    materializationSha256: '1c8dee652a8b47ad5cb2931771b615c85588e98c0b4c4c68dbbed01a43941fcd',
+    definitionSha256: 'f63c5ebc68b5c63dc94cc5d64eacbe6df96f5065968a30174d91f4ffe05c61eb',
+    materializationSha256: 'dda9c740ef67d1b9ffc6fb0382382e6ec64e4adf9100c17ddd98a4d283926e3b',
   },
   'unready-rank-zero-no-fallback': {
-    definitionSha256: '3a70e6e70815f524071283b7d7af3c5402151197e0338dad208822d674aeded8',
-    materializationSha256: '963d9f6d2718c16de697029062da4bff7419c09b14154132f0a816e249d8a324',
+    definitionSha256: 'ff85c576f32b97edd134bf802de3b6b91d451999c4bfb66a0d1c14a7a4d01bb8',
+    materializationSha256: '48939a3d201124e33f109572c5b032d0e27fa67d9e06a8f6c2b5d101641b3cfb',
   },
 });
 

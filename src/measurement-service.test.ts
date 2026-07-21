@@ -36,6 +36,7 @@ describe('Atomizer high-level measurement source contract', () => {
       'status',
       'select_profile',
       'configure_channel',
+      'configure_custom_waveform',
       'acquire_spectrum',
       'acquire_detected_power',
       'acquire_iq',
@@ -58,7 +59,7 @@ describe('Atomizer high-level measurement source contract', () => {
     })).toThrow();
     expect(() => measurementBridgeContractDocumentSchema.parse({
       ...document,
-      commands: document.commands.map((command, index) => index === 3
+      commands: document.commands.map((command, index) => index === 4
         ? { ...command, result: 'status' }
         : command),
     })).toThrow();
@@ -138,7 +139,7 @@ describe('Atomizer high-level measurement source contract', () => {
       claims: MEASUREMENT_BRIDGE_CLAIMS,
     });
     expect(initial.identity.catalogSha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(initial.profiles).toHaveLength(39);
+    expect(initial.profiles).toHaveLength(42);
     expect(initial.capabilities).toEqual(MEASUREMENT_CAPABILITIES);
     expect(initial.capabilities.find(({ kind }) => kind === 'detected-power-timeseries')).toEqual({
       kind: 'detected-power-timeseries',

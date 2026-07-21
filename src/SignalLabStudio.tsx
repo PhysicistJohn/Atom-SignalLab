@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, AudioLines, Bluetooth, Boxes, Grid3X3, RadioTower, Waves, Wifi } from 'lucide-react';
+import { Activity, AudioLines, Bluetooth, Boxes, Grid3X3, RadioTower, SlidersHorizontal, Waves, Wifi } from 'lucide-react';
 import type { ReplayChannelConfiguration, SignalLabStatus, SynthesizedSignalProfile, WaveformDescriptor } from './contracts.js';
+import {
+  buildCustomWaveformDescriptor,
+  customWaveformStandard,
+  isCustomWaveformProfile,
+  parsePinnedSelections,
+  resolveCustomWaveform,
+  sanitizeCustomWaveformSelections,
+  type CustomWaveformSelections,
+  type CustomWaveformStandard,
+} from './custom-waveform.js';
 import { EditableParameter, SelectParameter } from './ParameterRow.js';
 import styles from './SignalLabStudio.module.css';
 
@@ -37,6 +47,8 @@ export interface SignalLabStudioProps {
   agentControlPolicy?: 'studio-local' | 'human-only';
   onSelectProfile(profile: SynthesizedSignalProfile): void;
   onConfigureChannel(configuration: ReplayChannelConfiguration): void;
+  /** Applies operator selections to a custom wideband builder; omit to render custom profiles read-only. */
+  onConfigureCustomWaveform?(standard: CustomWaveformStandard, selections: CustomWaveformSelections): void;
 }
 
 const groups: readonly { id: SignalLabCatalogGroup; label: string }[] = [
@@ -64,8 +76,12 @@ export function SignalLabStudio({
   agentControlPolicy = 'studio-local',
   onSelectProfile,
   onConfigureChannel,
+  onConfigureCustomWaveform,
 }: SignalLabStudioProps) {
   const [group, setGroup] = useState<SignalLabCatalogGroup>(() => status ? catalogGroup(status.waveform) : 'lab');
+  // Local mirror of the custom-builder selections per standard, seeded from the
+  // service-truth descriptor's pinned-summary so a reload restores the panel.
+  const [customSelections, setCustomSelections] = useState<Partial<Record<CustomWaveformStandard, CustomWaveformSelections>>>({});
 
   useEffect(() => {
     if (status) setGroup(catalogGroup(status.waveform));
@@ -74,7 +90,19 @@ export function SignalLabStudio({
   const groupedCatalog = useMemo(() => groupCatalog(status?.catalog ?? []), [status?.catalog]);
   const catalog = groupedCatalog.get(group) ?? [];
   const activeInGroup = status && catalogGroup(status.waveform) === group ? status.waveform : undefined;
-  const descriptor = activeInGroup ?? catalog[0];
+  const baseDescriptor = activeInGroup ?? catalog[0];
+  // For a custom builder profile, project the descriptor locally from the same
+  // pure constraint resolver the service runs, so the detail card reflects the
+  // operator's selections immediately (service truth still governs synthesis).
+  const customStandard = baseDescriptor && isCustomWaveformProfile(baseDescriptor.id)
+    ? customWaveformStandard(baseDescriptor.id)
+    : undefined;
+  const effectiveCustomSelections = customStandard
+    ? customSelections[customStandard] ?? parsePinnedSelections(baseDescriptor!.model)
+    : undefined;
+  const descriptor = customStandard
+    ? buildCustomWaveformDescriptor(customStandard, effectiveCustomSelections!)
+    : baseDescriptor;
   const channel = status?.channel;
   const controlsDisabled = disabled || !status || pendingOperation !== undefined;
   const channelControlsDisabled = controlsDisabled || channelDisabled;
@@ -136,6 +164,15 @@ export function SignalLabStudio({
               options={catalog.map((entry) => ({ value: entry.id, label: entry.label }))}
               onValue={(value) => onSelectProfile(value as SynthesizedSignalProfile)}
             /></div>}
+        {customStandard && <CustomWaveformPanel
+          standard={customStandard}
+          selections={effectiveCustomSelections!}
+          disabled={controlsDisabled || onConfigureCustomWaveform === undefined}
+          onSelections={(next) => {
+            setCustomSelections((previous) => ({ ...previous, [customStandard]: next }));
+            onConfigureCustomWaveform?.(customStandard, next);
+          }}
+        />}
         <ProfileDetail
           descriptor={descriptor}
           active={status?.profile === descriptor.id}
@@ -199,6 +236,46 @@ export function SignalLabStudio({
       <span>{status ? `${status.sequence === undefined ? '' : `SEQUENCE ${status.sequence} · `}${status.waveform.qualification.replaceAll('-', ' ').toUpperCase()} · ${status.waveform.source.organization}` : 'NO AUTHORITATIVE STATUS'}</span>
     </footer>
   </Root>;
+}
+
+/**
+ * Cascading custom wideband builder. One select per spec parameter, ordered
+ * most-common first; everything defaults to Auto (showing what Auto resolves
+ * to), and each selection narrows the remaining options to exactly what the
+ * standard allows. A pick that invalidates a later pin drops that pin (the
+ * sanitize step), so the panel can never express an illegal configuration.
+ */
+function CustomWaveformPanel({ standard, selections, disabled, onSelections }: {
+  standard: CustomWaveformStandard;
+  selections: CustomWaveformSelections;
+  disabled: boolean;
+  onSelections(next: CustomWaveformSelections): void;
+}) {
+  const resolved = resolveCustomWaveform(standard, selections);
+  return <div className={styles.customPanel} aria-label="Custom waveform parameters">
+    <div className={styles.customPanelHeading}><SlidersHorizontal size={13}/><span>Custom configuration</span><small>AUTO UNTIL SELECTED · SPEC-CONSTRAINED</small></div>
+    {resolved.map((parameter) => {
+      const boundedOptions = parameter.options.length > 64
+        ? [...parameter.options.slice(0, 64), ...(parameter.pinned && !parameter.options.slice(0, 64).includes(parameter.value) ? [parameter.value] : [])]
+        : parameter.options;
+      return <SelectParameter
+        key={parameter.key}
+        label={`${parameter.label}${parameter.tier === 'observable' ? '' : parameter.tier === 'approximated' ? ' ≈' : ' ◦'}`}
+        value={parameter.pinned ? parameter.value : 'auto'}
+        disabled={disabled || (boundedOptions.length === 1 && !parameter.pinned)}
+        options={[
+          { value: 'auto', label: `Auto · ${parameter.value}` },
+          ...boundedOptions.map((option) => ({ value: option, label: option })),
+        ]}
+        onValue={(value) => {
+          const next: Record<string, string> = { ...selections };
+          if (value === 'auto') delete next[parameter.key];
+          else next[parameter.key] = value;
+          onSelections(sanitizeCustomWaveformSelections(standard, next));
+        }}
+      />;
+    })}
+  </div>;
 }
 
 function LabProfilePicker({ catalog, activeProfile, disabled, onSelect }: {

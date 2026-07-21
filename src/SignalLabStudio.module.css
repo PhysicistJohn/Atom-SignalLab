@@ -78,6 +78,13 @@
 
 .modelSelect { min-height: 44px; border: 1px solid var(--signal-lab-line); border-radius: 11px; overflow: hidden; background: rgba(255, 255, 255, .018); }
 
+.customPanel { border: 1px solid var(--signal-lab-line); border-radius: 11px; overflow: hidden auto; background: rgba(255, 255, 255, .018); max-height: 292px; }
+.customPanel > label { border-radius: 0; border: 0; border-bottom: 1px solid var(--signal-lab-line); }
+.customPanel > label:last-child { border-bottom: 0; }
+.customPanelHeading { display: flex; align-items: center; gap: 7px; padding: 8px 12px 7px; border-bottom: 1px solid var(--signal-lab-line); color: #7eacd9; }
+.customPanelHeading span { font: 600 10.5px var(--signal-lab-mono); letter-spacing: .08em; text-transform: uppercase; }
+.customPanelHeading small { margin-left: auto; font: 8px var(--signal-lab-mono); letter-spacing: .1em; color: rgba(126, 172, 217, .65); }
+
 .profileDetail { min-width: 0; padding: 13px 14px; border: 1px solid var(--signal-lab-line); border-radius: 15px; background: linear-gradient(140deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, .012)); }
 .profileDetail.active { border-color: rgba(10, 132, 255, .28); background: linear-gradient(140deg, rgba(10, 132, 255, .075), rgba(100, 210, 255, .018)); }
 .profileSummary { min-width: 0; display: grid; grid-template-columns: 46px minmax(0, 1fr) 10px; align-items: center; gap: 0 11px; }
