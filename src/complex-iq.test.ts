@@ -14,9 +14,10 @@ import {
   synthesizeAnalyticComplexIq,
   type AnalyticComplexIqProfile,
 } from './complex-iq.js';
+import { isReferenceComplexIqProfile } from './reference-iq.js';
 
 describe('analytic complex-I/Q synthesis', () => {
-  // Whole-catalog sweep: 34 profiles x 2 syntheses needs headroom on slow
+  // Whole-catalog sweep: 39 profiles x 2 syntheses needs headroom on slow
   // CI runners (6.7s observed on ubuntu-latest against the 5s default).
   it('evolves every non-constant profile across successive capture coordinates', { timeout: 30_000 }, () => {
     const geometry = { sampleRateHz: 2_000_000, bandwidthHz: 1_500_000, sampleCount: 4_096 };
@@ -191,7 +192,7 @@ describe('analytic complex-I/Q synthesis', () => {
       ))).toBe(true);
       expect(samples.some(([inPhase, quadrature]) => inPhase !== 0 || quadrature !== 0)).toBe(true);
       expect(complexIqGeneratorBasis(profile)).toBe(
-        profile === 'cw' || profile === 'am' || profile === 'fm'
+        profile === 'cw' || profile === 'am' || profile === 'fm' || isReferenceComplexIqProfile(profile)
           ? 'analytic-laboratory'
           : 'standards-derived-engineering-projection',
       );

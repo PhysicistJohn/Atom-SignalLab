@@ -14,6 +14,7 @@ import {
   LTE_TDD_OBSERVABLE_SOURCE,
   NR_OBSERVABLE_SOURCE,
   NR_TDD_OBSERVABLE_SOURCE,
+  REFERENCE_WAVEFORM_SOURCE,
   WIFI_OBSERVABLE_SOURCE,
   sourceBasis,
 } from './source-provenance.js';
@@ -335,8 +336,30 @@ const wifiDescriptors = wifiDefinitions.map(([id, label, model, allocation, tone
   disclosure: `Standards-derived HE format context and 78.125 kHz tone spacing. The ${toneCount} × 78.125 kHz = ${toneCount * 78_125} Hz field is a SignalLab engineering occupied-tone span projection, not normative measured or regulatory occupied bandwidth. It is not a validated packet I/Q vector.`,
 }));
 
+const referenceDisclosure = 'Synthetic single-carrier reference waveform for constellation recovery. Not a captured emission.';
+
+const referenceDefinitions = [
+  ['ref-qpsk', 'Reference QPSK (4-QAM)', 'qpsk', 'QPSK'],
+  ['ref-8psk', 'Reference 8PSK', '8psk', '8PSK'],
+  ['ref-16qam', 'Reference 16-QAM', '16qam', '16-QAM'],
+  ['ref-64qam', 'Reference 64-QAM', '64qam', '64-QAM'],
+  ['ref-256qam', 'Reference 256-QAM', '256qam', '256-QAM'],
+] as const;
+
+const referenceDescriptors: WaveformDescriptor[] = referenceDefinitions.map(([id, label, modulation, modulationLabelText]) => makeDescriptor({
+  id, label, family: 'reference',
+  model: `Single-carrier reference · ${modulationLabelText} · 7 Msym/s · RRC 0.35 · clean`,
+  centerHz: 100_000_000,
+  occupiedBandwidthHz: 9_450_000,
+  recommendedSpanHz: 14_000_000,
+  projection: { allocation: 'full', modulation, timing: 'continuous' },
+  source: REFERENCE_WAVEFORM_SOURCE,
+  disclosure: referenceDisclosure,
+}));
+
 const unorderedCatalog = [
   ...visualDescriptors,
+  ...referenceDescriptors,
   ...canonizedGsmDescriptors,
   ...gsmDescriptors,
   ...canonizedLteDescriptors,

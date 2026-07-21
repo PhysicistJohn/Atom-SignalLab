@@ -50,6 +50,13 @@ export const ANALYTIC_SCALAR_SOURCE = sourceBasis('TinySA SignalLab', [{
   url: 'https://github.com/PhysicistJohn/Atom-SignalLab/blob/main/src/waveforms.ts',
 }]);
 
+export const REFERENCE_WAVEFORM_SOURCE = sourceBasis('TinySA SignalLab', [{
+  specification: 'TinySA SignalLab single-carrier reference kernel',
+  clause: 'Deterministic seeded RRC-shaped PSK/QAM reference waveforms for blind constellation recovery',
+  revision: 'reference-waveform-kernel-v1',
+  url: 'https://github.com/PhysicistJohn/Atom-SignalLab/blob/main/src/reference-iq.ts',
+}]);
+
 export const GSM_OBSERVABLE_SOURCE = sourceBasis('3GPP', [
   {
     specification: 'TS 45.002',

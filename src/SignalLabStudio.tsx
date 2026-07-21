@@ -4,7 +4,7 @@ import type { ReplayChannelConfiguration, SignalLabStatus, SynthesizedSignalProf
 import { EditableParameter, SelectParameter } from './ParameterRow.js';
 import styles from './SignalLabStudio.module.css';
 
-export type SignalLabCatalogGroup = 'lab' | 'geran' | 'e-utra' | 'nr' | 'wlan' | 'bluetooth';
+export type SignalLabCatalogGroup = 'lab' | 'geran' | 'e-utra' | 'nr' | 'wlan' | 'bluetooth' | 'reference';
 export type SignalLabSourceState = 'loading' | 'available' | 'selected' | 'unavailable' | 'error';
 export type SignalLabSessionState = 'offline' | 'connecting' | 'ready' | 'streaming' | 'error';
 export type SignalLabStudioPendingOperation = SynthesizedSignalProfile | 'channel';
@@ -46,6 +46,7 @@ const groups: readonly { id: SignalLabCatalogGroup; label: string }[] = [
   { id: 'nr', label: '5G NR' },
   { id: 'wlan', label: 'WI-FI' },
   { id: 'bluetooth', label: 'BLUETOOTH' },
+  { id: 'reference', label: 'REFERENCE' },
 ];
 
 const labIcons = { cw: RadioTower, am: Activity, fm: Waves } as const;
@@ -232,8 +233,10 @@ function ProfileDetail({ descriptor, active, switching }: { descriptor: Waveform
           ? Bluetooth
           : descriptor.family === 'wlan'
             ? Wifi
-            : descriptor.family === 'tone'
-              ? RadioTower
+            : descriptor.family === 'reference'
+              ? Grid3X3
+              : descriptor.family === 'tone'
+                ? RadioTower
               : descriptor.id === 'am'
                 ? Activity
                 : Waves;
@@ -284,7 +287,7 @@ export function catalogGroup(descriptor: WaveformDescriptor): SignalLabCatalogGr
 }
 
 function familyLabel(descriptor: WaveformDescriptor): string {
-  return ({ geran: 'GSM', 'e-utra': 'LTE', nr: '5G NR', wlan: 'Wi-Fi', bluetooth: 'Bluetooth', tone: 'Lab', analog: 'Lab' })[descriptor.family];
+  return ({ geran: 'GSM', 'e-utra': 'LTE', nr: '5G NR', wlan: 'Wi-Fi', bluetooth: 'Bluetooth', tone: 'Lab', analog: 'Lab', reference: 'Reference' })[descriptor.family];
 }
 
 function stateLabel(state: SignalLabSourceState | SignalLabSessionState): string {

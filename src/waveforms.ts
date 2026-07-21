@@ -319,6 +319,7 @@ function standardsProjection(descriptor: WaveformDescriptor, offsetHz: number, b
   if (!transmissionActive(descriptor.projection.timing, sweepIndex)) return Number.NEGATIVE_INFINITY;
   if (descriptor.family === 'geran') return geranProjection(descriptor, offsetHz, sweepIndex);
   if (descriptor.family === 'wlan') return wlanProjection(descriptor, offsetHz, sweepIndex);
+  if (descriptor.family === 'reference') return referenceProjection(descriptor, offsetHz, sweepIndex);
   if (descriptor.family !== 'e-utra' && descriptor.family !== 'nr') throw new Error(`No standards projection exists for ${descriptor.id}`);
   return cellularProjection(descriptor, offsetHz, binWidthHz, sweepIndex);
 }
@@ -341,6 +342,23 @@ function cellularProjection(descriptor: WaveformDescriptor, offsetHz: number, bi
     return ofdmProjection(offsetHz, descriptor.occupiedBandwidthHz, -65, spacingHz, sweepIndex, hashText(descriptor.id), textureScale);
   }
   return ofdmProjection(offsetHz, descriptor.occupiedBandwidthHz, descriptor.family === 'e-utra' ? -64 : -63, spacingHz, sweepIndex, hashText(descriptor.id), textureScale);
+}
+
+function referenceProjection(descriptor: WaveformDescriptor, offsetHz: number, sweepIndex: number): number {
+  // Single-carrier RRC haystack: flat in the |f| < Fsym(1-beta)/2 core, a
+  // raised-cosine roll-off out to the +-occupiedBandwidth/2 edge, then gone.
+  const half = descriptor.occupiedBandwidthHz / 2;
+  const distance = Math.abs(offsetHz);
+  if (distance > half * 1.04) return Number.NEGATIVE_INFINITY;
+  const rolloff = 0.35;
+  const symbolRateHz = descriptor.occupiedBandwidthHz / (1 + rolloff);
+  const flatEdgeHz = symbolRateHz * (1 - rolloff) / 2;
+  const shoulderDb = distance <= flatEdgeHz
+    ? 0
+    : -3 - 34 * ((distance - flatEdgeHz) / Math.max(1, half - flatEdgeHz));
+  const texture = modulationTexture(descriptor.projection.modulation)
+    * 0.6 * Math.cos(6 * offsetHz / symbolRateHz + sweepIndex * 0.2);
+  return -50 + shoulderDb + texture;
 }
 
 function wlanProjection(descriptor: WaveformDescriptor, offsetHz: number, sweepIndex: number): number {

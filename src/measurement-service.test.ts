@@ -138,7 +138,7 @@ describe('Atomizer high-level measurement source contract', () => {
       claims: MEASUREMENT_BRIDGE_CLAIMS,
     });
     expect(initial.identity.catalogSha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(initial.profiles).toHaveLength(34);
+    expect(initial.profiles).toHaveLength(39);
     expect(initial.capabilities).toEqual(MEASUREMENT_CAPABILITIES);
     expect(initial.capabilities.find(({ kind }) => kind === 'detected-power-timeseries')).toEqual({
       kind: 'detected-power-timeseries',
@@ -303,6 +303,19 @@ describe('Atomizer high-level measurement source contract', () => {
       sampleRateHz: 1_000_000,
       bandwidthHz: 1_000_000,
       sampleCount: 1,
+      sampleFormat: 'cf32le',
+    })).toMatchObject({ qualification: 'analytic-complex-baseband' });
+
+    // The single-carrier references are visual analytic lab waveforms, so their
+    // I/Q must report 'analytic-complex-baseband' too — this is the exact
+    // qualification the Atomizer admission layer expects for a 'visual' source,
+    // and a mismatch rejects the capture (regression guard for reference I/Q).
+    service.selectProfile({ profile: 'ref-256qam' });
+    expect(service.acquireIq({
+      centerHz: 100_000_000,
+      sampleRateHz: 56_000_000,
+      bandwidthHz: 40_000_000,
+      sampleCount: 2_048,
       sampleFormat: 'cf32le',
     })).toMatchObject({ qualification: 'analytic-complex-baseband' });
   });

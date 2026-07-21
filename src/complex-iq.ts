@@ -15,6 +15,11 @@ import {
   isBluetoothAnalyticIqProfile,
   synthesizeBluetoothAnalyticSamples,
 } from './bluetooth-iq.js';
+import {
+  DEFAULT_REFERENCE_IQ_SEED,
+  isReferenceComplexIqProfile,
+  synthesizeReferenceComplexIq,
+} from './reference-iq.js';
 
 export const LAB_ANALYTIC_COMPLEX_IQ_PROFILES = ['cw', 'am', 'fm'] as const;
 export type LabAnalyticComplexIqProfile = typeof LAB_ANALYTIC_COMPLEX_IQ_PROFILES[number];
@@ -28,9 +33,16 @@ export type ComplexIqGeneratorBasis = 'analytic-laboratory' | 'standards-derived
 
 export function complexIqGeneratorBasis(profile: SynthesizedSignalProfile): ComplexIqGeneratorBasis {
   const admitted = synthesizedSignalProfileSchema.parse(profile);
-  return LAB_ANALYTIC_COMPLEX_IQ_PROFILES.some((candidate) => candidate === admitted)
-    ? 'analytic-laboratory'
-    : 'standards-derived-engineering-projection';
+  // The single-carrier references are deterministic analytic lab waveforms (like
+  // cw/am/fm), not standards-derived engineering projections. They carry the
+  // 'visual' catalog qualification, so their measurements must report the
+  // 'analytic-complex-baseband' basis the admission layer expects for a visual
+  // source (see expectedMeasurementQualification in the Atomizer instrument
+  // manager) — otherwise a reference I/Q capture is rejected as a qualification
+  // mismatch.
+  const isAnalyticLab = LAB_ANALYTIC_COMPLEX_IQ_PROFILES.some((candidate) => candidate === admitted)
+    || isReferenceComplexIqProfile(admitted);
+  return isAnalyticLab ? 'analytic-laboratory' : 'standards-derived-engineering-projection';
 }
 
 /** Hard producer bounds, shared with the bridge contract to prevent drift. */
@@ -131,6 +143,16 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
     });
     return filterAndEncodeInterleavedSamples(analytic, input);
   }
+  if (isReferenceComplexIqProfile(profile)) {
+    return synthesizeReferenceComplexIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+      seed: DEFAULT_REFERENCE_IQ_SEED,
+    });
+  }
   if (!isLabAnalyticComplexIqProfile(profile)) {
     throw new Error(`Closed complex-I/Q profile ${profile satisfies never} has no installed generator`);
   }
@@ -192,7 +214,7 @@ function analyticSample(profile: LabAnalyticComplexIqProfile, timeSeconds: numbe
   }
 }
 
-function filterAndEncodeInterleavedSamples(
+export function filterAndEncodeInterleavedSamples(
   analytic: Float32Array | Float64Array,
   input: Pick<AnalyticComplexIqSynthesisInput, 'sampleRateHz' | 'bandwidthHz' | 'sampleCount'>,
 ): Uint8Array {

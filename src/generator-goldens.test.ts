@@ -40,12 +40,12 @@ interface GeneratorGoldenPins {
 const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, GeneratorGoldenPins>>> = Object.freeze({
   cw: {
     spectrumSha256: 'eb7d92060f7213cdee880b4046aa8224c626a8281ddcadb1022b7fd29e128862',
-    zeroSpanSha256: '70673dfaddd4788d1f6cd4e00f9dfa6b95e4f5f3e9e220fbfd884cb47ea3af77',
+    zeroSpanSha256: '4e85a60109eb1844373e88fb2ee03cdbaeea12974fb1ce32b5ef56f43552e143',
     complexIqSha256: '209f1f991e3ff657ad20a247216dc24762843b2a54090e73a83cfc918ccea017',
   },
   'gsm-900-loaded-bcch': {
     spectrumSha256: 'ca9e2d69999471908b12f0619c232eb95c4ffe2c9f81d77ac59c4cc0b442ea19',
-    zeroSpanSha256: '097f17defa475e7136f44aeb20edbc37612f8e1d680b25a7c3088c41351b4928',
+    zeroSpanSha256: 'ad110436e2e3402c9e5dde1961cb1c8c43e25d8c5113df570a328db8dcb1ceb8',
     complexIqSha256: '22b5a53028be9cae96af019db515799fb80d0502e20c1815e9c9919cec1de829',
   },
   'lte-band3-fdd-20m': {
@@ -62,7 +62,7 @@ const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, G
     complexIqSha256: '1fec6b6ed14f751e01c5607db638a8de6536ff930dd2e77162375c910629bebc',
   },
   'wifi-hr-dsss-11m': {
-    spectrumSha256: 'c69de34a8b355398a55290603d5e223a26c197ffdf79562c7690e94d9657bd9b',
+    spectrumSha256: '2a47f3bf1ef2a00e5ef91e8765d5caa1cdc3d19720d04d8b072c32c8f16dfd44',
     zeroSpanSha256: '3a491f87c663cb3a0355b2bf3aaa1efdf42900078465675af0ed6eb72ae799b8',
     complexIqSha256: '3d3bd686dedb22905771c3c72544a7a9ee90bf221607a4f53b63ac52ad31cf40',
   },
@@ -70,6 +70,11 @@ const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, G
     spectrumSha256: '38a04ece5ece52ac059f7351af6d24790ca5cd07818b8c7d9d5111cd39b561e5',
     zeroSpanSha256: '35ff37373c0e73e961c92af63269fc68fdf7077d4241c66c79fa7989d3fb4a90',
     complexIqSha256: 'cedb05af41c170e8c471a50d134f8b9c84c5551cfee8954478f6780dab7c0481',
+  },
+  'ref-qpsk': {
+    spectrumSha256: 'b408419824c4c1885346d0885c33c1e0d959926f789e012ee2139b1930f53cc3',
+    zeroSpanSha256: '0f905bb5cd73cc661815af6726e6fd3cd6e57de2f809342966d3c95047751e1a',
+    complexIqSha256: '9eb6d13de5ad1884bac2c14a9d6d8886ef824668df003110e1edb4b2df689de6',
   },
 });
 
@@ -129,6 +134,7 @@ describe('S1 generator determinism goldens', () => {
       'nr-n3-fdd-20m',
       'wifi-hr-dsss-11m',
       'bluetooth-classic-connected',
+      'ref-qpsk',
     ]);
   });
 });
@@ -150,21 +156,23 @@ const PINNED_CATALOG_PROFILE_IDS = [
   'wifi-hr-dsss-11m', 'wifi-ofdm-20m',
   'wifi6-he-su', 'wifi6-he-er-su', 'wifi6-he-mu', 'wifi6-he-tb',
   'bluetooth-classic-connected', 'bluetooth-le-advertising',
+  'ref-qpsk', 'ref-8psk', 'ref-16qam', 'ref-64qam', 'ref-256qam',
 ] as const;
 
-const PINNED_CATALOG_COUNT = 34;
+const PINNED_CATALOG_COUNT = 39;
 
 /**
- * The six generator families as presented by the Generate workspace tabs.
- * The LAB tab spans both catalog family labels for analytic scalar profiles.
+ * The generator families as presented by the Generate workspace tabs. The LAB
+ * tab spans both catalog family labels for analytic scalar profiles.
  */
-const SIX_FAMILY_TAB_MEMBERS: readonly (readonly string[])[] = [
+const FAMILY_TAB_MEMBERS: readonly (readonly string[])[] = [
   ['tone', 'analog'], // LAB
   ['geran'], // GSM
   ['e-utra'], // LTE
   ['nr'], // 5G NR
   ['wlan'], // WI-FI
   ['bluetooth'], // BLUETOOTH
+  ['reference'], // REFERENCE
 ];
 
 describe('S6 waveform catalog golden', () => {
@@ -177,9 +185,9 @@ describe('S6 waveform catalog golden', () => {
     expect(waveformCatalog.map((descriptor) => descriptor.id)).toEqual([...PINNED_CATALOG_PROFILE_IDS]);
   });
 
-  it('assigns every entry to exactly one of the six generator families', () => {
+  it('assigns every entry to exactly one generator family tab', () => {
     for (const descriptor of waveformCatalog) {
-      const owningTabs = SIX_FAMILY_TAB_MEMBERS.filter((members) => members.includes(descriptor.family));
+      const owningTabs = FAMILY_TAB_MEMBERS.filter((members) => members.includes(descriptor.family));
       expect(owningTabs, `${descriptor.id} family ${descriptor.family}`).toHaveLength(1);
     }
   });

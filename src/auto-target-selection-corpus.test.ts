@@ -31,7 +31,7 @@ describe('Auto-v4 integrated-excess validation corpus', () => {
     expect(autoTargetSelectionValidationCases).toHaveLength(4);
     expect(new Set(autoTargetSelectionValidationCases.map((fixture) => fixture.id)).size).toBe(4);
 
-    expect(waveformCatalog).toHaveLength(34);
+    expect(waveformCatalog).toHaveLength(39);
     const humanCatalogIds = new Set<string>(waveformCatalog.map((descriptor) => descriptor.id));
     const classifierScenarioIds = new Set<string>(
       canonicalClassificationScenarios.map((scenario) => scenario.id),
@@ -44,7 +44,7 @@ describe('Auto-v4 integrated-excess validation corpus', () => {
       expect(Object.isFrozen(fixture.components)).toBe(true);
       expect(fixture.source).toEqual(AUTO_TARGET_SELECTION_VALIDATION_SOURCE);
       expect(fixture.disclosure).toBe(AUTO_TARGET_SELECTION_VALIDATION_DISCLOSURE);
-      expect(fixture.disclosure).toMatch(/not part of the 34-profile operator catalog/i);
+      expect(fixture.disclosure).toMatch(/not part of the 39-profile operator catalog/i);
       expect(fixture.disclosure).toMatch(/not .*classifier training or calibration data/i);
       expect(fixture.disclosure).toMatch(/not .*likelihood component/i);
       expect(fixture.disclosure).toMatch(/not .*model artifact/i);

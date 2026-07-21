@@ -30,8 +30,8 @@ import {
 describe('qualified waveform replay engine', () => {
   it('publishes a closed catalog with source clauses and refuses unvalidated conformance claims', () => {
     expect(waveformCatalog.map((entry) => entry.id)).toEqual(synthesizedSignalProfileSchema.options);
-    expect(waveformCatalog).toHaveLength(34);
-    expect(countFamilies(waveformCatalog)).toEqual({ tone: 1, analog: 2, geran: 7, 'e-utra': 10, nr: 6, wlan: 6, bluetooth: 2 });
+    expect(waveformCatalog).toHaveLength(39);
+    expect(countFamilies(waveformCatalog)).toEqual({ tone: 1, analog: 2, reference: 5, geran: 7, 'e-utra': 10, nr: 6, wlan: 6, bluetooth: 2 });
     for (const descriptor of waveformCatalog) {
       expect(descriptor.source.references.every((reference) => /^https:\/\//.test(reference.url))).toBe(true);
       expect(descriptor.recommendedSpanHz).toBeGreaterThanOrEqual(descriptor.occupiedBandwidthHz);

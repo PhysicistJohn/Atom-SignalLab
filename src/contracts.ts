@@ -19,6 +19,7 @@ export const SYNTHESIZED_SIGNAL_PROFILES = [
   'wifi-hr-dsss-11m', 'wifi-ofdm-20m',
   'wifi6-he-su', 'wifi6-he-er-su', 'wifi6-he-mu', 'wifi6-he-tb',
   'bluetooth-classic-connected', 'bluetooth-le-advertising',
+  'ref-qpsk', 'ref-8psk', 'ref-16qam', 'ref-64qam', 'ref-256qam',
 ] as const;
 
 export const synthesizedSignalProfileSchema = z.enum(SYNTHESIZED_SIGNAL_PROFILES);
@@ -42,7 +43,7 @@ export type WaveformProjection = z.infer<typeof waveformProjectionSchema>;
 export const waveformDescriptorSchema = z.object({
   id: synthesizedSignalProfileSchema,
   label: z.string().min(1),
-  family: z.enum(['tone', 'analog', 'geran', 'e-utra', 'nr', 'wlan', 'bluetooth']),
+  family: z.enum(['tone', 'analog', 'geran', 'e-utra', 'nr', 'wlan', 'bluetooth', 'reference']),
   model: z.string().min(1),
   qualification: z.enum(['visual', 'standards-derived', 'conformance-validated']),
   centerHz: z.number().safe().int().min(MIN_MEASUREMENT_FREQUENCY_HZ).max(MAX_MEASUREMENT_FREQUENCY_HZ),
