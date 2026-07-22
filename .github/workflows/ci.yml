@@ -25,6 +25,12 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: PhysicistJohn/Atom-DSP
+          ref: v0.1.0
+          path: Atom-DSP
+          persist-credentials: false
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
           repository: PhysicistJohn/Atom-Classifier
           # reference-iq.test.ts verifies the reference waveforms against the
           # SAME blind recovery the Atomizer app runs (a zero-dependency module
@@ -37,12 +43,17 @@ jobs:
         with:
           node-version-file: Atom-SignalLab/.node-version
           cache: npm
-          cache-dependency-path: Atom-SignalLab/package-lock.json
+          cache-dependency-path: |
+            Atom-DSP/package-lock.json
+            Atom-SignalLab/package-lock.json
       - run: npm install --global npm@10.9.8
       - name: Verify toolchain
         shell: bash
         run: |
           test "$(node --version)" = "v$(cat .node-version)"
           test "$(npm --version)" = "10.9.8"
+      - name: Build Atom-DSP
+        working-directory: Atom-DSP
+        run: npm ci && npm run build
       - run: npm ci && npm run check
       - run: npm run audit

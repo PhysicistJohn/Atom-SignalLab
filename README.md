@@ -8,9 +8,13 @@ SignalLab owns the closed 34-profile waveform catalog, seeded AWGN/Rayleigh repl
 
 ## Run
 
-Requirements: Node.js 22.23.1 and npm 10.9.8 (the versions pinned by CI).
+Requirements: Node.js 22.23.1 and npm 10.9.8 (the versions pinned by CI),
+with [Atom-DSP](https://github.com/PhysicistJohn/Atom-DSP) checked out at
+`../Atom-DSP` and built.
 
 ```bash
+npm --prefix ../Atom-DSP ci
+npm --prefix ../Atom-DSP run build
 npm ci
 npm run check   # typecheck + build + all tests
 npm run dev     # Vite + Electron development window
@@ -81,10 +85,11 @@ The Bayesian scalar-classification corpus intentionally emits only swept power a
 
 ## Part of the AtomOS suite
 
-SignalLab is one of eight AtomOS repositories:
+SignalLab is one of nine AtomOS repositories:
 
 - [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native spectrum analyzer application.
 - [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): deployed local embedding classifier plus retained Bayesian RF research pipeline.
+- [Atom-DSP](https://github.com/PhysicistJohn/Atom-DSP): dependency-free numerical kernels and cross-language conformance vectors.
 - [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reproducibly built tinySA firmware research and modernization.
 - [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): fail-closed firmware flasher.
 - [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin): QEMU-backed firmware-executing digital twin of the NeptuneSDR/HAMGEEK P210.

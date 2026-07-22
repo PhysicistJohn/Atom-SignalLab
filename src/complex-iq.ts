@@ -1,4 +1,8 @@
 import {
+  onePoleLowPassAlphaForTwoSided3dbBandwidth as lowPassFeedForwardCoefficient,
+  writeUnitBoundedCf32le,
+} from '@atomos/dsp';
+import {
   SYNTHESIZED_SIGNAL_PROFILES,
   synthesizedSignalProfileSchema,
   type SynthesizedSignalProfile,
@@ -240,38 +244,4 @@ export function filterAndEncodeInterleavedSamples(
     writeUnitBoundedCf32le(view, index * ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE, inPhase, quadrature);
   }
   return bytes;
-}
-
-/**
- * Feed-forward coefficient for y[n] = y[n-1] + alpha * (x[n] - y[n-1]).
- *
- * Solving the exact discrete-time response for -3 dB at
- * omega = pi * bandwidth / sampleRate yields the stable form below. It avoids
- * subtracting nearly equal values at the admitted 1 kHz / 245.76 Msps corner.
- * The admitted bandwidth is never greater than the sample rate, so alpha is
- * finite and strictly between zero and one.
- */
-function lowPassFeedForwardCoefficient(bandwidthHz: number, sampleRateHz: number): number {
-  const sineHalfEdge = Math.sin(Math.PI * bandwidthHz / (2 * sampleRateHz));
-  return 2 * sineHalfEdge / (Math.sqrt(1 + sineHalfEdge * sineHalfEdge) + sineHalfEdge);
-}
-
-function writeUnitBoundedCf32le(
-  view: DataView,
-  byteOffset: number,
-  inPhase: number,
-  quadrature: number,
-): void {
-  let boundedInPhase = Math.fround(inPhase);
-  let boundedQuadrature = Math.fround(quadrature);
-  const magnitudeSquared = boundedInPhase * boundedInPhase + boundedQuadrature * boundedQuadrature;
-  if (magnitudeSquared > 1) {
-    // Leave one float32 epsilon of headroom so component rounding cannot push
-    // a mathematically unit-bounded sample outside the unit disk on the wire.
-    const scale = (1 - 2 ** -23) / Math.sqrt(magnitudeSquared);
-    boundedInPhase = Math.fround(boundedInPhase * scale);
-    boundedQuadrature = Math.fround(boundedQuadrature * scale);
-  }
-  view.setFloat32(byteOffset, boundedInPhase, true);
-  view.setFloat32(byteOffset + 4, boundedQuadrature, true);
 }

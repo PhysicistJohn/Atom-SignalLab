@@ -14,6 +14,7 @@
  * The chain is fully seeded, so a given (input, impairments, seed) is reproducible.
  */
 
+import { decodeCf32leChannels } from '@atomos/dsp';
 import {
   ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE,
   synthesizeAnalyticComplexIq,
@@ -69,15 +70,8 @@ function gaussianSource(rand: () => number): () => number {
 }
 
 function decodeCf32le(bytes: Uint8Array): { re: Float64Array; im: Float64Array } {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const n = bytes.byteLength / ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE;
-  const re = new Float64Array(n);
-  const im = new Float64Array(n);
-  for (let k = 0; k < n; k++) {
-    re[k] = view.getFloat32(k * 8, true);
-    im[k] = view.getFloat32(k * 8 + 4, true);
-  }
-  return { re, im };
+  const { real, imaginary } = decodeCf32leChannels(bytes);
+  return { re: real, im: imaginary };
 }
 
 function encodeCf32le(re: Float64Array, im: Float64Array): Uint8Array {

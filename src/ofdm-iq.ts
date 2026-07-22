@@ -1,4 +1,8 @@
 import {
+  onePoleLowPassAlphaForTwoSided3dbBandwidth as lowPassFeedForwardCoefficient,
+  writeUnitBoundedCf32le,
+} from '@atomos/dsp';
+import {
   synthesizedSignalProfileSchema,
   waveformDescriptorSchema,
   type SynthesizedSignalProfile,
@@ -565,29 +569,6 @@ function mix32(value: number): number {
 
 function rotateLeft32(value: number, bits: number): number {
   return ((value << bits) | (value >>> (32 - bits))) >>> 0;
-}
-
-function lowPassFeedForwardCoefficient(bandwidthHz: number, sampleRateHz: number): number {
-  const sineHalfEdge = Math.sin(Math.PI * bandwidthHz / (2 * sampleRateHz));
-  return 2 * sineHalfEdge / (Math.sqrt(1 + sineHalfEdge * sineHalfEdge) + sineHalfEdge);
-}
-
-function writeUnitBoundedCf32le(
-  view: DataView,
-  byteOffset: number,
-  inPhase: number,
-  quadrature: number,
-): void {
-  let boundedInPhase = Math.fround(inPhase);
-  let boundedQuadrature = Math.fround(quadrature);
-  const magnitudeSquared = boundedInPhase * boundedInPhase + boundedQuadrature * boundedQuadrature;
-  if (magnitudeSquared > 1) {
-    const scale = (1 - 2 ** -23) / Math.sqrt(magnitudeSquared);
-    boundedInPhase = Math.fround(boundedInPhase * scale);
-    boundedQuadrature = Math.fround(boundedQuadrature * scale);
-  }
-  view.setFloat32(byteOffset, boundedInPhase, true);
-  view.setFloat32(byteOffset + 4, boundedQuadrature, true);
 }
 
 function positiveModulo(value: number, modulus: number): number {
