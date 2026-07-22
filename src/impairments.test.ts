@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { synthesizeAnalyticComplexIq } from './complex-iq.js';
 import {
   applyReceiverImpairments,
+  receiverImpairmentsForPreset,
   synthesizeImpairedComplexIq,
   type ReceiverImpairments,
 } from './impairments.js';
@@ -77,5 +78,21 @@ describe('receiver impairment model', () => {
       return Math.sqrt(s / x.length);
     };
     expect(rms({ snrDb: 5 })).toBeGreaterThan(rms({ snrDb: 30 }));
+  });
+
+  it('resolves every Studio receiver preset into a deterministic material effect', () => {
+    const clean = synthesizeAnalyticComplexIq(INPUT);
+    const presets = [
+      'awgn', 'multipath', 'carrier-offset', 'phase-noise',
+      'iq-imbalance', 'dc-offset', 'pa-compression', 'composite',
+    ] as const;
+    expect(receiverImpairmentsForPreset('clean', INPUT.sampleRateHz)).toEqual({});
+    for (const preset of presets) {
+      const impairments = receiverImpairmentsForPreset(preset, INPUT.sampleRateHz);
+      const first = synthesizeImpairedComplexIq(INPUT, impairments, 123);
+      const replay = synthesizeImpairedComplexIq(INPUT, impairments, 123);
+      expect(first, `${preset} should be repeatable`).toEqual(replay);
+      expect(first, `${preset} should affect the clean waveform`).not.toEqual(clean);
+    }
   });
 });

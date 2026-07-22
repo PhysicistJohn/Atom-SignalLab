@@ -76,7 +76,7 @@
     "complexIqCentering": "requested-center-hz-is-the-complex-envelope-reference-and-profile-components-may-have-baseband-offsets",
     "complexIqBandwidth": "independent-safe-integer-hz-no-greater-than-sample-rate-two-sided-minus-3db-span-of-bounded-first-order-real-coefficient-low-pass-initialized-from-first-sample",
     "complexIqUndersampling": "wideband-standards-engineering-profiles-may-be-deterministically-aliased-below-their-catalogued-occupied-support",
-    "complexIqChannel": "replay-channel-configuration-is-not-applied-to-clean-analytic-iq-v1",
+    "complexIqChannel": "selected-seeded-receiver-impairment-preset-is-applied-to-complex-iq-and-declared-on-every-result",
     "complexIqAvailability": "all-closed-catalog-profiles-with-standards-labelled-results-explicitly-non-conformance",
     "scalarMeasurementQualification": "synthetic-visual-projection-not-a-conformance-vector",
     "complexIqMeasurementQualification": "profile-dependent-analytic-laboratory-or-standards-derived-engineering-not-a-conformance-vector"

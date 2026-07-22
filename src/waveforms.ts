@@ -48,6 +48,7 @@ export const DEFAULT_REPLAY_CHANNEL: ReplayChannelConfiguration = replayChannelC
   noiseFloorDbm: -108,
   seed: 407,
   fadingRateHz: 2,
+  receiverImpairment: 'clean',
 });
 
 export type CanonizedKnownScenarioId = keyof typeof CANONIZED_KNOWN_SCENARIOS;

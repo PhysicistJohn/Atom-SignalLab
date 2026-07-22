@@ -48,6 +48,7 @@ describe('Atomizer high-level measurement source contract', () => {
     expect(document.semantics.complexIqCentering).toBe('requested-center-hz-is-the-complex-envelope-reference-and-profile-components-may-have-baseband-offsets');
     expect(document.semantics.complexIqBandwidth).toBe('independent-safe-integer-hz-no-greater-than-sample-rate-two-sided-minus-3db-span-of-bounded-first-order-real-coefficient-low-pass-initialized-from-first-sample');
     expect(document.semantics.complexIqUndersampling).toBe('wideband-standards-engineering-profiles-may-be-deterministically-aliased-below-their-catalogued-occupied-support');
+    expect(document.semantics.complexIqChannel).toBe('selected-seeded-receiver-impairment-preset-is-applied-to-complex-iq-and-declared-on-every-result');
     expect(document.semantics.scalarMeasurementQualification).toBe('synthetic-visual-projection-not-a-conformance-vector');
     expect(document.semantics.complexIqMeasurementQualification).toBe('profile-dependent-analytic-laboratory-or-standards-derived-engineering-not-a-conformance-vector');
     expect(() => measurementBridgeContractDocumentSchema.parse({ ...document, undeclared: true })).toThrow();
@@ -169,6 +170,10 @@ describe('Atomizer high-level measurement source contract', () => {
     });
 
     expect(() => service.configureChannel({ channel: { model: 'awgn', noiseFloorDbm: -999, seed: 1, fadingRateHz: 2 } })).toThrow();
+    expect(() => service.configureChannel({ channel: {
+      model: 'awgn', noiseFloorDbm: -108, seed: 1, fadingRateHz: 2,
+      receiverImpairment: 'unbounded-custom-chain',
+    } })).toThrow();
     expect(service.status().configurationRevision).toBe(initial.configurationRevision);
 
     const selected = service.selectProfile({ profile: 'fm' });
@@ -230,6 +235,7 @@ describe('Atomizer high-level measurement source contract', () => {
       qualification: 'analytic-complex-baseband',
       representation: 'normalized-complex-envelope',
       normalization: 'unit-peak',
+      receiverImpairment: 'clean',
       channelApplication: 'not-applied',
     });
     expect(Buffer.from(iq.samplesBase64, 'base64').byteLength).toBe(iq.byteLength);
@@ -249,6 +255,38 @@ describe('Atomizer high-level measurement source contract', () => {
       expect(keys).not.toContain('firmwareRevision');
       expect(keys).not.toContain('usbIdentityVerified');
     }
+  });
+
+  it('applies the selected seeded receiver impairment to I/Q and declares it exactly', () => {
+    const cleanService = deterministicService();
+    const impairedService = deterministicService();
+    const channel = {
+      model: 'awgn' as const,
+      noiseFloorDbm: -108,
+      seed: 407,
+      fadingRateHz: 2,
+      receiverImpairment: 'composite' as const,
+    };
+    impairedService.configureChannel({ channel });
+    const request = {
+      centerHz: 98_000_000,
+      sampleRateHz: 2_000_000,
+      bandwidthHz: 500_000,
+      sampleCount: 2_048,
+      sampleFormat: 'cf32le' as const,
+    };
+    const clean = cleanService.acquireIq(request);
+    const impaired = impairedService.acquireIq(request);
+
+    expect(impaired).toMatchObject({
+      receiverImpairment: 'composite',
+      channelApplication: 'receiver-impairment-preset',
+    });
+    expect(impaired.samplesSha256).not.toBe(clean.samplesSha256);
+
+    const replay = deterministicService();
+    replay.configureChannel({ channel });
+    expect(replay.acquireIq(request).samplesSha256).toBe(impaired.samplesSha256);
   });
 
   it('advances successive I/Q captures in time and keeps the maximum response below the NDJSON line ceiling', () => {

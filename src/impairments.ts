@@ -15,6 +15,7 @@
  */
 
 import { decodeCf32leChannels } from '@atomos/dsp';
+import type { ReceiverImpairmentPreset } from './contracts.js';
 import {
   ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE,
   synthesizeAnalyticComplexIq,
@@ -49,6 +50,46 @@ export interface ReceiverImpairments {
 }
 
 export const DEFAULT_IMPAIRMENT_SEED = 0x51_9a_1b_07;
+
+/**
+ * Resolve the Studio's compact, reproducible receiver scenarios into the
+ * composable numeric chain. Values are intentionally material rather than
+ * pathological: each effect is visible to analysis while the composite case
+ * remains a plausible stressed receiver instead of destroying the waveform.
+ */
+export function receiverImpairmentsForPreset(
+  preset: ReceiverImpairmentPreset,
+  sampleRateHz: number,
+): ReceiverImpairments {
+  const carrierFrequencyOffset = 2_500 / sampleRateHz;
+  switch (preset) {
+    case 'clean': return {};
+    case 'awgn': return { snrDb: 18 };
+    case 'multipath': return { multipath: [
+      { delay: 3, gainInPhase: 0.42, gainQuadrature: 0.16 },
+      { delay: 11, gainInPhase: -0.2, gainQuadrature: 0.11 },
+    ] };
+    case 'carrier-offset': return { carrierFrequencyOffset };
+    case 'phase-noise': return { phaseNoiseStd: 0.004 };
+    case 'iq-imbalance': return { iqGainImbalance: 0.08, iqPhaseImbalance: 6 * Math.PI / 180 };
+    case 'dc-offset': return { dcInPhase: 0.08, dcQuadrature: -0.05 };
+    case 'pa-compression': return { paSaturation: 0.55 };
+    case 'composite': return {
+      snrDb: 22,
+      carrierFrequencyOffset: carrierFrequencyOffset * 0.4,
+      phaseNoiseStd: 0.0015,
+      iqGainImbalance: 0.035,
+      iqPhaseImbalance: 2.5 * Math.PI / 180,
+      dcInPhase: 0.025,
+      dcQuadrature: -0.018,
+      multipath: [
+        { delay: 3, gainInPhase: 0.24, gainQuadrature: 0.08 },
+        { delay: 9, gainInPhase: -0.1, gainQuadrature: 0.06 },
+      ],
+      paSaturation: 0.72,
+    };
+  }
+}
 
 /** Deterministic PRNG (mulberry32) — no global RNG, fully reproducible. */
 function mulberry32(seed: number): () => number {

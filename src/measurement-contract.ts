@@ -14,6 +14,7 @@ import {
   MAX_MEASUREMENT_FREQUENCY_HZ,
   MEASUREMENT_FREQUENCY_STEP_HZ,
   MIN_MEASUREMENT_FREQUENCY_HZ,
+  receiverImpairmentPresetSchema,
   replayChannelConfigurationSchema,
   synthesizedSignalProfileSchema,
   waveformDescriptorSchema,
@@ -297,8 +298,16 @@ export const complexIqMeasurementSchema = measurementCorrelationBaseSchema.exten
   qualification: z.enum(['analytic-complex-baseband', 'standards-derived-complex-baseband']),
   representation: z.literal('normalized-complex-envelope'),
   normalization: z.literal('unit-peak'),
-  channelApplication: z.literal('not-applied'),
+  receiverImpairment: receiverImpairmentPresetSchema,
+  channelApplication: z.enum(['not-applied', 'receiver-impairment-preset']),
 }).strict().superRefine((measurement, context) => {
+  if ((measurement.receiverImpairment === 'clean') !== (measurement.channelApplication === 'not-applied')) {
+    context.addIssue({
+      code: 'custom',
+      path: ['channelApplication'],
+      message: 'Clean I/Q must declare not-applied; every non-clean receiver preset must declare receiver-impairment-preset',
+    });
+  }
   if (measurement.bandwidthHz > measurement.sampleRateHz) {
     context.addIssue({ code: 'custom', path: ['bandwidthHz'], message: 'Complex-I/Q bandwidth may not exceed its sample rate' });
   }
@@ -566,7 +575,7 @@ export const measurementBridgeContractDocumentSchema = z.object({
     complexIqCentering: z.literal('requested-center-hz-is-the-complex-envelope-reference-and-profile-components-may-have-baseband-offsets'),
     complexIqBandwidth: z.literal('independent-safe-integer-hz-no-greater-than-sample-rate-two-sided-minus-3db-span-of-bounded-first-order-real-coefficient-low-pass-initialized-from-first-sample'),
     complexIqUndersampling: z.literal('wideband-standards-engineering-profiles-may-be-deterministically-aliased-below-their-catalogued-occupied-support'),
-    complexIqChannel: z.literal('replay-channel-configuration-is-not-applied-to-clean-analytic-iq-v1'),
+    complexIqChannel: z.literal('selected-seeded-receiver-impairment-preset-is-applied-to-complex-iq-and-declared-on-every-result'),
     complexIqAvailability: z.literal('all-closed-catalog-profiles-with-standards-labelled-results-explicitly-non-conformance'),
     scalarMeasurementQualification: z.literal('synthetic-visual-projection-not-a-conformance-vector'),
     complexIqMeasurementQualification: z.literal('profile-dependent-analytic-laboratory-or-standards-derived-engineering-not-a-conformance-vector'),

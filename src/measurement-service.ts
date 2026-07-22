@@ -11,6 +11,7 @@ import {
   isAnalyticComplexIqProfile,
   synthesizeAnalyticComplexIq,
 } from './complex-iq.js';
+import { receiverImpairmentsForPreset, synthesizeImpairedComplexIq } from './impairments.js';
 import { setCustomWaveformSelections } from './custom-waveform.js';
 import {
   ATOMIZER_MEASUREMENT_CONTRACT_ID,
@@ -239,7 +240,7 @@ export class AtomizerMeasurementService {
     }
     const started = this.#monotonicMilliseconds();
     const sequence = this.#nextSequence();
-    const samples = synthesizeAnalyticComplexIq({
+    const synthesisInput = {
       profile: this.#profile,
       sampleRateHz: request.sampleRateHz,
       bandwidthHz: request.bandwidthHz,
@@ -249,7 +250,15 @@ export class AtomizerMeasurementService {
       // prior sequence would have ended, so a Run renders a moving signal
       // instead of one bit-frozen buffer per configuration.
       startSampleIndex: (sequence - 1) * request.sampleCount,
-    });
+    } as const;
+    const receiverImpairment = this.#channel.receiverImpairment ?? 'clean';
+    const samples = receiverImpairment === 'clean'
+      ? synthesizeAnalyticComplexIq(synthesisInput)
+      : synthesizeImpairedComplexIq(
+          synthesisInput,
+          receiverImpairmentsForPreset(receiverImpairment, request.sampleRateHz),
+          (this.#channel.seed ^ Math.imul(sequence, 0x9e37_79b1)) >>> 0,
+        );
     const samplesBytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
     return complexIqMeasurementSchema.parse({
       ...this.#measurementBase(sequence, started),
@@ -271,7 +280,8 @@ export class AtomizerMeasurementService {
         : 'standards-derived-complex-baseband',
       representation: 'normalized-complex-envelope',
       normalization: 'unit-peak',
-      channelApplication: 'not-applied',
+      receiverImpairment,
+      channelApplication: receiverImpairment === 'clean' ? 'not-applied' : 'receiver-impairment-preset',
     });
   }
 

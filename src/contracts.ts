@@ -25,11 +25,25 @@ export const SYNTHESIZED_SIGNAL_PROFILES = [
 
 export const synthesizedSignalProfileSchema = z.enum(SYNTHESIZED_SIGNAL_PROFILES);
 export type SynthesizedSignalProfile = z.infer<typeof synthesizedSignalProfileSchema>;
+export const receiverImpairmentPresetSchema = z.enum([
+  'clean',
+  'awgn',
+  'multipath',
+  'carrier-offset',
+  'phase-noise',
+  'iq-imbalance',
+  'dc-offset',
+  'pa-compression',
+  'composite',
+]);
+export type ReceiverImpairmentPreset = z.infer<typeof receiverImpairmentPresetSchema>;
 export const replayChannelConfigurationSchema = z.object({
   model: z.enum(['awgn', 'rayleigh']),
   noiseFloorDbm: z.number().finite().min(-150).max(-30),
   seed: z.number().int().min(1).max(0xffff_ffff),
   fadingRateHz: z.number().finite().min(0.1).max(100),
+  /** Complex-I/Q receiver preset; omitted is accepted as legacy clean state. */
+  receiverImpairment: receiverImpairmentPresetSchema.optional(),
 }).strict();
 export type ReplayChannelConfiguration = z.infer<typeof replayChannelConfigurationSchema>;
 export const waveformProjectionSchema = z.object({

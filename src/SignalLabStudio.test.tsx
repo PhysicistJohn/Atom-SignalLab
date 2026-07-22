@@ -4,6 +4,7 @@ import { waveformCatalog } from './catalog.js';
 import { SIGNAL_LAB_CONTRACT_VERSION, SYNTHESIZED_SIGNAL_PROFILES, type SignalLabStatus } from './contracts.js';
 import { SignalLabStudio, catalogGroup } from './SignalLabStudio.js';
 import { DEFAULT_REPLAY_CHANNEL } from './waveforms.js';
+import { WAVEFORM_RECIPE_NAMES } from './recipe-names.js';
 
 describe('SignalLabStudio host boundary', () => {
   it('renders every waveform family and honest metadata from authoritative props', () => {
@@ -36,10 +37,25 @@ describe('SignalLabStudio host boundary', () => {
     expect(markup).toContain('Source</small><strong>SELECTED');
     expect(markup).toContain('Session</small><strong><i></i>READY');
     expect(markup).toContain('LTE E-TM1.1');
+    expect(markup).toContain('4G LTE test model E-TM1.1 (QPSK)');
     expect(markup).toContain('STANDARDS DERIVED');
     expect(markup).toContain('TS 36.141');
     expect(markup).toContain('SEQUENCE 42');
+    expect(markup).toContain('aria-label="Receiver I/Q impairment"');
+    for (const receiverModel of [
+      'Clean I/Q', 'AWGN · 18 dB SNR', 'Multipath · 2 taps', 'Carrier offset · 2.5 kHz',
+      'Wiener phase noise', 'I/Q gain + phase imbalance', 'I/Q DC offset',
+      'PA soft compression', 'Composite receiver stress',
+    ]) expect(markup).toContain(receiverModel);
     expect(markup).not.toContain('CONFORMANCE VALIDATED');
+  });
+
+  it('gives every closed recipe a colloquial operator-facing name', () => {
+    expect(Object.keys(WAVEFORM_RECIPE_NAMES)).toHaveLength(SYNTHESIZED_SIGNAL_PROFILES.length);
+    for (const profile of SYNTHESIZED_SIGNAL_PROFILES) {
+      expect(WAVEFORM_RECIPE_NAMES[profile]).toBeTruthy();
+    }
+    expect(WAVEFORM_RECIPE_NAMES['wifi6-he-su']).toBe('Wi-Fi 6 (802.11ax) — single user');
   });
 
   it('maps analog waveforms into the Lab family without changing catalog identities', () => {

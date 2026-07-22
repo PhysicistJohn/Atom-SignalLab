@@ -1,0 +1,51 @@
+import type { SynthesizedSignalProfile } from './contracts.js';
+
+/** Operator-facing recipe names. Precise engineering labels remain on details. */
+export const WAVEFORM_RECIPE_NAMES = {
+  cw: 'Continuous wave (CW)',
+  am: 'AM radio (double-sideband)',
+  fm: 'FM radio (wideband broadcast)',
+  'gsm-900-loaded-bcch': '2G GSM 900 base-station carrier',
+  'gsm-normal-burst': '2G GSM normal burst (GMSK)',
+  'gsm-qpsk-higher-symbol-rate-burst': 'GSM/EDGE high-rate burst (QPSK)',
+  'gsm-aqpsk-normal-burst': 'GSM/EDGE normal burst (AQPSK)',
+  'gsm-8psk-normal-burst': '2.75G EDGE normal burst (8-PSK)',
+  'gsm-16qam-higher-symbol-rate-burst': 'EDGE Evolution high-rate burst (16-QAM)',
+  'gsm-32qam-higher-symbol-rate-burst': 'EDGE Evolution high-rate burst (32-QAM)',
+  'lte-band3-fdd-20m': '4G LTE Band 3 (20 MHz FDD)',
+  'lte-band38-tdd-10m': '4G LTE Band 38 (10 MHz TDD)',
+  'lte-etm1.1': '4G LTE test model E-TM1.1 (QPSK)',
+  'lte-etm3.1': '4G LTE test model E-TM3.1 (64-QAM)',
+  'lte-etm3.1a': '4G LTE test model E-TM3.1a (256-QAM)',
+  'lte-etm3.1b': '4G LTE test model E-TM3.1b (1024-QAM)',
+  'lte-ntm': 'NB-IoT narrowband test carrier (N-TM)',
+  'lte-nbiot-guard-isolated-component': 'NB-IoT LTE guard-band component',
+  'lte-nbiot-inband-isolated-component': 'NB-IoT LTE in-band component',
+  'nr-n3-fdd-20m': '5G NR n3 (20 MHz FDD)',
+  'nr-n78-tdd-100m': '5G NR n78 (100 MHz TDD)',
+  'nr-fr1-tm1.1': '5G NR FR1 test model 1.1 (QPSK)',
+  'nr-fr1-tm3.1': '5G NR FR1 test model 3.1 (64-QAM)',
+  'nr-fr1-tm3.1a': '5G NR FR1 test model 3.1a (256-QAM)',
+  'nr-fr1-tm3.1b': '5G NR FR1 test model 3.1b (1024-QAM)',
+  'nr-nbiot-inband-isolated-component': 'NB-IoT component inside a 5G NR carrier',
+  'wifi-hr-dsss-11m': 'Wi-Fi 802.11b (11 Mb/s HR-DSSS)',
+  'wifi-ofdm-20m': 'Wi-Fi 802.11g (20 MHz OFDM)',
+  'wifi6-he-su': 'Wi-Fi 6 (802.11ax) — single user',
+  'wifi6-he-er-su': 'Wi-Fi 6 (802.11ax) — extended-range single user',
+  'wifi6-he-mu': 'Wi-Fi 6 (802.11ax) — multi-user downlink',
+  'wifi6-he-tb': 'Wi-Fi 6 (802.11ax) — triggered multi-user uplink',
+  'bluetooth-classic-connected': 'Bluetooth Classic connected link (BR/EDR)',
+  'bluetooth-le-advertising': 'Bluetooth Low Energy advertising (LE 1M)',
+  'ref-qpsk': 'Reference QPSK constellation',
+  'ref-8psk': 'Reference 8-PSK constellation',
+  'ref-16qam': 'Reference 16-QAM constellation',
+  'ref-64qam': 'Reference 64-QAM constellation',
+  'ref-256qam': 'Reference 256-QAM constellation',
+  'custom-lte': 'Custom 4G LTE recipe',
+  'custom-nr': 'Custom 5G NR recipe',
+  'custom-wifi': 'Custom Wi-Fi recipe',
+} as const satisfies Record<SynthesizedSignalProfile, string>;
+
+export function waveformRecipeName(profile: SynthesizedSignalProfile): string {
+  return WAVEFORM_RECIPE_NAMES[profile];
+}

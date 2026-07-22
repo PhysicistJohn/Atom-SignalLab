@@ -4,7 +4,7 @@
 
 AtomOS SignalLab is a standalone signal-generation lab: an Electron/Vite/TypeScript app that synthesizes deterministic CW, AM, FM, GERAN/EDGE, LTE, 5G NR, Wi-Fi, and Bluetooth reference signals, and doubles as the built-in simulated measurement source for [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer). It was built to exercise the Atomizer end to end before any hardware arrived, and it remains the Atomizer's factory-default signal source.
 
-SignalLab owns the closed 34-profile waveform catalog, seeded AWGN/Rayleigh replay-channel models, swept-spectrum and detected-power synthesis, and bounded complex-envelope (I/Q) generation for all 34 profiles. CW, AM, and FM use closed-form analytic laboratory envelopes; the other 31 profiles use explicitly standards-derived engineering envelopes. SignalLab never impersonates a USB instrument, executes firmware, or emits RF.
+SignalLab owns the closed waveform catalog, seeded AWGN/Rayleigh scalar replay-channel models, swept-spectrum and detected-power synthesis, and bounded complex-envelope (I/Q) generation. Its I/Q path also provides selectable seeded receiver scenarios for AWGN, multipath, carrier offset, phase noise, I/Q imbalance, DC offset, PA compression, and a composite stress case. SignalLab never impersonates a USB instrument, executes firmware, or emits RF.
 
 ## Run
 
@@ -24,7 +24,7 @@ npm run dev     # Vite + Electron development window
 
 The standalone Electron window admits privileged IPC only from its exact current main frame and selected file or development origin. Packaged execution ignores `VITE_DEV_SERVER_URL`, all Electron permission requests and child windows are denied, and packaged HTML contains no development network origin.
 
-The window uses a fixed 520 x 709 CSS-pixel content area. That is the measured minimum that keeps every one of the 34 collapsed profile views, including the largest provenance set with the three-row Rayleigh channel controls, free of a catalog scrollbar.
+The window uses a fixed 520 x 709 CSS-pixel content area. That is the measured minimum that keeps every one of the 42 collapsed profile views, including the largest provenance set with channel and receiver-I/Q controls, free of a catalog scrollbar.
 
 ## Atomizer integration
 
@@ -38,14 +38,15 @@ The separate SignalLab-to-Firmware integration surface is the versioned `SignalL
 
 ## Catalog
 
-The catalog contains exactly 34 profiles:
+The catalog contains exactly 42 profiles. Every selector uses an operator-facing colloquial recipe name while the detail card retains the precise engineering descriptor:
 
 - 3 canonized CW/AM/FM scalar-observable profiles.
 - 7 GERAN profiles: one canonized loaded GSM observable plus 6 standards-derived GERAN/EDGE burst projections.
-- 10 E-UTRA-family profiles: canonized Band 3 FDD and Band 38 TDD observables; 4 retained full-allocation Release 19 E-TM projections; 3 isolated N-TM component presentations; and the isolated E-UTRA/NB-IoT component imported by NR-N-TM.
-- 6 NR-family profiles: canonized n3 FDD and n78 TDD observables plus 4 retained full-allocation Release 19 FR1 test-model projections.
-- 6 IEEE 802.11 profiles: canonized HR-DSSS and 20 MHz OFDM observables plus 4 802.11ax HE PPDU projections.
+- 11 E-UTRA-family profiles: canonized Band 3 FDD and Band 38 TDD observables; 4 retained full-allocation Release 19 E-TM projections; 3 isolated N-TM component presentations; the isolated E-UTRA/NB-IoT component imported by NR-N-TM; and one custom LTE builder.
+- 7 NR-family profiles: canonized n3 FDD and n78 TDD observables, 4 retained full-allocation Release 19 FR1 test-model projections, and one custom 5G NR builder.
+- 7 IEEE 802.11 profiles: canonized HR-DSSS and 20 MHz OFDM observables, 4 802.11ax HE PPDU projections, and one custom Wi-Fi builder.
 - 2 canonized Bluetooth scalar-observable profiles for BR/EDR connected hopping and LE primary advertising.
+- 5 analytic single-carrier constellation references: QPSK, 8-PSK, 16-QAM, 64-QAM, and 256-QAM.
 
 Named test models whose power-balanced allocation, per-slot PRB sequence, subslot/slot timing, or SBFD spectral partition is not reproduced are excluded from the selectable catalog. The catalog descriptors and scalar replays remain spectrum/time projections. Standards-labelled complex envelopes are engineering projections, not packet-decodable or conformance vectors. A profile cannot be labeled `conformance-validated` without an admitted immutable SHA-256 asset.
 
@@ -53,13 +54,13 @@ Named test models whose power-balanced allocation, per-slot PRB sequence, subslo
 
 `acquireIq` is a deliberately bounded complex-envelope boundary, not a generic standards waveform or packet generator:
 
-- All 34 closed catalog profiles are admitted. `cw`, `am`, and `fm` use closed-form analytic laboratory synthesis and return `qualification=analytic-complex-baseband`. The 31 GERAN, LTE, NR, WLAN, and Bluetooth profiles return deterministic engineering envelopes qualified `standards-derived-complex-baseband`.
+- All 42 closed catalog profiles are admitted. `cw`, `am`, `fm`, and the five constellation references use analytic laboratory synthesis and return `qualification=analytic-complex-baseband`. The 34 GERAN, LTE, NR, WLAN, Bluetooth, and custom profiles return deterministic engineering envelopes qualified `standards-derived-complex-baseband`.
 - The only sample format is little-endian interleaved `cf32le`, encoded as canonical base64 with an exact SHA-256 digest and exactly eight bytes per complex sample.
 - `sampleCount` is 1 through 65,536; `sampleRateHz` is 1,000,000 through 245,760,000; `centerHz` is 1 through 17,922,600,000. All are safe integers.
 - `bandwidthHz` is an independent safe integer from 1,000 through 245,760,000 Hz and may not exceed `sampleRateHz`. It is the two-sided steady-state -3 dB span of a causal first-order low-pass with identical real coefficients on I and Q, so its response edges are at `+-bandwidthHz / 2` relative to center. The filter is initialized from the first analytic sample rather than zero; constant CW therefore remains bit-exact for every admitted bandwidth. There is no full-band bypass: at `bandwidthHz=sampleRateHz`, the -3 dB edges are the two Nyquist endpoints.
 - Successive acquisitions advance the generator's time coordinate, so repeated captures are successive moments of one evolving waveform, not one frozen buffer. CW is legitimately constant.
 - The requested center is the reference for the normalized, unit-peak envelope; no sampled absolute RF carrier is inserted, though frequency-agile profiles can contain component offsets around that reference.
-- Replay AWGN/Rayleigh state is not applied in v1. Results say `channelApplication=not-applied`, `normalization=unit-peak`, `timingQualification=simulation-exact`, and the profile-dependent qualification explicitly.
+- The scalar AWGN/Rayleigh setting remains specific to spectrum and detected-power replays. The separate receiver-I/Q preset is applied after clean synthesis with the configured deterministic seed. Every result declares the selected `receiverImpairment`; clean output says `channelApplication=not-applied`, while a non-clean preset says `channelApplication=receiver-impairment-preset`. Results remain unit-peak normalized with `timingQualification=simulation-exact` and explicit profile-dependent qualification.
 
 The AM vector is full-carrier DSB with a 25 kHz message and 0.72 modulation index. The FM vector uses a 25 kHz message and ±75 kHz deviation. These closed forms are deterministic laboratory stimuli; they are not RF calibration, protocol, or standards-conformance evidence.
 
@@ -81,7 +82,7 @@ The Bayesian scalar-classification corpus intentionally emits only swept power a
 
 ## Auto-v4 target-selection validation corpus
 
-`src/auto-target-selection-corpus.ts` is a separate, validation-only corpus for Atomizer's current-source-sweep integrated-excess target policy. Its four content-addressed analytic cases prove a higher-peak narrow component losing to greater wideband integrated excess, the inverse winner, an exact power tie with stable tie keys, and a runtime-unavailable rank-0 winner blocking without a rank-1 fallback. Each case pins complete sweep geometry, linear-milliwatt component composition, source/disclosure, readiness, expected rank/outcome, and SHA-256 identities. These fixtures never enter the 34-profile operator catalog, the Bayesian classification corpus, likelihoods, training, calibration, or model artifacts.
+`src/auto-target-selection-corpus.ts` is a separate, validation-only corpus for Atomizer's current-source-sweep integrated-excess target policy. Its four content-addressed analytic cases prove a higher-peak narrow component losing to greater wideband integrated excess, the inverse winner, an exact power tie with stable tie keys, and a runtime-unavailable rank-0 winner blocking without a rank-1 fallback. Each case pins complete sweep geometry, linear-milliwatt component composition, source/disclosure, readiness, expected rank/outcome, and SHA-256 identities. These fixtures never enter the 42-profile operator catalog, the Bayesian classification corpus, likelihoods, training, calibration, or model artifacts.
 
 ## Part of the AtomOS suite
 

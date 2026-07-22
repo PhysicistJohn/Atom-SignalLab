@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, AudioLines, Bluetooth, Boxes, Grid3X3, RadioTower, SlidersHorizontal, Waves, Wifi } from 'lucide-react';
-import type { ReplayChannelConfiguration, SignalLabStatus, SynthesizedSignalProfile, WaveformDescriptor } from './contracts.js';
+import type { ReceiverImpairmentPreset, ReplayChannelConfiguration, SignalLabStatus, SynthesizedSignalProfile, WaveformDescriptor } from './contracts.js';
 import {
   buildCustomWaveformDescriptor,
   customWaveformStandard,
@@ -11,6 +11,7 @@ import {
   type CustomWaveformSelections,
   type CustomWaveformStandard,
 } from './custom-waveform.js';
+import { waveformRecipeName } from './recipe-names.js';
 import { EditableParameter, SelectParameter } from './ParameterRow.js';
 import styles from './SignalLabStudio.module.css';
 
@@ -62,6 +63,17 @@ const groups: readonly { id: SignalLabCatalogGroup; label: string }[] = [
 ];
 
 const labIcons = { cw: RadioTower, am: Activity, fm: Waves } as const;
+const receiverImpairmentOptions: readonly { value: ReceiverImpairmentPreset; label: string }[] = [
+  { value: 'clean', label: 'Clean I/Q' },
+  { value: 'awgn', label: 'AWGN · 18 dB SNR' },
+  { value: 'multipath', label: 'Multipath · 2 taps' },
+  { value: 'carrier-offset', label: 'Carrier offset · 2.5 kHz' },
+  { value: 'phase-noise', label: 'Wiener phase noise' },
+  { value: 'iq-imbalance', label: 'I/Q gain + phase imbalance' },
+  { value: 'dc-offset', label: 'I/Q DC offset' },
+  { value: 'pa-compression', label: 'PA soft compression' },
+  { value: 'composite', label: 'Composite receiver stress' },
+];
 
 export function SignalLabStudio({
   status,
@@ -104,6 +116,8 @@ export function SignalLabStudio({
     ? buildCustomWaveformDescriptor(customStandard, effectiveCustomSelections!)
     : baseDescriptor;
   const channel = status?.channel;
+  const receiverImpairment = channel?.receiverImpairment ?? 'clean';
+  const receiverOption = receiverImpairmentOptions.find((option) => option.value === receiverImpairment)!;
   const controlsDisabled = disabled || !status || pendingOperation !== undefined;
   const channelControlsDisabled = controlsDisabled || channelDisabled;
 
@@ -161,7 +175,7 @@ export function SignalLabStudio({
               value={descriptor.id}
               disabled={controlsDisabled}
               controlId={controlId('signal-lab.waveform-model')}
-              options={catalog.map((entry) => ({ value: entry.id, label: entry.label }))}
+              options={catalog.map((entry) => ({ value: entry.id, label: waveformRecipeName(entry.id) }))}
               onValue={(value) => onSelectProfile(value as SynthesizedSignalProfile)}
             /></div>}
         {customStandard && <CustomWaveformPanel
@@ -182,7 +196,7 @@ export function SignalLabStudio({
     </section>
 
     <section className={styles.channelSection} aria-label="Replay channel configuration">
-      <div className={styles.channelHeading}><span>Channel</span><small>{channel ? channel.model.toUpperCase() : 'UNAVAILABLE'}</small></div>
+      <div className={styles.channelHeading}><span>Channel</span><small>{channel ? `${channel.model.toUpperCase()} spectrum` : 'UNAVAILABLE'}</small></div>
       <div className={styles.channelButtons}>
         {(['awgn', 'rayleigh'] as const).map((model) => <button
           key={model}
@@ -193,6 +207,17 @@ export function SignalLabStudio({
         >{model === 'awgn' ? 'AWGN' : 'Rayleigh'}</button>)}
       </div>
       <div className={styles.channelParameters}>
+        <SelectParameter
+          label="Receiver I/Q impairment"
+          value={receiverImpairment}
+          options={receiverImpairmentOptions}
+          disabled={!channel || channelControlsDisabled}
+          controlId={controlId('signal-lab.channel.receiver-impairment')}
+          onValue={(value) => channel && onConfigureChannel({
+            ...channel,
+            receiverImpairment: value as ReceiverImpairmentPreset,
+          })}
+        />
         <EditableParameter
           label="Noise floor"
           value={channel?.noiseFloorDbm ?? -108}
@@ -228,7 +253,7 @@ export function SignalLabStudio({
           onCommit={(value) => onConfigureChannel({ ...channel, fadingRateHz: Number(value) })}
         />}
       </div>
-      <p>{channel?.model === 'rayleigh' ? 'Rayleigh fading + AWGN' : 'AWGN + receiver ripple'}</p>
+      <p>{channel?.model === 'rayleigh' ? 'Rayleigh fading + AWGN spectrum' : 'AWGN + receiver-ripple spectrum'} · {receiverOption.label} complex I/Q</p>
     </section>
 
     {error && <div className={styles.error} role="alert">{error}</div>}
@@ -295,7 +320,7 @@ function LabProfilePicker({ catalog, activeProfile, disabled, onSelect }: {
       disabled={disabled}
       onClick={() => onSelect(descriptor.id)}
       title={descriptor.disclosure}
-    ><span><Icon size={18}/></span><strong>{descriptor.label.replace(' replay', '')}</strong><small>{descriptor.model}</small><i>{active && <b/>}</i></button>;
+    ><span><Icon size={18}/></span><strong>{waveformRecipeName(descriptor.id)}</strong><small>{descriptor.model}</small><i>{active && <b/>}</i></button>;
   })}</div>;
 }
 

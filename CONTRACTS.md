@@ -18,8 +18,8 @@ The public source boundary is `src/contracts.ts`:
 
 - `SignalLabApi.version = 1`.
 - `status()` returns immutable current state.
-- `select(profile)` accepts one of exactly 34 profile IDs.
-- `configureChannel(config)` accepts the closed AWGN/Rayleigh schema.
+- `select(profile)` accepts one of exactly 42 profile IDs.
+- `configureChannel(config)` accepts the closed AWGN/Rayleigh scalar schema plus one optional receiver-I/Q preset (`clean`, `awgn`, `multipath`, `carrier-offset`, `phase-noise`, `iq-imbalance`, `dc-offset`, `pa-compression`, or `composite`). Omission is admitted only as legacy `clean` state.
 - `subscribe(listener)` delivers status changes and returns explicit unsubscription.
 - `SignalLabStimulusIntent` is reserved for a future Firmware-owned sink.
 
@@ -29,7 +29,10 @@ Every request is runtime validated. Invalid input rejects before state change; n
 
 `SignalLabStudio` is a controlled React view, not a second state owner. It
 renders the admitted catalog as `LAB`, `GSM`, `LTE`, `5G NR`, `WI-FI`, and
-`BLUETOOTH` tabs plus AWGN/Rayleigh replay-channel controls. Standalone
+`BLUETOOTH` tabs plus AWGN/Rayleigh scalar replay-channel controls and the
+closed receiver-I/Q impairment selector. Every dropdown option uses the
+complete operator-facing recipe-name map; precise standards/test-model wording
+remains in the descriptor card. Standalone
 SignalLab supplies state from its local API; Atomizer supplies state and actions
 from its admitted `signal-lab` driver. The component reads no preload or window
 global, and an embedding host may mark all source-truth controls human-only.
@@ -49,8 +52,8 @@ The in-process boundary is closed and bounded:
 - Point counts, frequencies, sample periods, sample counts, and payload sizes are hard bounded.
 - Detected-power capability declares `minimumFrequencyHz=1`, `maximumFrequencyHz=17922600000`, `frequencyStepHz=1`, and `frequencyUnit=Hz`. Every request supplies one safe-integer `centerFrequencyHz` in that range, synthesis is receiver-filtered at that exact tune, and the result returns the same integer exactly.
 - Swept-spectrum and detected-power measurements are complete, finite, unit-declared, qualified `synthetic-visual-projection`, and bound to an opaque session/configuration revision and monotonic sequence.
-- Complex-I/Q capability covers all 34 closed catalog profiles. `acquireIq` accepts safe-integer `centerHz` from 1 through 17,922,600,000, `sampleRateHz` from 1,000,000 through 245,760,000, independent `bandwidthHz` from 1,000 through 245,760,000 with `bandwidthHz <= sampleRateHz`, and `sampleCount` from 1 through 65,536. Capability declares `bandwidthMode=independent`. The bandwidth is the two-sided steady-state -3 dB span of the bounded causal real-coefficient low-pass applied identically to I and Q; initialization from the first sample preserves constant CW exactly. `sampleFormat=cf32le` is required.
-- A complex-I/Q result is one complete canonical-base64 buffer of little-endian interleaved float32 I/Q, exactly eight bytes per complex sample, with exact byte length and SHA-256. It is a normalized, unit-peak complex envelope with `simulation-exact` timing. CW, AM, and FM results are qualified `analytic-complex-baseband`; the other 31 results are qualified `standards-derived-complex-baseband`. The requested center is the envelope reference and frequency-agile profiles can contain component offsets around it. Wideband standards profiles requested below their catalogued occupied support produce a disclosed deterministic discrete-time alias projection, not an alias-free full-channel reconstruction. The v1 result explicitly declares `channelApplication=not-applied`.
+- Complex-I/Q capability covers all 42 closed catalog profiles. `acquireIq` accepts safe-integer `centerHz` from 1 through 17,922,600,000, `sampleRateHz` from 1,000,000 through 245,760,000, independent `bandwidthHz` from 1,000 through 245,760,000 with `bandwidthHz <= sampleRateHz`, and `sampleCount` from 1 through 65,536. Capability declares `bandwidthMode=independent`. The bandwidth is the two-sided steady-state -3 dB span of the bounded causal real-coefficient low-pass applied identically to I and Q; initialization from the first sample preserves constant CW exactly. `sampleFormat=cf32le` is required.
+- A complex-I/Q result is one complete canonical-base64 buffer of little-endian interleaved float32 I/Q, exactly eight bytes per complex sample, with exact byte length and SHA-256. It is a normalized, unit-peak complex envelope with `simulation-exact` timing. CW, AM, FM, and the five reference constellations are qualified `analytic-complex-baseband`; standards-labelled results are qualified `standards-derived-complex-baseband`. The requested center is the envelope reference and frequency-agile profiles can contain component offsets around it. Wideband standards profiles requested below their catalogued occupied support produce a disclosed deterministic discrete-time alias projection, not an alias-free full-channel reconstruction. The clean receiver preset declares `receiverImpairment=clean` and `channelApplication=not-applied`; every non-clean preset is applied to the returned bytes and declares `channelApplication=receiver-impairment-preset`.
 - Successive `acquireIq` calls advance the generator's time coordinate with the measurement sequence, so repeated captures are successive moments of one evolving waveform, not one frozen buffer. Constant CW remains legitimately constant.
 - Profile/channel changes replace the producer configuration revision. Atomizer invalidates its admitted acquisition configuration before any later acquisition.
 - Selected profile, waveform label, and catalog state appear only in status; measurements never copy them into detector, classifier, or exported-observation evidence.
@@ -66,11 +69,12 @@ Historical note (removed architecture): through contract v1's early lockstep pha
 | Tone | 1 | Visual |
 | Analog AM/FM | 2 | Visual |
 | GERAN canonized observable + GERAN/EDGE burst projections | 7 | Standards-derived |
-| E-UTRA-family canonized FDD/TDD + retained full-allocation E-TM + isolated N-TM component projections | 10 | Standards-derived |
-| NR-family canonized FDD/TDD + retained full-allocation FR1 test-model projections | 6 | Standards-derived |
-| IEEE 802.11 canonized HR-DSSS/OFDM + 802.11ax HE PPDU projections | 6 | Standards-derived |
+| E-UTRA-family canonized FDD/TDD + retained full-allocation E-TM + isolated N-TM component projections + custom builder | 11 | Standards-derived |
+| NR-family canonized FDD/TDD + retained full-allocation FR1 test-model projections + custom builder | 7 | Standards-derived |
+| IEEE 802.11 canonized HR-DSSS/OFDM + 802.11ax HE PPDU projections + custom builder | 7 | Standards-derived |
 | Bluetooth BR/EDR + LE canonized observable projections | 2 | Standards-derived |
-| Total | 34 | Closed |
+| Single-carrier QPSK/PSK/QAM constellation references | 5 | Visual |
+| Total | 42 | Closed |
 
 Every descriptor carries a stable ID, label, family/model, center, occupied bandwidth, recommended span, resource/timing projection, one normalized source basis with an ordered per-document specification/clause/revision/HTTPS reference list, qualification, and disclosure.
 
@@ -109,7 +113,7 @@ Guarantees:
 
 Consumer assumption `A_A`: Atomizer constructs the in-process service with an exact version-1 contract and generator build identity, binds its own source/session evidence, permits one request in flight, and treats validation or state failure as terminal without retry or fallback.
 
-Producer guarantee `G_M`: SignalLab returns bounded high-level swept-spectrum and detected-power results with exact source identity, opaque state correlation, declared units and `synthetic-visual-projection` qualification. It additionally exposes bounded deterministic complex-I/Q for all 34 closed profiles, with exact payload geometry, content digest, profile-dependent `analytic-complex-baseband` or `standards-derived-complex-baseband` qualification, and an explicit no-channel declaration. Standards-labelled envelopes are engineering projections, not packet-decodable or conformance vectors. It exposes no USB, firmware, serial, RF-generator, display, or touch identity or capability. Selected profile remains status-only.
+Producer guarantee `G_M`: SignalLab returns bounded high-level swept-spectrum and detected-power results with exact source identity, opaque state correlation, declared units and `synthetic-visual-projection` qualification. It additionally exposes bounded deterministic complex-I/Q for all 42 closed profiles, with exact payload geometry, content digest, profile-dependent `analytic-complex-baseband` or `standards-derived-complex-baseband` qualification, and an explicit declared receiver-I/Q preset. Standards-labelled envelopes are engineering projections, not packet-decodable or conformance vectors. It exposes no USB, firmware, serial, RF-generator, display, or touch identity or capability. Selected profile remains status-only.
 
 Trio composition v4 proves this edge active only while `G_M => A_A` and the three repositories' v4 manifests remain byte-identical.
 
@@ -142,7 +146,7 @@ No repository may reach into another repository's state directly or silently inf
 8. Failure never activates another profile, channel, driver, transport, or process.
 9. Complex-I/Q capability is source-declared and driver-neutral. SignalLab admits one bounded `cf32le` complex envelope for every closed profile, while preserving analytic-laboratory versus standards-derived-engineering qualification; no current result claims RF calibration, packet decoding, protocol identity, conformance, continuous streaming, or NeptuneSDR support.
 10. Standalone IPC is admitted only from the exact current main frame and renderer origin; packaged execution cannot select a development renderer, request an Electron permission, open a child window, or navigate to an untrusted URL.
-11. The standalone content viewport is fixed at 520 × 709 CSS px, the measured no-scroll floor across all 34 collapsed profiles with Rayleigh controls.
+11. The standalone content viewport is fixed at 520 × 709 CSS px, the measured no-scroll floor across all 42 collapsed profiles with channel and receiver-I/Q controls.
 
 ## Liveness and failure algebra
 
@@ -167,7 +171,7 @@ Every local API request settles exactly once as a validated new status or an exp
 
 `npm run check` must prove:
 
-- Exactly 34 descriptors with family counts `1/2/7/10/6/6/2`.
+- Exactly 42 descriptors with family counts `1/2/7/11/7/7/2/5`.
 - Every descriptor has a normalized non-empty source basis and valid range.
 - Every profile produces finite spectrum output.
 - Seeded AWGN is repeatable and evolves by sweep.
@@ -179,15 +183,15 @@ Every local API request settles exactly once as a validated new status or an exp
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
 - Detected-power requests require a bounded integer-Hz tune, capability advertises the exact 1 Hz grid, results echo the admitted tune, every canonized public profile changes under an out-of-band tune, and non-canonized zero span never silently ignores frequency.
-- Status capability advertises complex-I/Q for all 34 closed profiles; deterministic generation produces finite `cf32le` samples with exact base64, byte geometry, and SHA-256 through the public service. CW/AM/FM retain `analytic-complex-baseband`; every standards-labelled profile retains `standards-derived-complex-baseband`.
-- I/Q requests pin the center/rate/bandwidth/count bounds, advertise independent bandwidth, and enforce `bandwidthHz <= sampleRateHz`. Tests prove the exact steady-state -3 dB response, bandwidth-dependent spectra, bit-exact CW invariance, finite unit-peak maximum-size output, complete catalog generator coverage, and explicit non-conformance qualification for all standards-labelled envelopes. Replay channel state is never silently applied to the clean v1 buffer.
+- Status capability advertises complex-I/Q for all 42 closed profiles; deterministic generation produces finite `cf32le` samples with exact base64, byte geometry, and SHA-256 through the public service. CW/AM/FM and the five constellation references retain `analytic-complex-baseband`; every standards-labelled profile retains `standards-derived-complex-baseband`.
+- I/Q requests pin the center/rate/bandwidth/count bounds, advertise independent bandwidth, and enforce `bandwidthHz <= sampleRateHz`. Tests prove the exact steady-state -3 dB response, bandwidth-dependent spectra, bit-exact clean-CW invariance, finite unit-peak maximum-size output, complete catalog generator coverage, and explicit non-conformance qualification for all standards-labelled envelopes. Every receiver preset is deterministic, changes the clean bytes materially, and is declared exactly on the result; scalar AWGN/Rayleigh state is never silently substituted for that receiver-I/Q selection.
 - Invalid conformance promotion fails.
 - The in-process service and the public measurement contract interoperate through the exact build identity and every admitted method, typed and wire-shaped.
 - Malformed input, out-of-bounds requests, shutdown, and post-shutdown calls settle once without retry or fallback.
 - Generator outputs are bit-frozen by golden SHA-256 hashes; successive acquisitions advance the time coordinate while coordinate-zero goldens stay byte-identical.
 - Exact renderer/WebContents/frame trust, strict IPC arity, permission denial, navigation denial, and production CSP are adversarially tested.
 - Electron main/preload and renderer build from this repository alone.
-- The validation-only Auto-v4 corpus pins four SHA-256-addressed competing-emission sweeps: both narrow/wide integrated-power orders, an exact deterministic tie, and a runtime-unavailable rank-0 winner with no lower-rank substitution. It remains outside the 34-profile catalog and all classifier likelihood, training, calibration, and model artifacts.
+- The validation-only Auto-v4 corpus pins four SHA-256-addressed competing-emission sweeps: both narrow/wide integrated-power orders, an exact deterministic tie, and a runtime-unavailable rank-0 winner with no lower-rank substitution. It remains outside the 42-profile catalog and all classifier likelihood, training, calibration, and model artifacts.
 
 Cross-repository release additionally requires the byte-identical trio-v4 manifest check and real producer/consumer interoperation from `../Atom-Atomizer`. Activating the stimulus edge requires a new coordinated trio version and tests in both SignalLab and Firmware.
 
