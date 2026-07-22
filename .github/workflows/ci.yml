@@ -2,8 +2,12 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     strategy:
@@ -15,10 +19,11 @@ jobs:
       run:
         working-directory: Atom-SignalLab
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           path: Atom-SignalLab
-      - uses: actions/checkout@v4
+          persist-credentials: false
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: PhysicistJohn/Atom-Classifier
           # reference-iq.test.ts verifies the reference waveforms against the
@@ -27,12 +32,17 @@ jobs:
           # moving default branch. Public repo, so the default token suffices.
           ref: 4e281ff9ce7d4444bb941f81de793c48ad6634ec
           path: Atom-Classifier
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22.23.1
+          node-version-file: Atom-SignalLab/.node-version
           cache: npm
           cache-dependency-path: Atom-SignalLab/package-lock.json
       - run: npm install --global npm@10.9.8
-      - run: node --version && npm --version
+      - name: Verify toolchain
+        shell: bash
+        run: |
+          test "$(node --version)" = "v$(cat .node-version)"
+          test "$(npm --version)" = "10.9.8"
       - run: npm ci && npm run check
-      - run: npm audit --audit-level=high
+      - run: npm run audit

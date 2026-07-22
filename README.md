@@ -11,7 +11,7 @@ SignalLab owns the closed 34-profile waveform catalog, seeded AWGN/Rayleigh repl
 Requirements: Node.js 22.23.1 and npm 10.9.8 (the versions pinned by CI).
 
 ```bash
-npm install
+npm ci
 npm run check   # typecheck + build + all tests
 npm run dev     # Vite + Electron development window
 ```
@@ -73,7 +73,7 @@ The hard-negative set includes independent regular and irregular CW groups, stat
 
 The v13 corpus also contains byte-for-byte scalar-equivalence null pairs: a receiver spur versus CW, coherent independent tones versus DSB-FC AM, an independent Bessel-weighted comb versus FM, generic OFDM versus LTE/NR or Wi-Fi-shaped projections, and proprietary DSSS versus HR-DSSS. A classifier is correct, not mistaken, when it returns the declared equivalence class for either member of one of these pairs.
 
-The classification corpus intentionally emits only swept power and detected-power zero span. The separate live `acquireIq` method does not expose I/Q or selected-profile state to the classifier. Its physics/standards-derived projections verify inference code and observable equivalence behavior; real-world probability calibration still requires session-grouped physical captures.
+The Bayesian scalar-classification corpus intentionally emits only swept power and detected-power zero span. The separate live `acquireIq` method does not enter that Bayesian pipeline and never exposes selected-profile state as evidence; its returned I/Q can be classified independently by Atomizer's deployed embedding classifier. The physics/standards-derived projections verify inference code and observable equivalence behavior, while real-world probability calibration still requires session-grouped physical captures.
 
 ## Auto-v4 target-selection validation corpus
 
@@ -83,12 +83,12 @@ The classification corpus intentionally emits only swept power and detected-powe
 
 SignalLab is one of eight AtomOS repositories:
 
-- [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native spectrum analyzer app (desktop and browser).
-- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): Bayesian RF waveform classification.
-- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reverse-engineered, LLVM cross-built TinySA firmware.
+- [Atom-Atomizer](https://github.com/PhysicistJohn/Atom-Atomizer): AI-native spectrum analyzer application.
+- [Atom-Classifier](https://github.com/PhysicistJohn/Atom-Classifier): deployed local embedding classifier plus retained Bayesian RF research pipeline.
+- [Atom-Firmware](https://github.com/PhysicistJohn/Atom-Firmware): reproducibly built tinySA firmware research and modernization.
 - [Atom-Flasher](https://github.com/PhysicistJohn/Atom-Flasher): fail-closed firmware flasher.
-- [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin): Renode digital twin of an SDR.
-- [Atom-SignalLab](https://github.com/PhysicistJohn/Atom-SignalLab): this repository.
+- [Atom-NeptuneSDR-Twin](https://github.com/PhysicistJohn/Atom-NeptuneSDR-Twin): QEMU-backed firmware-executing digital twin of the NeptuneSDR/HAMGEEK P210.
+- [Atom-SignalLab](https://github.com/PhysicistJohn/Atom-SignalLab): 3GPP and reference signal generation.
 - [Atom-TinySA-Twin](https://github.com/PhysicistJohn/Atom-TinySA-Twin): Renode digital twin booting real ZS407 firmware.
 - [Atom-Website](https://github.com/PhysicistJohn/Atom-Website): product site.
 
