@@ -8,9 +8,26 @@ SignalLab owns the closed waveform catalog, seeded AWGN/Rayleigh scalar replay-c
 
 ## Run
 
-Requirements: Node.js 22.23.1 and npm 10.9.8 (the versions pinned by CI),
-with [Atom-DSP](https://github.com/PhysicistJohn/Atom-DSP) checked out at
-`../Atom-DSP` and built.
+Requirements: Node.js 22.23.1 and npm 10.9.8 (the versions pinned by CI), plus
+two sibling checkouts next to this repository:
+
+- `../Atom-DSP` at tag `v0.1.0`, installed and built. Supplies the numerical
+  kernels the app builds against.
+- `../Atom-Classifier` at commit `4e281ff9ce7d4444bb941f81de793c48ad6634ec`.
+  `src/reference-iq.test.ts` imports `src/embedding/recover.js` from it, so
+  `npm run typecheck` and `npm test` both fail without it. No install or build
+  is needed for that checkout.
+
+Those are the exact refs `.github/workflows/ci.yml` checks out. From the parent
+directory of this repository:
+
+```bash
+git clone --branch v0.1.0 https://github.com/PhysicistJohn/Atom-DSP.git Atom-DSP
+git clone https://github.com/PhysicistJohn/Atom-Classifier.git Atom-Classifier
+git -C Atom-Classifier checkout 4e281ff9ce7d4444bb941f81de793c48ad6634ec
+```
+
+Then, back in this repository:
 
 ```bash
 npm --prefix ../Atom-DSP ci

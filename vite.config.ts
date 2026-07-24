@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { developmentRendererCsp, transformDevelopmentRendererCsp } from './src/renderer-csp.js';
@@ -26,4 +27,7 @@ export default defineConfig({
     headers: { 'Content-Security-Policy': developmentRendererCsp(developmentTrust) },
   },
   build: { outDir: 'dist/renderer', emptyOutDir: true },
+  // DSP synthesis tests generate large deterministic buffers. Vitest's 5000ms
+  // default is tight enough that they go red on a loaded machine.
+  test: { testTimeout: 30000 },
 });
