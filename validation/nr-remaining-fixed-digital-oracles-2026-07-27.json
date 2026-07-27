@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "reportId": "signallab-nr-remaining-fixed-digital-oracles-2026-07-27",
+  "generatedAt": "2026-07-27T17:51:04Z",
+  "result": "pass",
+  "governingBody": {
+    "organization": "3GPP",
+    "technicalGroup": "TSG RAN",
+    "specifications": [
+      "3GPP TS 38.104 V19.4.0",
+      "3GPP TS 38.141-1 V19.4.0",
+      "3GPP TS 38.211 V19.4.0",
+      "3GPP TS 38.213 V19.3.0",
+      "3GPP TS 38.331 V19.1.0",
+      "3GPP TS 36.141 V19.1.0",
+      "3GPP TS 36.211 V19.3.0"
+    ]
+  },
+  "claimScope": {
+    "kind": "content-bound-independent-digital-baseband",
+    "statement": "The nr-n3-fdd-20m artifact is content-identical to the previously retained exhaustive py3gpp NR-FR1-TM1.1 oracle and adds only a valid n3 channel-raster metadata binding. Every resource element, kind, cyclic-prefix length, and time-domain sample across both 10 ms radio frames of the nr-n78-tdd-100m artifact was compared with a separately implemented pinned py3gpp/NumPy oracle. The nr-nbiot-inband-isolated-component artifact is content-identical to the exhaustive srsRAN_4G oracle for the TS 36.141 N-TM component imported by TS 38.141-1; the complete NR-N-TM host, placement, and power allocation remain explicitly excluded.",
+    "standardsComplianceClaimed": false,
+    "rfConformanceClaimed": false,
+    "productCertificationClaimed": false
+  },
+  "standardEvidence": {
+    "ts3814101Pdf": {
+      "path": "/Users/johnelliott/Library/Caches/signallab-all-standards-oracles/3gpp-nr/ts_13814101v190400p.pdf",
+      "sha256": "09552402f6f7208a93d930956438d3c04581ef54898a37028469f5285b8c0c52",
+      "relevantClauses": [
+        "4.9.2.2",
+        "Table 4.9.2.2-1",
+        "Tables 4.9.2.2-2 through 4.9.2.2-4",
+        "4.9.2.2.1",
+        "4.9.2.3.1",
+        "4.9.2.3.2"
+      ]
+    }
+  },
+  "subject": {
+    "n3ReferenceSource": {
+      "path": "src/nr-n3-fdd-20m-reference.ts",
+      "sha256": "7e3e0d3f52e11a4ef5f8124a0918e15492c7cfda30d1f39a7dd549be0748d31a"
+    },
+    "n78ReferenceSource": {
+      "path": "src/nr-n78-tdd-100m-reference.ts",
+      "sha256": "abf7c941e6fcbbcc4995f6704c28bc34d80ada9ab3ea14e810eb4c4a51326c2a"
+    },
+    "nbiotComponentReferenceSource": {
+      "path": "src/nr-nbiot-inband-component-reference.ts",
+      "sha256": "a8c2526fe8b521d4e44be25e0db89bf5925bd6bc718893273207d556fdab43b6"
+    },
+    "inheritedNtmReferenceSource": {
+      "path": "src/lte-ntm-reference.ts",
+      "sha256": "a3ce6d8371ae9e1d8da222278b0b45a4afaf8a5865143767b8e63b6dcf4c9bdd"
+    },
+    "catalogAdapterSource": {
+      "path": "src/nr-remaining-fixed-catalog-iq.ts",
+      "sha256": "c4d889932ba2ec0aaebd1794e0c34f054fe9111911825ffe482f215d01932851"
+    },
+    "dependencyLock": {
+      "path": "package-lock.json",
+      "sha256": "5dd71450021febce4acbb9a835a3cadea659e5b4ee088217b9b697bf3f0a5fa6"
+    }
+  },
+  "independentOracle": {
+    "n3InheritedReport": {
+      "path": "validation/nr-fr1-test-model-independent-oracles-2026-07-27.json",
+      "sha256": "1fd89861ba3757eaba62328703a9d725b4cc82300db0ff842c90635277507e54"
+    },
+    "nbiotInheritedReport": {
+      "path": "validation/lte-fixed-independent-oracles-2026-07-27.json",
+      "sha256": "f25ebfb28e6f967907516731cee10d7642ff46f774482bb3399f9d7d023cd5b9"
+    },
+    "srsran4g": {
+      "repository": "https://github.com/srsran/srsRAN_4G.git",
+      "commit": "6bcbd9e5bf8686aa7085202cd847c5ddd64a9c16",
+      "testSource": {
+        "path": "src/lte-ntm-independent-oracle.test.ts",
+        "sha256": "d387392ab1890ea6114e85b7e404f5dcf4b82ac293dd10750696573cb1ecc9dd"
+      },
+      "harnessSourceSha256": "c4fb2e35682ca34966d6c3384d1a62ed2885f386d3cbbc424e51e6f91aa4a46e",
+      "harnessBinarySha256": "128250f8141a296623138981e7bad5b74adb418a71bdd31e86d7e4bec4018821",
+      "inbandGridCf32leSha256": "f0359f8e77a702b9a7f6e91e683881d1bbfcf4b9f7f76b8006a5109b3342f63c",
+      "inbandTimeCf32leSha256": "c8bcd88d2e5575c4c3ec132e82c5ee3485b80ea7bfff9c781b31bee8c1209901"
+    },
+    "n78TestSource": {
+      "path": "src/nr-n78-tdd-100m-independent-oracle.test.ts",
+      "sha256": "02346bcce145ffa8a52d9d0b3e55d1bf2386ed0073dadeb2bad55e65a4c21042"
+    },
+    "n78PythonScript": {
+      "path": "/Users/johnelliott/Library/Caches/signallab-all-standards-oracles/nr-n78-tdd-100m/nr_n78_tdd_100m_oracle.py",
+      "sha256": "dc7037e430308da09c6de71f59a4cb297b0eda5ba697b78f01ae1ed9ea0017f6"
+    },
+    "py3gpp": {
+      "version": "0.6.0",
+      "pythonSourceTreeSha256": "ea8a8db80ab4235767b1a75b535ad50583edb9c80724d79d8f769e9d2219f9a6"
+    },
+    "numpy": {
+      "version": "2.0.2"
+    }
+  },
+  "profiles": [
+    {
+      "profileId": "nr-n3-fdd-20m",
+      "model": "NR-FR1-TM1.1",
+      "verificationKind": "content-identical-compositional-oracle",
+      "fixedBinding": {
+        "operatingBand": "n3",
+        "duplex": "FDD",
+        "downlinkCenterHz": 1840000000,
+        "downlinkNrArfcn": 368000,
+        "channelBandwidthHz": 20000000,
+        "subcarrierSpacingHz": 15000,
+        "resourceBlockCount": 106,
+        "physicalCellId": 1,
+        "cyclicPrefix": "normal",
+        "frameDurationMs": 10,
+        "sampleRateHz": 30720000,
+        "frameComplexSampleCount": 307200
+      },
+      "resourceElementsCompared": 178080,
+      "timeSamplesCompared": 307200,
+      "maximumGridComponentError": 0,
+      "maximumTimeComponentError": 8.3961e-16,
+      "acceptanceTolerance": 2e-15,
+      "subjectGridCf64leSha256": "4b4e57c8607d01a7f806c9af2c77b772a27e184b3ddfe6a5f53ba908d4cb729a",
+      "subjectTimeCf64leSha256": "ddb5109ba014d7f46063db1ea0ba2bb876f1e3dd340e497a6199a187f6eeedbd",
+      "subjectCatalogCf32leSha256": "7f414f94209d56138a6d43d66230f2d851794c740fd668d330673c87251514f1",
+      "oracleGridCf64leSha256": "4b4e57c8607d01a7f806c9af2c77b772a27e184b3ddfe6a5f53ba908d4cb729a",
+      "oracleTimeCf64leSha256": "c3716c70c6f0ceb8c0d6ee479b95b3581f9ac988abb39815be569583810d763e"
+    },
+    {
+      "profileId": "nr-n78-tdd-100m",
+      "model": "NR-FR1-TM1.1",
+      "verificationKind": "independent-exhaustive-oracle",
+      "fixedBinding": {
+        "operatingBand": "n78",
+        "duplex": "TDD",
+        "downlinkCenterHz": 3500010000,
+        "downlinkNrArfcn": 633334,
+        "channelBandwidthHz": 100000000,
+        "subcarrierSpacingHz": 30000,
+        "resourceBlockCount": 273,
+        "physicalCellId": 1,
+        "cyclicPrefix": "normal",
+        "radioFrameDurationMs": 10,
+        "radioFramesPerArtifact": 2,
+        "artifactDurationMs": 20,
+        "sampleRateHz": 122880000,
+        "artifactComplexSampleCount": 2457600,
+        "tddPattern": {
+          "periodicityMs": 5,
+          "nrofDownlinkSlots": 7,
+          "nrofDownlinkSymbols": 6,
+          "nrofUplinkSlots": 2,
+          "nrofUplinkSymbols": 4,
+          "repetitionsPerRadioFrame": 2,
+          "repetitionsPerArtifact": 4
+        }
+      },
+      "resourceElementsCompared": 1834560,
+      "resourceElementKindsCompared": 1834560,
+      "cyclicPrefixLengthsCompared": 560,
+      "timeSamplesCompared": 2457600,
+      "maximumGridComponentError": 0,
+      "maximumTimeComponentError": 2.0920765120280294e-15,
+      "acceptanceTolerance": 2.5e-15,
+      "subjectGridCf64leSha256": "d23c6b425b73d7b4791c775da400ae55a72d552dd1ab31b4c8b09ee453d86bf7",
+      "subjectKindsU8Sha256": "16dfc38e275993cc5b80289840e5a4b159dc6c1be071978a2e81924568fb5b8b",
+      "subjectTimeCf64leSha256": "9ae9d7dab86355efec45deaf52bf4e5e3d0576ef396a89599e4f763405f534f2",
+      "subjectCatalogCf32leSha256": "9bf4024dc1f6f0ad2b335d56917e5ac1129f5a3011ccffc0c6049ee7dce78260",
+      "oracleGridCf64leSha256": "d23c6b425b73d7b4791c775da400ae55a72d552dd1ab31b4c8b09ee453d86bf7",
+      "oracleKindsU8Sha256": "16dfc38e275993cc5b80289840e5a4b159dc6c1be071978a2e81924568fb5b8b",
+      "oracleTimeCf64leSha256": "b0e228f4451227153e0a317e5d10bc0bbfef20cd70a6d9aed82e7fd9ff72c474",
+      "oracleCyclicPrefixLengthsI32leSha256": "13afa868027f56184523f84784c60d72961b6420153b062ba4d5e4951cccb54a"
+    },
+    {
+      "profileId": "nr-nbiot-inband-isolated-component",
+      "model": "TS-36.141-N-TM-inband-isolated-component",
+      "verificationKind": "content-identical-compositional-oracle",
+      "fixedBinding": {
+        "parentModel": "TS 38.141-1 NR-N-TM component only",
+        "deploymentMode": "inband-different-pci-isolated-component",
+        "physicalCellId": 103,
+        "hostPhysicalCellId": 1,
+        "nominalGridBandwidthHz": 180000,
+        "subcarrierSpacingHz": 15000,
+        "activeSubcarrierCount": 12,
+        "cyclicPrefix": "normal",
+        "frameDurationMs": 10,
+        "sampleRateHz": 1920000,
+        "frameComplexSampleCount": 19200,
+        "zeroIfComponent": true,
+        "nrHostIncluded": false,
+        "eligiblePuncturedRbPlacementIncluded": false,
+        "hostComponentPowerAllocationIncluded": false
+      },
+      "resourceElementsCompared": 1680,
+      "timeSamplesCompared": 19200,
+      "maximumGridComponentError": 0.0017912023359442641,
+      "maximumTimeComponentError": 0.000044807632708128084,
+      "acceptanceBounds": {
+        "ordinaryGridComponent": 0.000001,
+        "npssGridComponent": 0.00002,
+        "nsssGridComponent": 0.0018,
+        "timeComponent": 0.000045
+      },
+      "subjectGridCf64leSha256": "a74bd00f7b68e319df6e8e0f04415e99ec6802aaf4ae8a5d36ca7af5c6e2d773",
+      "subjectTimeCf64leSha256": "87927c1676dcca1ca8bf2dbca0dd0d25d706ac4f92172f64823a1586943f2a9e",
+      "subjectCatalogCf32leSha256": "cf307a838902a1283757ff0f90b7d879e37c2e96331de86f8c8e07ccbff9ba0f",
+      "oracleGridCf32leSha256": "f0359f8e77a702b9a7f6e91e683881d1bbfcf4b9f7f76b8006a5109b3342f63c",
+      "oracleTimeCf32leSha256": "c8bcd88d2e5575c4c3ec132e82c5ee3485b80ea7bfff9c781b31bee8c1209901",
+      "excludedCompositeParts": [
+        "NR-FR1-TM1.1 host",
+        "eligible punctured NR RB placement closest to NR minimum guard band",
+        "manufacturer-declared host/component RE power allocation"
+      ]
+    }
+  ],
+  "excludedClaims": [
+    "No conducted or radiated RF conformance was tested.",
+    "No transmitter power, EVM, ACLR, occupied bandwidth, emissions, timing alignment, or measurement uncertainty verdict was produced.",
+    "No regulatory approval, 3GPP product certification, or interoperability certification is claimed.",
+    "The passing nr-nbiot-inband-isolated-component result is limited to the imported N-TM component and is not a complete TS 38.141-1 NR-N-TM composite claim.",
+    "The evidence applies only to the exact content hashes and fixed bindings recorded in this report."
+  ]
+}

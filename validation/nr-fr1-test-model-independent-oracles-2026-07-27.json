@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "reportId": "signallab-nr-fr1-fixed-test-model-digital-oracles-2026-07-27",
+  "generatedAt": "2026-07-27T16:55:48.000Z",
+  "result": "pass",
+  "claimScope": {
+    "kind": "content-bound-independent-digital-baseband",
+    "statement": "Every resource element and every OFDM sample in each of four fixed NR-FR1 test-model frames was compared with a separately implemented pinned py3gpp/NumPy oracle. The complete 1024QAM word space was additionally compared with a pinned OCUDU mapper.",
+    "standard": "3GPP TS 38.141-1 V19.4.0 (Release 19)",
+    "fixedBinding": {
+      "operatingBand": "n3",
+      "duplex": "FDD",
+      "downlinkCenterHz": 1842500000,
+      "downlinkNrArfcn": 368500,
+      "channelBandwidthHz": 20000000,
+      "subcarrierSpacingHz": 15000,
+      "resourceBlockCount": 106,
+      "physicalCellId": 1,
+      "cyclicPrefix": "normal",
+      "frameDurationMs": 10,
+      "sampleRateHz": 30720000,
+      "frameComplexSampleCount": 307200
+    }
+  },
+  "subject": {
+    "generatorSource": {
+      "path": "src/nr-fr1-test-model-reference.ts",
+      "sha256": "8bcd1eb79027388d640731b5fd9d4bb9b6f883a85478d7cce7cb38f1908f97c3"
+    },
+    "catalogAdapterSource": {
+      "path": "src/nr-fr1-test-model-catalog-iq.ts",
+      "sha256": "3535b8f44930135da7a8668393a242a3b857913663238444f978417ac00bb4f2"
+    },
+    "dependencyLock": {
+      "path": "package-lock.json",
+      "sha256": "5dd71450021febce4acbb9a835a3cadea659e5b4ee088217b9b697bf3f0a5fa6"
+    }
+  },
+  "independentOracle": {
+    "testSource": {
+      "path": "src/nr-fr1-test-model-independent-oracle.test.ts",
+      "sha256": "92fea0e90be081b29d805931f668b5ff5466fdd81f134f3bfee8e6d6a82529db"
+    },
+    "pythonScript": {
+      "path": "/Users/johnelliott/Library/Caches/signallab-all-standards-oracles/nr-fr1-tm/nr_fr1_tm_oracle.py",
+      "sha256": "101b80587f7d73c92f0d309cf9f10577ad1ebbdceaf0da3bdbf8b4ea76261823"
+    },
+    "py3gpp": {
+      "version": "0.6.0",
+      "pythonSourceTreeSha256": "ea8a8db80ab4235767b1a75b535ad50583edb9c80724d79d8f769e9d2219f9a6"
+    },
+    "numpy": {
+      "version": "2.0.2"
+    },
+    "ocudu": {
+      "commit": "f0c8467560ea894d16e50207b3db60fd5ff19c01",
+      "mapperSourceSha256": "6dbc3a8a59d1d18cca9e11aedeedb18bacd2cfa9d60694cf350449159dbebcbf",
+      "mapperHeaderSha256": "8933f8e1fb042a09759c8e903ee55e7e86f3a4aaa934cd903e9f60df6e5f5891",
+      "harnessSourceSha256": "76b52539b609ab8e4c1b0d95e7ef8eb46d3d9a8c6259d652458f6c8241560e8a",
+      "harnessBinarySha256": "eb4543383d7203a89e54ac82b736fafe040b2b320878a6f6ab7c055423c60067",
+      "qam1024VectorSha256": "3f0c6d15eabe4b9fde4d7bbd23e8a22ee2e4fe9c37ca6b03761021c233614049"
+    }
+  },
+  "profiles": [
+    {
+      "profileId": "nr-fr1-tm1.1",
+      "testModelClause": "4.9.2.2.1",
+      "modulation": "QPSK",
+      "resourceElementsCompared": 178080,
+      "timeSamplesCompared": 307200,
+      "maximumGridComponentError": 0,
+      "maximumTimeComponentError": 8.3961e-16,
+      "acceptanceTolerance": 2e-15,
+      "subjectGridCf64leSha256": "4b4e57c8607d01a7f806c9af2c77b772a27e184b3ddfe6a5f53ba908d4cb729a",
+      "subjectTimeCf64leSha256": "ddb5109ba014d7f46063db1ea0ba2bb876f1e3dd340e497a6199a187f6eeedbd",
+      "subjectCatalogCf32leSha256": "7f414f94209d56138a6d43d66230f2d851794c740fd668d330673c87251514f1",
+      "oracleGridCf64leSha256": "4b4e57c8607d01a7f806c9af2c77b772a27e184b3ddfe6a5f53ba908d4cb729a",
+      "oracleTimeCf64leSha256": "c3716c70c6f0ceb8c0d6ee479b95b3581f9ac988abb39815be569583810d763e"
+    },
+    {
+      "profileId": "nr-fr1-tm3.1",
+      "testModelClause": "4.9.2.2.5",
+      "modulation": "64QAM",
+      "resourceElementsCompared": 178080,
+      "timeSamplesCompared": 307200,
+      "maximumGridComponentError": 2.22045e-16,
+      "maximumTimeComponentError": 7.45931e-16,
+      "acceptanceTolerance": 2e-15,
+      "subjectGridCf64leSha256": "6001f1954a8e72311ec00cf26ce10c58747a67663b393a5c784b5744559ad5b5",
+      "subjectTimeCf64leSha256": "7e22fa841cb004f5e3e4f427bedaba2c007ff450d174ac1bd9a7d86bd721a7b7",
+      "subjectCatalogCf32leSha256": "e890371a8fa9a484692859cf9ed447bbee09ba5b32b25ed8d92b55146d062839",
+      "oracleGridCf64leSha256": "849e32fef9dffc76e02bc1108e98f587bcfec1708547da37ffdb495981043d85",
+      "oracleTimeCf64leSha256": "6c473d8e759d56f198054e506cb8943c8dc9d9d472ab1d31074874095189beae"
+    },
+    {
+      "profileId": "nr-fr1-tm3.1a",
+      "testModelClause": "4.9.2.2.6",
+      "modulation": "256QAM",
+      "resourceElementsCompared": 178080,
+      "timeSamplesCompared": 307200,
+      "maximumGridComponentError": 1.11022e-16,
+      "maximumTimeComponentError": 7.66748e-16,
+      "acceptanceTolerance": 2e-15,
+      "subjectGridCf64leSha256": "b057197485f72d506e099d7b46d28a22ba4f3c21b8dcf719895c8f19419c9bd7",
+      "subjectTimeCf64leSha256": "d7ff785a52b7145f93b84ce34a80f830f7ab9dcb9d21651a332b62cd35e305dd",
+      "subjectCatalogCf32leSha256": "fc205447482fe7929fdc52b8f5684f50557511903e7e2c387011169dea06dabb",
+      "oracleGridCf64leSha256": "51f51dacc8954883997b891c1fe9d4a3108464f6541b16bf4abaad8ee8e20416",
+      "oracleTimeCf64leSha256": "788de39cc1bc129e12ae42b9511f2756893597f1e5cc5b155760c4cfd96a7e3f"
+    },
+    {
+      "profileId": "nr-fr1-tm3.1b",
+      "testModelClause": "4.9.2.2.6A",
+      "modulation": "1024QAM",
+      "resourceElementsCompared": 178080,
+      "timeSamplesCompared": 307200,
+      "maximumGridComponentError": 0,
+      "maximumTimeComponentError": 7.25114e-16,
+      "acceptanceTolerance": 2e-15,
+      "subjectGridCf64leSha256": "12c2afee698973e4324e500d6cf64971b1f363e1264077bcd872fcdcb20b2dca",
+      "subjectTimeCf64leSha256": "656f92a64b205e642e4c6292a472baad3e06334488ba6e2e86d0fd440e678413",
+      "subjectCatalogCf32leSha256": "d18a5441ea8bcfb3fbc0478241ce6e3e4b916594c8646ce50829939b97e47671",
+      "oracleGridCf64leSha256": "12c2afee698973e4324e500d6cf64971b1f363e1264077bcd872fcdcb20b2dca",
+      "oracleTimeCf64leSha256": "de40bd57729ffce91160da4e75d787af6fdd05e5d257d68495584e1dc3c82dc6",
+      "ocuduConstellationWordsCompared": 1024
+    }
+  ],
+  "excludedClaims": [
+    "Broad or general 3GPP compliance",
+    "Any NR geometry, rank, layer, port, band, duplex mode, cell identity, bandwidth, numerology, or frame other than the fixed binding",
+    "The rank-2 NR-FR1-TM1.1 TAE variant",
+    "Windowing, phase compensation for RF carrier frequency, resampling, filtering, clipping, impairments, or upconversion",
+    "Conducted or radiated RF conformance",
+    "Calibration, measurement uncertainty, regulatory approval, interoperability, or product certification"
+  ]
+}

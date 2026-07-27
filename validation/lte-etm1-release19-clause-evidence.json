@@ -1,0 +1,660 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "signallab.lte-etm1.release19.normative-ooxml-ranges",
+  "extraction": {
+    "implementationId": "signallab.tools.3gpp-clause-evidence",
+    "implementationRevision": "1.0.0",
+    "format": "UTF-8 bytes of the exact WordprocessingML range from the numbered Heading paragraph through the applicable range boundary, with CR/CRLF normalized to LF and outer whitespace removed"
+  },
+  "specifications": [
+    {
+      "documentId": "TS 36.104",
+      "revision": "19.2.0",
+      "sourceArchiveName": "36104-j20.zip",
+      "sourceArchiveSha256": "e053f9ea42e4e4ff64244225e4fbbf81c7eddde661d8539f290696628df5d7d5",
+      "documents": [
+        {
+          "name": "36104-j20.docx",
+          "sha256": "3257a10d159e6aac04e8dc38e5e61829d390df02c35badb08d4752c11504fb87",
+          "documentXmlSha256": "8e2adc4923be10a2fac3a9cf12b3f4430a153b9558a70226bfba6e5fad5ff8de"
+        }
+      ]
+    },
+    {
+      "documentId": "TS 36.141",
+      "revision": "19.1.0",
+      "sourceArchiveName": "36141-j10.zip",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "documents": [
+        {
+          "name": "36141-j10.docx",
+          "sha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+          "documentXmlSha256": "2cf2fc33cce85361aa69ade350d60a99115e74f8b70cae1e37805acfbb8c3c19"
+        }
+      ]
+    },
+    {
+      "documentId": "TS 36.211",
+      "revision": "19.3.0",
+      "sourceArchiveName": "36211-j30.zip",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "documents": [
+        {
+          "name": "36211-j30_s00-s05.docx",
+          "sha256": "5e57f0cad0ef892159156f699ff236df4cae0c922394a6c8716704f8b66712ca",
+          "documentXmlSha256": "781192fefff2cf2a5dff1c8a3c5a9d8676ee8605be86099e4d9fa2ab2c2446c8"
+        },
+        {
+          "name": "36211-j30_s06-s08.docx",
+          "sha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+          "documentXmlSha256": "e01dc3e3542278ac826cb3c1ee553e75a2db6a1d2625315660cd2f7eecfe7e39"
+        }
+      ]
+    },
+    {
+      "documentId": "TS 36.212",
+      "revision": "19.3.0",
+      "sourceArchiveName": "36212-j30.zip",
+      "sourceArchiveSha256": "06a40a3b3214d372b0a6008ee1c885cd025ed30aef6399c9ea76a1d4593a1450",
+      "documents": [
+        {
+          "name": "36212-j30.docx",
+          "sha256": "3ebee890df014b93c2587649edfc66dd5e5cb0ba883f4423c6df843eb020b83d",
+          "documentXmlSha256": "b998cd64ee4c4de000ef289a9d0ea7515075baaed560533da58adbeb07f7e284"
+        }
+      ]
+    }
+  ],
+  "clauses": [
+    {
+      "clauseKey": "TS 36.104@19.2.0#5.6",
+      "sourceArchiveSha256": "e053f9ea42e4e4ff64244225e4fbbf81c7eddde661d8539f290696628df5d7d5",
+      "sourceDocumentName": "36104-j20.docx",
+      "sourceDocumentSha256": "3257a10d159e6aac04e8dc38e5e61829d390df02c35badb08d4752c11504fb87",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "45be57c5db0261eda39b39c37b1409576221ddc18f85f97afa0ffcdeb445c8c1",
+      "normativeTextByteLength": 79638,
+      "headingText": "5.6Channel bandwidth"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.1",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "d7b59ca9a0bb1f87cb04d6a85cad7e07865cfd54629a0ec575d4da358b5c19dd",
+      "normativeTextByteLength": 22965,
+      "headingText": "6.1.1E-UTRA Test Models"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.1.1",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "7dc08435212b5c707c0356e04792da6d1c6e6a4139967755545416186cb33efc",
+      "normativeTextByteLength": 171616,
+      "headingText": "6.1.1.1E-UTRA Test Model 1.1 (E-TM1.1)"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "a1c7ff04097778321f6a2e46b0d94a963af01d9559c053a7a669ec9d4f8bdd15",
+      "normativeTextByteLength": 9062,
+      "headingText": "6.1.2Data content of Physical channels and Signals for E-TM"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.1",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "f05cd2b5eacccca7631cd0891f429be4b666c4043a921aed9bdd1edd5a44f10d",
+      "normativeTextByteLength": 2687,
+      "headingText": "6.1.2.1Reference signals"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.2",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "40898ebfb33ba1f8ef06053203cc0d592034715a5b08459bf32d68eae43a514c",
+      "normativeTextByteLength": 2674,
+      "headingText": "6.1.2.2Primary Synchronization signal"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.3",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "007c7d93dc184bd077bf396f04045d69309510af0d0cdff019b589cc04319fd9",
+      "normativeTextByteLength": 2676,
+      "headingText": "6.1.2.3Secondary Synchronization signal"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.4",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "29022cfbbfedc1d34538ff91f47dadf1b3292eae92f679de1191861e4c5da677",
+      "normativeTextByteLength": 4914,
+      "headingText": "6.1.2.4PBCH"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.5",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "18910de031f3b4b6e7ae7ea0787ecc8f1fbbe25e1b0ebb82914168500c3920ac",
+      "normativeTextByteLength": 3721,
+      "headingText": "6.1.2.5PCFICH"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.6",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "be63aef9a04166c11760b97dd9706ff9025e4fe4b9cffa9103a3a15d5f18e82a",
+      "normativeTextByteLength": 8868,
+      "headingText": "6.1.2.6PHICH"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.7",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "2c64457bc841b70f2c78a5869240b62375d966f34ac88af703680a8cd654a0bb",
+      "normativeTextByteLength": 4848,
+      "headingText": "6.1.2.7PDCCH"
+    },
+    {
+      "clauseKey": "TS 36.141@19.1.0#6.1.2.8",
+      "sourceArchiveSha256": "9b3b6eeff49b64892f6ffe3e306547495ac8d2ee2816dfeb7f3d4b2a036599cf",
+      "sourceDocumentName": "36141-j10.docx",
+      "sourceDocumentSha256": "18037a97c5187385d51c2587af11fe8f88d82c9cab1c7cd2bef89a1d0e70ac1e",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "8e724e0b2ea1910b879703cccad814ad2a18daa37808871867a01ebf26b7b58d",
+      "normativeTextByteLength": 16796,
+      "headingText": "6.1.2.8PDSCH or sPDSCH"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#4.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s00-s05.docx",
+      "sourceDocumentSha256": "5e57f0cad0ef892159156f699ff236df4cae0c922394a6c8716704f8b66712ca",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "e2b71081dd4a81d1a6d4aaec6e02d46b884e53574536f4533bf7faa9d20bdc51",
+      "normativeTextByteLength": 34171,
+      "headingText": "4.1Frame structure type 1 for FDD"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.2.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "f7071a75272c45f161d58f04df3508240a20b2fd1df23a57337d6beb581856c0",
+      "normativeTextByteLength": 28545,
+      "headingText": "6.2.1Resource grid"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.2.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "a9c2da32b1fce427d927828882d646f1d2111355cdb5ad441a0be3ad5297fde4",
+      "normativeTextByteLength": 6523,
+      "headingText": "6.2.2Resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.2.3",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "cc88b3740f87211b384c488b7a1ca274f9ef29a7d9e5dc2966acafea9ab38c83",
+      "normativeTextByteLength": 33679,
+      "headingText": "6.2.3Resource blocks"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.2.4",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "afd07815e210ef73e96eec4d607913f04cf5f18a2772795ec80900b16b88c1c6",
+      "normativeTextByteLength": 26055,
+      "headingText": "6.2.4Resource-element groups (REGs)"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.3.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "1b9c02ee8618344106e300b4683b71e732022d23a9f8b91d80faae8ed4075cd3",
+      "normativeTextByteLength": 24601,
+      "headingText": "6.3.1Scrambling"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.3.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "9b4aeab2a3c961bf5fc10d397467ad90af10be44deaa2bc28bb7bc2e5afb9d0b",
+      "normativeTextByteLength": 6856,
+      "headingText": "6.3.2Modulation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.3.3.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "001819a0426f159bf12d41d952adba19fb2da2f76b293b2b4a7c5fb2644bd611",
+      "normativeTextByteLength": 2669,
+      "headingText": "6.3.3.1Layer mapping for transmission on a single antenna port"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.3.4.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "844420b710f86cf186e4fe88c48931c5f05e4594b1c87f3d84ce636e6538e421",
+      "normativeTextByteLength": 3347,
+      "headingText": "6.3.4.1Precoding for transmission on a single antenna port"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.3.5",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "3c58c29cea0ff0fe4076a4ababc2c6c67b8d0e3f10354aa0722e4a71a83be916",
+      "normativeTextByteLength": 12362,
+      "headingText": "6.3.5Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.4",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "9d4ee27acf14db4424fc58dcafb1374321eca92556dcaa1fc9e1709ae3429425",
+      "normativeTextByteLength": 48108,
+      "headingText": "6.4Physical downlink shared channel"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.6.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "1575b567260f66520dfe593720fdc5a84cffebc7fb4f3830952c849ab282b710",
+      "normativeTextByteLength": 6163,
+      "headingText": "6.6.1Scrambling"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.6.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "0f83377cce417ed33867f8ae271e9cc851d1082afb9b866bcdfbf3da8032f018",
+      "normativeTextByteLength": 5121,
+      "headingText": "6.6.2Modulation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.6.3",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "253266808c54623e0a412742f063746f72ca6bc447a6f5a9144d10498c126e2f",
+      "normativeTextByteLength": 5023,
+      "headingText": "6.6.3Layer mapping and precoding"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.6.4",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "f44ba1a26f143ef980c78b31fc1ec7fc45118ef9168ae383a28e4dc8cd2feea5",
+      "normativeTextByteLength": 49773,
+      "headingText": "6.6.4Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.7.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "2a92d2bc42b94d6533572e0b68006d9cdf17c7f8a05c42a51f94bddf99695202",
+      "normativeTextByteLength": 3943,
+      "headingText": "6.7.1Scrambling"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.7.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "9aa1eeeec90b5cd3f2987707f34e9b900d22365d35fe2cfacb1bc98d7d424d02",
+      "normativeTextByteLength": 4951,
+      "headingText": "6.7.2Modulation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.7.3",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "34c2249d17a8bc425227b9a7e242658010f289d61f1deff39800b20e43a8b970",
+      "normativeTextByteLength": 5099,
+      "headingText": "6.7.3Layer mapping and precoding"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.7.4",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "45bbe34a8428b62b05bde600823f890ffcad9cec91c14bb453ccc72c7e8061d1",
+      "normativeTextByteLength": 5924,
+      "headingText": "6.7.4Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.8.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "952094f2f329a08d2a6cab67545871a9b4490de10764a10ca3bbd0192e855f46",
+      "normativeTextByteLength": 18191,
+      "headingText": "6.8.1PDCCH formats"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.8.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "6b81046109596d2a50374cd0e68647418084f85d753279a9ddaa7fd6c249c7ef",
+      "normativeTextByteLength": 9189,
+      "headingText": "6.8.2PDCCH multiplexing and scrambling"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.8.3",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "8098d811478b2d97b0b7923f8db53b596eb30b611b0cf694aa1f80bbb5584fe2",
+      "normativeTextByteLength": 5086,
+      "headingText": "6.8.3Modulation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.8.4",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "5417033d65ae713fdc06f43d5f489f8914b2011871e77f8e195e5b189a705ab0",
+      "normativeTextByteLength": 4126,
+      "headingText": "6.8.4Layer mapping and precoding"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.8.5",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "aa3869840e9359c192a390144b0e8f5bff6ae15e165e6ca498a47255ee2a1108",
+      "normativeTextByteLength": 25046,
+      "headingText": "6.8.5Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.9",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "d5e915181c3ec3da010fceea7cc81db9df94d4ec3ca73063cbd971a7e3ff3294",
+      "normativeTextByteLength": 48978,
+      "headingText": "6.9Physical hybrid ARQ indicator channel"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.9.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "fc6e8c485baf5c9945661fc1ac93755847482919fe4b346a0019b202984400d9",
+      "normativeTextByteLength": 32741,
+      "headingText": "6.9.1Modulation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.9.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "6e8df0acc294054cc838e432ec788b7ad0364abb1241e1f37632a26cd926330d",
+      "normativeTextByteLength": 18493,
+      "headingText": "6.9.2Resource group alignment, layer mapping and precoding"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.9.3",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "6f0332b9883481c887c90ae4412fa0d2daa4a118e21ce2e5e0328656990b1f40",
+      "normativeTextByteLength": 43823,
+      "headingText": "6.9.3Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.10.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "5cc3719273b2edcde656bd84649825ef14323363d85e5cc004a18eff3d3ef040",
+      "normativeTextByteLength": 4587,
+      "headingText": "6.10.1Cell-specific Reference Signal (CRS)"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.10.1.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "b743be5951e6786e85c64fbc854da56254bef5f06b3176f8e4a449781575ff09",
+      "normativeTextByteLength": 4983,
+      "headingText": "6.10.1.1Sequence generation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.10.1.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "ab18c7161dff76be9ed61a8013ac39679cba624327ab424020c79731bb7a4993",
+      "normativeTextByteLength": 12436,
+      "headingText": "6.10.1.2Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.11",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "39205eba9fc91d4e3e49453975f57a9223456a208f1091bd3dcb0273c808fa38",
+      "normativeTextByteLength": 2702,
+      "headingText": "6.11Synchronization signals"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.11.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "2f9e9d43a3cf972394d869d5a4ba152e72bb8f378900924e7d2ead7ede25b9a8",
+      "normativeTextByteLength": 472,
+      "headingText": "6.11.1Primary synchronization signal (PSS)"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.11.1.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "04b1c8495d4b3186a225e4ff256f2c2662cc7e07bb1c8c7709e76baf3b3db2d9",
+      "normativeTextByteLength": 8735,
+      "headingText": "6.11.1.1Sequence generation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.11.1.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "81d371cf0bc90fe88edd6dba6b9835e4a50735d810461ca782dc3812401a63ee",
+      "normativeTextByteLength": 11662,
+      "headingText": "6.11.1.2Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.11.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "24f0502249141636f4f08fc6f3955a5b82101fc31aabe957b768d4a26234699c",
+      "normativeTextByteLength": 474,
+      "headingText": "6.11.2Secondary synchronization signal (SSS)"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.11.2.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "e2bb3f6a6ff97f79cbbc76cc4253c6a867eb5a7e8b9deccf3fd7a03fc4144d08",
+      "normativeTextByteLength": 240478,
+      "headingText": "6.11.2.1Sequence generation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.11.2.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "d88f41f674fa1640e6867b7b508339e46ecadbe247f08ddb617cda37a42ef7fc",
+      "normativeTextByteLength": 8253,
+      "headingText": "6.11.2.2Mapping to resource elements"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#6.12",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "3da89392fadb1b8e39ddaf3a558fc790c6e75ec14741b7ccffb247d1c8335523",
+      "normativeTextByteLength": 41257,
+      "headingText": "6.12OFDM baseband signal generation"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#7.1.1",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "9e767e5a0b12fee401c51dfd619ee2b2b100146f353b34bbbe3c36c524afcc0c",
+      "normativeTextByteLength": 10976,
+      "headingText": "7.1.1BPSK"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#7.1.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "88385e96309a07da08f28ed92cfa31f7e7c3a58a2231a32dfe0e67dfcde02cea",
+      "normativeTextByteLength": 34501,
+      "headingText": "7.1.2QPSK"
+    },
+    {
+      "clauseKey": "TS 36.211@19.3.0#7.2",
+      "sourceArchiveSha256": "c1b132375361596e713dc51bfa20afbe4bf4c92bf1992c829a775f59a2ece5a1",
+      "sourceDocumentName": "36211-j30_s06-s08.docx",
+      "sourceDocumentSha256": "610fa408b34e41d2dd3c7d0eab3bc061396d4367bfafeaa50679e4be93d874fd",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "60991d0add5642191f2c7880b2a14b2c960fe9005f00d67eef17ddf540294873",
+      "normativeTextByteLength": 5570,
+      "headingText": "7.2Pseudo-random sequence generation"
+    },
+    {
+      "clauseKey": "TS 36.212@19.3.0#5.1.4.2.1",
+      "sourceArchiveSha256": "06a40a3b3214d372b0a6008ee1c885cd025ed30aef6399c9ea76a1d4593a1450",
+      "sourceDocumentName": "36212-j30.docx",
+      "sourceDocumentSha256": "3ebee890df014b93c2587649edfc66dd5e5cb0ba883f4423c6df843eb020b83d",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "4718155c82a3465dcd384c2ae6a807e79a7aaba2e1db791e2acd27c85fa4ea38",
+      "normativeTextByteLength": 18414,
+      "headingText": "5.1.4.2.1Sub-block interleaver"
+    },
+    {
+      "clauseKey": "TS 36.212@19.3.0#5.3.4",
+      "sourceArchiveSha256": "06a40a3b3214d372b0a6008ee1c885cd025ed30aef6399c9ea76a1d4593a1450",
+      "sourceDocumentName": "36212-j30.docx",
+      "sourceDocumentSha256": "3ebee890df014b93c2587649edfc66dd5e5cb0ba883f4423c6df843eb020b83d",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "db86831c821cd8b66f8f4805f628f3c25de8560c0e93ac8302874b19da4d4bc9",
+      "normativeTextByteLength": 3380,
+      "headingText": "5.3.4Control format indicator"
+    },
+    {
+      "clauseKey": "TS 36.212@19.3.0#5.3.4.1",
+      "sourceArchiveSha256": "06a40a3b3214d372b0a6008ee1c885cd025ed30aef6399c9ea76a1d4593a1450",
+      "sourceDocumentName": "36212-j30.docx",
+      "sourceDocumentSha256": "3ebee890df014b93c2587649edfc66dd5e5cb0ba883f4423c6df843eb020b83d",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "30b23c3ee973a91391a5e5019eae1589dee82e04c2500646fd2a81b0ec2e13cf",
+      "normativeTextByteLength": 6242,
+      "headingText": "5.3.4.1Channel coding"
+    },
+    {
+      "clauseKey": "TS 36.212@19.3.0#5.3.5",
+      "sourceArchiveSha256": "06a40a3b3214d372b0a6008ee1c885cd025ed30aef6399c9ea76a1d4593a1450",
+      "sourceDocumentName": "36212-j30.docx",
+      "sourceDocumentSha256": "3ebee890df014b93c2587649edfc66dd5e5cb0ba883f4423c6df843eb020b83d",
+      "textRange": "introductory-body-before-first-child",
+      "normativeTextSha256": "dc7be129206b15de901eaa4750c1b801b497aada3221d3612f4628daffe95499",
+      "normativeTextByteLength": 1983,
+      "headingText": "5.3.5HARQ indicator (HI)"
+    },
+    {
+      "clauseKey": "TS 36.212@19.3.0#5.3.5.1",
+      "sourceArchiveSha256": "06a40a3b3214d372b0a6008ee1c885cd025ed30aef6399c9ea76a1d4593a1450",
+      "sourceDocumentName": "36212-j30.docx",
+      "sourceDocumentSha256": "3ebee890df014b93c2587649edfc66dd5e5cb0ba883f4423c6df843eb020b83d",
+      "textRange": "whole-clause",
+      "normativeTextSha256": "98b16baef79bb6ddf87953ce5fe3b4ff133eaf8962f7c7f1d6eacf217502a5df",
+      "normativeTextByteLength": 4763,
+      "headingText": "5.3.5.1Channel coding"
+    }
+  ]
+}

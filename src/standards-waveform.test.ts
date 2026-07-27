@@ -131,6 +131,7 @@ describe('standards waveform foundation', () => {
     expect(preset.standardReferences.map((reference) => [reference.documentId, reference.revision])).toEqual([
       ['TS 36.141', '19.1.0'],
       ['TS 36.211', '19.3.0'],
+      ['TS 36.212', '19.3.0'],
     ]);
     expect(parameters).toMatchObject({
       'testModel.name': 'E-TM 1.1',
@@ -139,6 +140,19 @@ describe('standards waveform foundation', () => {
       'resourceGrid.resourceBlocks': 50,
       'resourceGrid.subcarrierSpacingHz': 15_000,
       'sampling.sampleRateHz': 15_360_000,
+      'capture.radioFrames': 1,
+      'capture.subframes': 10,
+      'capture.durationMs': 10,
+      'cell.physicalCellId': 1,
+      'control.symbolsPerSubframe': 1,
+      'phich.groups': 2,
+      'phich.channelsPerGroup': 2,
+      'pdcch.channels': 5,
+      'pdcch.controlChannelElementsPerPdcch': 2,
+      'pdsch.modulation': 'QPSK',
+      'pdsch.resourceBlocks': 50,
+      'pdsch.rnti': 0,
+      'payload.unscrambledBits': 'all-zero',
     });
     expect(preset.qualificationBoundary.statement).toMatch(/no generated artifact.*not a claim.*conformance or compliance/i);
   });

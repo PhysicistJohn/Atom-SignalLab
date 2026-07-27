@@ -38,7 +38,10 @@ describe('SignalLabStudio host boundary', () => {
     expect(markup).toContain('Session</small><strong><i></i>READY');
     expect(markup).toContain('LTE E-TM1.1');
     expect(markup).toContain('4G LTE test model E-TM1.1 (QPSK)');
-    expect(markup).toContain('STANDARDS DERIVED');
+    expect(markup).toContain('INDEPENDENTLY VERIFIED DIGITAL BASEBAND');
+    expect(markup).toContain('aria-label="Waveform governance and claim state"');
+    expect(markup).toContain('CONTENT-BOUND PROFILE · DIGITALLY QUALIFIED');
+    expect(markup).toContain('Standards compliance: NOT CLAIMED · Digital standards adherence: VERIFIED FOR DECLARED DIGITAL SCOPE · Digital: QUALIFIED · RF: NOT QUALIFIED');
     expect(markup).toContain('TS 36.141');
     expect(markup).toContain('SEQUENCE 42');
     expect(markup).toContain('aria-label="Receiver I/Q impairment"');

@@ -439,7 +439,8 @@ describe('canonical scalar classification corpus', () => {
     const scenario = canonicalClassificationScenario('unknown-802154');
     expect(scenario.source.references).toHaveLength(1);
     expect(scenario.source.references[0]?.specification).toBe('IEEE 802.15.4-2024');
-    expect(scenario.source.references[0]?.url).toContain('802.15.4');
+    expect(scenario.source.references[0]?.url)
+      .toBe('https://standards.ieee.org/ieee/802.15.4/11041/');
   });
 
   it('pins every multi-document standards basis independently', () => {
@@ -447,6 +448,7 @@ describe('canonical scalar classification corpus', () => {
       reference.specification, reference.revision,
     ])).toEqual([
       ['TS 45.002', '19.0.0'],
+      ['TS 45.003', '19.0.0'],
       ['TS 45.004', '19.0.0'],
       ['TS 45.008', '19.0.0'],
       ['TS 45.005', '19.0.0'],
@@ -454,7 +456,7 @@ describe('canonical scalar classification corpus', () => {
     expect(canonicalClassificationScenario('lte-band3-fdd-20m').source.references.map((reference) => [
       reference.specification, reference.revision,
     ])).toEqual([
-      ['TS 36.101', '19.5.0'],
+      ['TS 36.104', '19.2.0'],
       ['TS 36.211', '19.3.0'],
     ]);
     expect(canonicalClassificationScenario('lte-band38-tdd-10m').source.references[1]?.clause)
@@ -463,17 +465,20 @@ describe('canonical scalar classification corpus', () => {
       reference.specification, reference.revision,
     ])).toEqual([
       ['TS 38.104', '19.4.0'],
-      ['TS 38.211', '19.3.0'],
+      ['TS 38.211', '19.4.0'],
     ]);
     expect(canonicalClassificationScenario('nr-n78-tdd-100m').source.references.map((reference) => [
       reference.specification, reference.revision,
     ])).toEqual([
       ['TS 38.104', '19.4.0'],
-      ['TS 38.211', '19.3.0'],
+      ['TS 38.211', '19.4.0'],
       ['TS 38.331', '19.1.0'],
       ['TS 38.213', '19.3.0'],
     ]);
-    expect(canonicalClassificationScenario('bluetooth-classic-connected').source.references).toHaveLength(4);
+    expect(canonicalClassificationScenario('bluetooth-classic-connected').source.references)
+      .toHaveLength(3);
+    expect(canonicalClassificationScenario('bluetooth-le-advertising').source.references)
+      .toHaveLength(3);
   });
 
   it('canonizes exact scalar-equivalence nulls for CW, AM, FM, cellular OFDM, and Wi-Fi', () => {

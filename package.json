@@ -5,19 +5,34 @@
   "type": "module",
   "packageManager": "npm@10.9.8",
   "main": "dist/main/main-process.js",
+  "exports": {
+    ".": "./dist/main/main-process.js",
+    "./standards-runtime": "./dist/standards/standards-runtime.js"
+  },
   "files": [
-    "contracts/signal-lab-measurement-bridge-v1.json"
+    "contracts/signal-lab-measurement-bridge-v1.json",
+    "contracts/signal-lab-measurement-bridge-v2.json",
+    "contracts/trio-composition-v4.json",
+    "contracts/trio-composition-v5.json",
+    "dist/standards/**"
   ],
   "scripts": {
     "dev": "npm run build:main && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 concurrently -k \"vite --port 5174\" \"wait-on http://localhost:5174 && electron .\"",
     "dev:install-app": "node tools/dev-launcher/install.mjs",
     "build:main": "tsup src/main-process.ts --format esm --out-dir dist/main --external electron && tsup src/preload.ts --format cjs --out-dir dist/main --external electron",
-    "build": "npm run build:main && vite build",
+    "build:standards": "tsup src/standards-runtime.ts --format esm --out-dir dist/standards",
+    "build": "npm run build:main && npm run build:standards && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run src",
+    "test:standards:structural": "vitest run src",
+    "test:standards:live": "cross-env SIGNALLAB_REQUIRE_3GPP_ORACLE=1 SIGNALLAB_REQUIRE_3GPP_CLAUSE_ARCHIVES=1 SIGNALLAB_REQUIRE_LTE_ETM3_QAM_ORACLE=1 SIGNALLAB_REQUIRE_LTE_ETM3_FULL_ORACLE=1 SIGNALLAB_REQUIRE_LTE_BAND3_FDD20_ORACLE=1 SIGNALLAB_REQUIRE_LTE_BAND38_TDD10_ORACLE=1 SIGNALLAB_REQUIRE_LTE_NTM_ORACLE=1 SIGNALLAB_REQUIRE_NR_FR1_TM_ORACLE=1 SIGNALLAB_REQUIRE_NR_N78_TDD_100M_ORACLE=1 SIGNALLAB_REQUIRE_WLAN_OFDM_ORACLE=1 vitest run src/lte-etm1-independent-oracle.test.ts src/lte-etm1-oracle-evidence.test.ts src/lte-etm1-clause-archive.test.ts src/lte-etm3-independent-oracle.test.ts src/lte-band3-fdd-20m-independent-oracle.test.ts src/lte-band38-tdd-10m-independent-oracle.test.ts src/lte-ntm-independent-oracle.test.ts src/nr-fr1-test-model-independent-oracle.test.ts src/nr-n78-tdd-100m-independent-oracle.test.ts src/wlan-fixed-independent-oracle.test.ts",
+    "test:standards": "npm run test:standards:structural && npm run test:standards:live",
+    "test:3gpp:structural": "vitest run src/3gpp-compliance.test.ts src/3gpp-qualification.test.ts src/standards-artifact.test.ts src/standards-provider.test.ts src/standards-test-gate.test.ts src/standards-waveform.test.ts src/standards-runtime.test.ts src/lte-etm1-reference.test.ts src/lte-etm1-provider.test.ts src/lte-etm1-test-catalog.test.ts src/lte-etm1-oracle-evidence.test.ts",
+    "test:3gpp": "cross-env SIGNALLAB_REQUIRE_3GPP_ORACLE=1 SIGNALLAB_REQUIRE_3GPP_CLAUSE_ARCHIVES=1 vitest run src/3gpp-compliance.test.ts src/3gpp-qualification.test.ts src/standards-artifact.test.ts src/standards-provider.test.ts src/standards-test-gate.test.ts src/standards-waveform.test.ts src/standards-runtime.test.ts src/lte-etm1-reference.test.ts src/lte-etm1-provider.test.ts src/lte-etm1-test-catalog.test.ts src/lte-etm1-oracle-evidence.test.ts src/lte-etm1-independent-oracle.test.ts src/lte-etm1-clause-archive.test.ts",
+    "test:standards-bundle": "node tools/standards-runtime-bundle-smoke.mjs",
     "test:launcher": "node --test tools/dev-launcher/bounded-log.test.cjs tools/dev-launcher/launcher-environment.test.cjs",
-    "audit": "npm audit --audit-level=high",
-    "check": "npm run typecheck && npm run build && npm test && npm run test:launcher",
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "check": "npm run typecheck && npm run build && npm run test:standards-bundle && npm test && npm run test:launcher",
     "package:mac": "npm run build && electron-builder --mac dmg zip",
     "package:win": "npm run build && electron-builder --win nsis portable",
     "package:linux": "npm run build && electron-builder --linux AppImage"
@@ -61,6 +76,7 @@
     "files": [
       "dist/main/**",
       "dist/renderer/**",
+      "dist/standards/**",
       "package.json"
     ],
     "mac": {

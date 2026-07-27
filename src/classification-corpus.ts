@@ -27,14 +27,16 @@ import {
 } from './canonical-timing.js';
 import {
   ANALYTIC_SCALAR_SOURCE,
-  BLUETOOTH_OBSERVABLE_SOURCE,
+  BLUETOOTH_BR_DH1_FIXED_VECTOR_SOURCE,
+  BLUETOOTH_LE_ADV_NONCONN_IND_FIXED_VECTOR_SOURCE,
   GSM_OBSERVABLE_SOURCE,
   IEEE_802154_SOURCE,
   LTE_OBSERVABLE_SOURCE,
   LTE_TDD_OBSERVABLE_SOURCE,
   NR_OBSERVABLE_SOURCE,
   NR_TDD_OBSERVABLE_SOURCE,
-  WIFI_OBSERVABLE_SOURCE,
+  WIFI_ERP_OFDM_SOURCE,
+  WIFI_HR_DSSS_SOURCE,
   sourceBasis,
   type SourceBasis,
 } from './source-provenance.js';
@@ -169,8 +171,10 @@ const LTE_SOURCE = LTE_OBSERVABLE_SOURCE;
 const LTE_TDD_SOURCE = LTE_TDD_OBSERVABLE_SOURCE;
 const NR_SOURCE = NR_OBSERVABLE_SOURCE;
 const NR_TDD_SOURCE = NR_TDD_OBSERVABLE_SOURCE;
-const WIFI_SOURCE = WIFI_OBSERVABLE_SOURCE;
-const BLUETOOTH_SOURCE = BLUETOOTH_OBSERVABLE_SOURCE;
+const WIFI_HR_SOURCE = WIFI_HR_DSSS_SOURCE;
+const WIFI_OFDM_SOURCE = WIFI_ERP_OFDM_SOURCE;
+const BLUETOOTH_BR_SOURCE = BLUETOOTH_BR_DH1_FIXED_VECTOR_SOURCE;
+const BLUETOOTH_LE_SOURCE = BLUETOOTH_LE_ADV_NONCONN_IND_FIXED_VECTOR_SOURCE;
 
 const nonConformance = 'Deterministic scalar instrument projection for inference testing; it is not a bit-exact, protocol-decodable, or conformance I/Q waveform.';
 const multitoneDisclosure = `${nonConformance} Simultaneous regular lines are association-compatible, but scalar power cannot prove a shared emitter, oscillator, modulation process, or message identity.`;
@@ -246,28 +250,28 @@ export const canonicalClassificationScenarios: readonly CanonicalClassificationS
     disclosure: `${nrTddEngineeringDisclosure} The 98.28 MHz field is the 273 × 12 × 30 kHz nominal RB-grid span, not the 100 MHz channel bandwidth or measured 99%-power or regulatory occupied bandwidth.`,
   }),
 
-  canonizedKnownScenario('wifi-hr-dsss-11m', 'wifi-hr-dsss-like', 'wlan', '2.4 GHz HR-DSSS · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+  canonizedKnownScenario('wifi-hr-dsss-11m', 'wifi-hr-dsss-like', 'wlan', '2.4 GHz HR-DSSS · seeded CSMA-like engineering schedule', WIFI_HR_SOURCE, {
     carrierRasterHz: 5_000_000,
     disclosure: `${wifiCsmaEngineeringDisclosure} The 22 MHz field is an engineering support projection, not normative measured or regulatory occupied bandwidth; the 11 Mchip/s rate is standards-derived.`,
   }),
-  canonizedKnownScenario('wifi-ofdm-20m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 20 MHz · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+  canonizedKnownScenario('wifi-ofdm-20m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 20 MHz · seeded CSMA-like engineering schedule', WIFI_OFDM_SOURCE, {
     carrierRasterHz: 5_000_000,
     disclosure: `${wifiCsmaEngineeringDisclosure} The 16.6 MHz field is an engineering occupied-tone support projection, not normative measured or regulatory occupied bandwidth; 312.5 kHz SCS is standards-derived.`,
   }),
-  canonizedKnownScenario('wifi-ofdm-40m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 40 MHz · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+  canonizedKnownScenario('wifi-ofdm-40m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 40 MHz · seeded CSMA-like engineering schedule', WIFI_OFDM_SOURCE, {
     carrierRasterHz: 5_000_000,
     disclosure: `${wifiCsmaEngineeringDisclosure} The 36.6 MHz field is an engineering occupied-tone support projection, not normative measured or regulatory occupied bandwidth; 312.5 kHz SCS is standards-derived.`,
   }),
-  canonizedKnownScenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz · seeded CSMA-like engineering schedule', WIFI_SOURCE, {
+  canonizedKnownScenario('wifi-ofdm-80m', 'wifi-ofdm-like', 'wlan', 'Wi-Fi OFDM 80 MHz · seeded CSMA-like engineering schedule', WIFI_OFDM_SOURCE, {
     carrierRasterHz: 5_000_000,
     disclosure: `${wifiCsmaEngineeringDisclosure} The 76.6 MHz field is an engineering occupied-tone support projection, not normative measured or regulatory occupied bandwidth; 312.5 kHz SCS is standards-derived.`,
   }),
 
-  canonizedKnownScenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR/EDR connected-like engineering hop/slot schedule', BLUETOOTH_SOURCE, {
+  canonizedKnownScenario('bluetooth-classic-connected', 'bluetooth-classic-like', 'bluetooth', 'Bluetooth BR connected-like engineering hop/slot scalar observable', BLUETOOTH_BR_SOURCE, {
     carrierRasterHz: 1_000_000,
     disclosure: bluetoothClassicEngineeringDisclosure,
   }),
-  canonizedKnownScenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising · engineering schedule v1', BLUETOOTH_SOURCE, {
+  canonizedKnownScenario('bluetooth-le-advertising', 'bluetooth-le-like', 'bluetooth', 'Bluetooth LE primary advertising · engineering scalar schedule v1', BLUETOOTH_LE_SOURCE, {
     carrierRasterHz: 2_000_000,
     disclosure: bleEngineeringDisclosure,
   }),

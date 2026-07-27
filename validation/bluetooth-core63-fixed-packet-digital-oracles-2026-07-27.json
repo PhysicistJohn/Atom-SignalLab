@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "reportId": "signallab-bluetooth-core63-fixed-packet-digital-oracles-2026-07-27",
+  "generatedAt": "2026-07-27T17:02:36.000Z",
+  "result": "pass",
+  "governingOrganization": "Bluetooth SIG",
+  "standard": "Bluetooth Core Specification 6.3",
+  "claimScope": {
+    "kind": "content-bound-fixed-packet-digital-baseband",
+    "statement": "The two fixed packet bitstreams match published Bluetooth Core sample data. At 80 Msamples/s, every active ideal BT=0.5 GFSK sample was compared with a separately structured Gaussian-convolution and continuous-phase oracle, and the selected digital modulation parameters were tested against the applicable Core bounds.",
+    "sampleRateHz": 80000000,
+    "channelBandwidthBindingHz": 1000000,
+    "sampleFormat": "cf32le"
+  },
+  "subject": {
+    "generatorSource": {
+      "path": "src/bluetooth-iq.ts",
+      "sha256": "a5ac4b8eed7784171acdec04643a4c2d26b21b5df95d8f9f3c7c6a05926f1822"
+    },
+    "catalogAdapterSource": {
+      "path": "src/bluetooth-fixed-catalog-iq.ts",
+      "sha256": "335f65f3d764ebb99398f903e3236181be3b7e9c5f93bdb8d7b8646626061c1f"
+    },
+    "dependencyLock": {
+      "path": "package-lock.json",
+      "sha256": "5dd71450021febce4acbb9a835a3cadea659e5b4ee088217b9b697bf3f0a5fa6"
+    }
+  },
+  "tests": {
+    "publishedSampleVectorTest": {
+      "path": "src/bluetooth-iq.test.ts",
+      "sha256": "31144e64bb087ccb47554b449ecaf3581f386bd0e0e6f4632e472bc9fe88dd86",
+      "role": "Independent constants from the Bluetooth Core sample-data chapters verify packet fields, HEC, CRC, whitening, header FEC, access code/address, and complete transmission order."
+    },
+    "independentGfskOracleTest": {
+      "path": "src/bluetooth-fixed-independent-oracle.test.ts",
+      "sha256": "89256e07f2a454ace270fa83b342cebdd6ddc4d20cdc46575cc83ba9ac1eb309",
+      "role": "A separately structured Numerical Recipes CDF implementation regenerates and compares every active ideal-GFSK sample; the production implementation uses a different Abramowitz-Stegun approximation."
+    }
+  },
+  "profiles": [
+    {
+      "profileId": "bluetooth-classic-connected",
+      "packet": "Basic Rate DH1",
+      "normativeReferences": [
+        "Core 6.3 Vol 2 Part A sections 2 and 3.1.1",
+        "Core 6.3 Vol 2 Part B sections 6.1-6.6 and 7.1-7.4",
+        "Core 6.3 Vol 2 Part G sections 2.1, 3, 4, 5, 6.1, and 8"
+      ],
+      "channelIndex": 8,
+      "channelCenterHz": 2410000000,
+      "symbolRateHz": 1000000,
+      "gaussianBt": 0.5,
+      "modulationIndex": 0.32,
+      "frequencyDeviationHz": 160000,
+      "transmissionBits": 190,
+      "transmissionBitsSha256": "1cca8205c60ed91bb732054ef51d3a28fbe38639aad2bf5e985e64754412cc16",
+      "captureComplexSamples": 50000,
+      "activeComplexSamplesCompared": 15200,
+      "catalogCf32leSha256": "ee2975f261478a52e95e454423e5d4f36ff175a515befd34d6370bea980fe158",
+      "maximumComponentTolerance": 0.00002,
+      "modulationRequirements": {
+        "modulationIndexMinimum": 0.28,
+        "modulationIndexMaximum": 0.35,
+        "alternatingDeviationRatioMinimum": 0.8,
+        "alternatingDeviationHzMinimum": 115000
+      }
+    },
+    {
+      "profileId": "bluetooth-le-advertising",
+      "packet": "LE 1M ADV_NONCONN_IND",
+      "normativeReferences": [
+        "Core 6.3 Vol 6 Part A sections 2 and 3",
+        "Core 6.3 Vol 6 Part B sections 2.1, 2.3.1, 3.1, 3.2, and 4.4.2",
+        "Core 6.3 Vol 6 Part C sections 4.1 and 4.2.1"
+      ],
+      "channelIndex": 38,
+      "channelCenterHz": 2426000000,
+      "symbolRateHz": 1000000,
+      "gaussianBt": 0.5,
+      "modulationIndex": 0.5,
+      "frequencyDeviationHz": 250000,
+      "transmissionBits": 152,
+      "transmissionBitsSha256": "56c0fffc7d1dacdc9651f883e080f7a77a19712370dae0a785ab2f70b15417c1",
+      "captureComplexSamples": 12160,
+      "activeComplexSamplesCompared": 12160,
+      "catalogCf32leSha256": "2e139351a0deefe58a17eeff9146e720eaac5f674474c465778dce859be64f11",
+      "maximumComponentTolerance": 0.00002,
+      "modulationRequirements": {
+        "modulationIndexMinimum": 0.45,
+        "modulationIndexMaximum": 0.55,
+        "alternatingDeviationRatioMinimum": 0.8,
+        "alternatingDeviationHzMinimum": 185000
+      }
+    }
+  ],
+  "qualificationBoundary": {
+    "digitalPacketAndIdealBasebandComparison": "passed",
+    "broadBluetoothComplianceClaim": "not-made",
+    "rfPhyQualificationTestSuite": "not-performed",
+    "conductedRfEvidence": "not-provided",
+    "radiatedEvidence": "not-provided",
+    "interoperabilityEvidence": "not-provided",
+    "productQualification": "not-provided",
+    "statement": "This internal independently structured digital oracle qualifies only the two exact content-addressed ideal baseband captures and the cited packet/modulation clauses. Bluetooth SIG qualification still requires the applicable TCRL test plan, qualified test facility or permitted test setup, declarations, and product listing."
+  }
+}

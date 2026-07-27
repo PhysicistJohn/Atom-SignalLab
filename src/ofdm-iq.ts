@@ -1,5 +1,4 @@
 import {
-  onePoleLowPassAlphaForTwoSided3dbBandwidth as lowPassFeedForwardCoefficient,
   writeUnitBoundedCf32le,
 } from '@atomos/dsp';
 import {
@@ -18,34 +17,11 @@ import {
 } from './canonical-timing.js';
 
 /**
- * Closed standards-labelled profile surface supported by this engineering
- * complex-baseband projection. The module-level catalog check below makes a
- * later LTE, NR, or WLAN catalog addition fail visibly until it is admitted
- * here rather than silently receiving a generic substitute.
+ * Closed operator-builder surface supported by this engineering complex-
+ * baseband projection. All fixed standards-linked catalog profiles dispatch
+ * through content-bound exact adapters instead.
  */
 export const STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES = [
-  'lte-band3-fdd-20m',
-  'lte-band38-tdd-10m',
-  'lte-etm1.1',
-  'lte-etm3.1',
-  'lte-etm3.1a',
-  'lte-etm3.1b',
-  'lte-ntm',
-  'lte-nbiot-guard-isolated-component',
-  'lte-nbiot-inband-isolated-component',
-  'nr-n3-fdd-20m',
-  'nr-n78-tdd-100m',
-  'nr-fr1-tm1.1',
-  'nr-fr1-tm3.1',
-  'nr-fr1-tm3.1a',
-  'nr-fr1-tm3.1b',
-  'nr-nbiot-inband-isolated-component',
-  'wifi-hr-dsss-11m',
-  'wifi-ofdm-20m',
-  'wifi6-he-su',
-  'wifi6-he-er-su',
-  'wifi6-he-mu',
-  'wifi6-he-tb',
   'custom-lte',
   'custom-nr',
   'custom-wifi',
@@ -62,9 +38,9 @@ export const STANDARDS_ENGINEERING_COMPLEX_IQ_DISCLOSURE =
 export const MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLES = 65_536 as const;
 export const STANDARDS_ENGINEERING_COMPLEX_IQ_BYTES_PER_SAMPLE = 8 as const;
 export const MIN_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLE_RATE_HZ = 1_000_000 as const;
-export const MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLE_RATE_HZ = 245_760_000 as const;
+export const MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLE_RATE_HZ = 491_520_000 as const;
 export const MIN_STANDARDS_ENGINEERING_COMPLEX_IQ_BANDWIDTH_HZ = 1_000 as const;
-export const MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_BANDWIDTH_HZ = 245_760_000 as const;
+export const MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_BANDWIDTH_HZ = 491_520_000 as const;
 export const MAX_REPRESENTATIVE_OFDM_TONES = 32 as const;
 
 type StandardsFamily = 'e-utra' | 'nr' | 'wlan';
@@ -105,7 +81,8 @@ export interface StandardsEngineeringComplexIqSynthesisInput {
 
 const profileSet = new Set<SynthesizedSignalProfile>(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES);
 const cataloguedStandardsProfiles = waveformCatalog
-  .filter((descriptor) => isStandardsFamily(descriptor.family))
+  .filter((descriptor) => isStandardsFamily(descriptor.family)
+    && descriptor.qualification === 'standards-derived')
   .map((descriptor) => descriptor.id);
 
 if (cataloguedStandardsProfiles.length !== STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES.length
@@ -138,15 +115,11 @@ export function projectStandardsEngineeringComplexIqConfiguration(
   const projection = descriptor.projection;
   let occupiedToneCount: number | undefined;
   let chipRateHz: number | undefined;
-  if (descriptor.id === 'wifi-hr-dsss-11m'
-    || (descriptor.id === 'custom-wifi' && projection.modulation === 'hr-dsss')) {
+  if (descriptor.id === 'custom-wifi' && projection.modulation === 'hr-dsss') {
     if (projection.modulation !== 'hr-dsss' || projection.timing !== 'burst') {
       throw new Error(`${descriptor.id} descriptor no longer matches its admitted chip-rate projection`);
     }
     chipRateHz = 11_000_000;
-  } else if (descriptor.id === 'wifi-ofdm-20m') {
-    requirePositiveSafeInteger(projection.subcarrierSpacingHz, `${descriptor.id} subcarrier spacing`);
-    occupiedToneCount = 52;
   } else if (descriptor.family === 'wlan') {
     const spacingHz = requirePositiveSafeInteger(projection.subcarrierSpacingHz, `${descriptor.id} subcarrier spacing`);
     const derivedToneCount = descriptor.occupiedBandwidthHz / spacingHz;
@@ -209,14 +182,11 @@ export function synthesizeStandardsEngineeringComplexIq(
   const byteLength = input.sampleCount * STANDARDS_ENGINEERING_COMPLEX_IQ_BYTES_PER_SAMPLE;
   const bytes = new Uint8Array(byteLength);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const filterFeedForward = lowPassFeedForwardCoefficient(input.bandwidthHz, input.sampleRateHz);
   const configurationSeed = configurationHash(configuration);
   const carrierBank = configuration.occupiedToneCount === undefined
     ? undefined
     : createCarrierBank(configuration, input.sampleRateHz, startSample);
   let lastSymbolIndex = Number.NaN;
-  let previousInPhase = 0;
-  let previousQuadrature = 0;
 
   for (let index = 0; index < input.sampleCount; index += 1) {
     const absoluteSample = startSample + index;
@@ -242,30 +212,27 @@ export function synthesizeStandardsEngineeringComplexIq(
       }
       if (active) {
         for (let tone = 0; tone < carrierBank.length; tone += 1) {
-          rawInPhase += carrierBank.coefficientInPhase[tone]! * carrierBank.carrierInPhase[tone]!
-            - carrierBank.coefficientQuadrature[tone]! * carrierBank.carrierQuadrature[tone]!;
-          rawQuadrature += carrierBank.coefficientInPhase[tone]! * carrierBank.carrierQuadrature[tone]!
-            + carrierBank.coefficientQuadrature[tone]! * carrierBank.carrierInPhase[tone]!;
+          const angle = 2 * Math.PI
+            * carrierBank.phaseNumerator[tone]!
+            / carrierBank.sampleRateHz;
+          const carrierInPhase = Math.cos(angle);
+          const carrierQuadrature = Math.sin(angle);
+          rawInPhase += carrierBank.coefficientInPhase[tone]! * carrierInPhase
+            - carrierBank.coefficientQuadrature[tone]! * carrierQuadrature;
+          rawQuadrature += carrierBank.coefficientInPhase[tone]! * carrierQuadrature
+            + carrierBank.coefficientQuadrature[tone]! * carrierInPhase;
         }
         rawInPhase /= carrierBank.length;
         rawQuadrature /= carrierBank.length;
       }
-      advanceCarrierBank(carrierBank, index);
+      advanceCarrierBank(carrierBank);
     }
 
-    const inPhase = index === 0
-      ? rawInPhase
-      : previousInPhase + filterFeedForward * (rawInPhase - previousInPhase);
-    const quadrature = index === 0
-      ? rawQuadrature
-      : previousQuadrature + filterFeedForward * (rawQuadrature - previousQuadrature);
-    previousInPhase = inPhase;
-    previousQuadrature = quadrature;
     writeUnitBoundedCf32le(
       view,
       index * STANDARDS_ENGINEERING_COMPLEX_IQ_BYTES_PER_SAMPLE,
-      inPhase,
-      quadrature,
+      rawInPhase,
+      rawQuadrature,
     );
   }
   return bytes;
@@ -273,11 +240,10 @@ export function synthesizeStandardsEngineeringComplexIq(
 
 interface CarrierBank {
   readonly length: number;
+  readonly sampleRateHz: number;
   readonly signedToneIndices: Int32Array;
-  readonly carrierInPhase: Float64Array;
-  readonly carrierQuadrature: Float64Array;
-  readonly stepInPhase: Float64Array;
-  readonly stepQuadrature: Float64Array;
+  readonly phaseNumerator: Float64Array;
+  readonly phaseStep: Float64Array;
   readonly coefficientInPhase: Float64Array;
   readonly coefficientQuadrature: Float64Array;
 }
@@ -291,28 +257,24 @@ function createCarrierBank(
   const length = configuration.representativeToneCount;
   const spacingHz = configuration.subcarrierSpacingHz!;
   const signedToneIndices = representativeSignedToneIndices(totalToneCount, length);
-  const carrierInPhase = new Float64Array(length);
-  const carrierQuadrature = new Float64Array(length);
-  const stepInPhase = new Float64Array(length);
-  const stepQuadrature = new Float64Array(length);
-  const startRemainder = startSample % sampleRateHz;
+  const phaseNumerator = new Float64Array(length);
+  const phaseStep = new Float64Array(length);
+  const startRemainder = BigInt(startSample % sampleRateHz);
+  const rate = BigInt(sampleRateHz);
   for (let tone = 0; tone < length; tone += 1) {
     const offsetHz = signedToneIndices[tone]! * spacingHz;
     const aliasedOffsetHz = positiveModulo(offsetHz, sampleRateHz);
-    const initialAngle = 2 * Math.PI * aliasedOffsetHz * (startRemainder / sampleRateHz);
-    const stepAngle = 2 * Math.PI * aliasedOffsetHz / sampleRateHz;
-    carrierInPhase[tone] = Math.cos(initialAngle);
-    carrierQuadrature[tone] = Math.sin(initialAngle);
-    stepInPhase[tone] = Math.cos(stepAngle);
-    stepQuadrature[tone] = Math.sin(stepAngle);
+    phaseNumerator[tone] = Number(
+      (startRemainder * BigInt(aliasedOffsetHz)) % rate,
+    );
+    phaseStep[tone] = aliasedOffsetHz;
   }
   return {
     length,
+    sampleRateHz,
     signedToneIndices,
-    carrierInPhase,
-    carrierQuadrature,
-    stepInPhase,
-    stepQuadrature,
+    phaseNumerator,
+    phaseStep,
     coefficientInPhase: new Float64Array(length),
     coefficientQuadrature: new Float64Array(length),
   };
@@ -377,20 +339,11 @@ function constellationPoint(
   return [inPhaseLevel / normalization, quadratureLevel / normalization];
 }
 
-function advanceCarrierBank(bank: CarrierBank, sampleIndex: number): void {
+function advanceCarrierBank(bank: CarrierBank): void {
   for (let tone = 0; tone < bank.length; tone += 1) {
-    const currentInPhase = bank.carrierInPhase[tone]!;
-    const currentQuadrature = bank.carrierQuadrature[tone]!;
-    const nextInPhase = currentInPhase * bank.stepInPhase[tone]! - currentQuadrature * bank.stepQuadrature[tone]!;
-    const nextQuadrature = currentInPhase * bank.stepQuadrature[tone]! + currentQuadrature * bank.stepInPhase[tone]!;
-    if ((sampleIndex & 0x3ff) === 0x3ff) {
-      const magnitude = Math.hypot(nextInPhase, nextQuadrature);
-      bank.carrierInPhase[tone] = nextInPhase / magnitude;
-      bank.carrierQuadrature[tone] = nextQuadrature / magnitude;
-    } else {
-      bank.carrierInPhase[tone] = nextInPhase;
-      bank.carrierQuadrature[tone] = nextQuadrature;
-    }
+    bank.phaseNumerator[tone] = (
+      bank.phaseNumerator[tone]! + bank.phaseStep[tone]!
+    ) % bank.sampleRateHz;
   }
 }
 

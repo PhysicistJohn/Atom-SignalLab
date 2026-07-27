@@ -1,8 +1,8 @@
 import type { SynthesizedSignalProfile } from './contracts.js';
-import { filterAndEncodeInterleavedSamples } from './complex-iq.js';
+import { encodeInterleavedSamples } from './complex-iq.js';
 
 /**
- * Genuine single-carrier PSK/QAM reference waveforms.
+ * Analytic single-carrier PSK/QAM laboratory reference waveforms.
  *
  * Each profile is a deterministic, seeded stream of unit-average-power
  * constellation symbols at a fixed 7 Msym/s symbol rate, root-raised-cosine
@@ -32,6 +32,8 @@ export const REFERENCE_SYMBOL_RATE_HZ = 7_000_000 as const;
 export const REFERENCE_RRC_ROLLOFF = 0.35 as const;
 export const REFERENCE_RRC_SPAN_SYMBOLS = 8 as const;
 export const REFERENCE_SNR_DB = 40 as const;
+export const REFERENCE_NOMINAL_RRC_SUPPORT_HZ =
+  REFERENCE_SYMBOL_RATE_HZ * (1 + REFERENCE_RRC_ROLLOFF);
 export const DEFAULT_REFERENCE_IQ_SEED = 907 as const;
 
 /**
@@ -57,6 +59,19 @@ export interface ReferenceComplexIqSynthesisInput {
   readonly seed?: number;
 }
 
+export interface ReferenceAnalyticSynthesisInput {
+  readonly profile: ReferenceComplexIqProfile;
+  readonly sampleRateHz: number;
+  readonly sampleCount: number;
+  readonly startSampleIndex?: number;
+  readonly seed?: number;
+  /**
+   * Production references include the declared deterministic 40 dB AWGN.
+   * Tests may disable it to measure the signal and noise powers independently.
+   */
+  readonly includeIntrinsicNoise?: boolean;
+}
+
 export function isReferenceComplexIqProfile(
   profile: SynthesizedSignalProfile,
 ): profile is ReferenceComplexIqProfile {
@@ -70,25 +85,57 @@ interface ConstellationPlan {
 }
 
 /**
- * Produce a clean single-carrier reference envelope in interleaved cf32le,
- * reusing the shared bandwidth low-pass + unit-disk packing so it matches every
- * other complex-I/Q generator on the wire.
+ * Produce the declared single-carrier laboratory reference in interleaved cf32le,
+ * packing the intrinsic RRC waveform directly into the shared unit-bounded wire
+ * format. `bandwidthHz` remains part of the public source-geometry admission
+ * surface; it is not a hidden receiver or capture filter.
  */
 export function synthesizeReferenceComplexIq(input: ReferenceComplexIqSynthesisInput): Uint8Array {
-  const seed = input.seed ?? DEFAULT_REFERENCE_IQ_SEED;
-  if (!Number.isSafeInteger(seed) || seed < 1 || seed > 0xffff_ffff) {
-    throw new RangeError('Reference complex-I/Q seed must be an integer from 1 through 0xffffffff');
+  const analytic = synthesizeReferenceAnalyticSamples({
+    profile: input.profile,
+    sampleRateHz: input.sampleRateHz,
+    sampleCount: input.sampleCount,
+    startSampleIndex: input.startSampleIndex,
+    seed: input.seed,
+    includeIntrinsicNoise: true,
+  });
+  return encodeInterleavedSamples(analytic, {
+    sampleCount: input.sampleCount,
+  });
+}
+
+/**
+ * Produce the analytic reference source samples before wire-format packing.
+ *
+ * This boundary makes the declared constellation, RRC pulse, and intrinsic
+ * noise independently measurable. Production calls retain intrinsic noise;
+ * `includeIntrinsicNoise=false` exists for oracle tests, not as a catalog mode.
+ */
+export function synthesizeReferenceAnalyticSamples(
+  input: ReferenceAnalyticSynthesisInput,
+): Float64Array {
+  const seed = referenceSeed(input.seed);
+  if (!Number.isFinite(input.sampleRateHz) || input.sampleRateHz <= 0) {
+    throw new RangeError('Reference analytic sample rate must be positive and finite');
+  }
+  if (!Number.isSafeInteger(input.sampleCount) || input.sampleCount < 1) {
+    throw new RangeError('Reference analytic sample count must be a positive safe integer');
   }
   const startSampleIndex = input.startSampleIndex ?? 0;
+  if (!Number.isSafeInteger(startSampleIndex) || startSampleIndex < 0
+    || !Number.isSafeInteger(startSampleIndex + input.sampleCount)) {
+    throw new RangeError('Reference analytic start sample index must be a non-negative safe integer');
+  }
   const plan = constellationPlan(input.profile);
   const beta = REFERENCE_RRC_ROLLOFF;
   const span = REFERENCE_RRC_SPAN_SYMBOLS;
   const samplesPerSymbol = input.sampleRateHz / REFERENCE_SYMBOL_RATE_HZ;
-  const pulseNorm = rootRaisedCosinePowerNormalization(beta, span);
+  const pulseNorm = referenceRootRaisedCosinePowerNormalization(beta, span);
   // Unit average signal power by construction, so the AWGN standard deviation
   // per component is fixed for a target SNR and stays continuous while
   // streaming (it never depends on the block).
   const noiseStdDev = Math.sqrt(0.5 * 10 ** (-REFERENCE_SNR_DB / 10));
+  const includeIntrinsicNoise = input.includeIntrinsicNoise ?? true;
 
   const analytic = new Float64Array(input.sampleCount * 2);
   for (let index = 0; index < input.sampleCount; index += 1) {
@@ -100,23 +147,21 @@ export function synthesizeReferenceComplexIq(input: ReferenceComplexIqSynthesisI
     for (let symbolIndex = centerSymbol - span; symbolIndex <= centerSymbol + span + 1; symbolIndex += 1) {
       const tau = symbolCoordinate - symbolIndex;
       if (Math.abs(tau) > span) continue;
-      const weight = pulseNorm * rootRaisedCosine(tau, beta);
+      const weight = pulseNorm * rootRaisedCosineUnchecked(tau, beta);
       const [symbolInPhase, symbolQuadrature] = plan.point(
         hash32(seed, symbolIndex + SYMBOL_INDEX_BIAS, plan.lane) & ((1 << plan.bitsPerSymbol) - 1),
       );
       inPhase += weight * symbolInPhase;
       quadrature += weight * symbolQuadrature;
     }
-    const [noiseInPhase, noiseQuadrature] = seededComplexGaussian(seed, absoluteSample);
+    const [noiseInPhase, noiseQuadrature] = includeIntrinsicNoise
+      ? seededComplexGaussian(seed, absoluteSample)
+      : [0, 0];
     analytic[index * 2] = REFERENCE_TX_SCALE * (inPhase + noiseStdDev * noiseInPhase);
     analytic[index * 2 + 1] = REFERENCE_TX_SCALE * (quadrature + noiseStdDev * noiseQuadrature);
   }
 
-  return filterAndEncodeInterleavedSamples(analytic, {
-    sampleRateHz: input.sampleRateHz,
-    bandwidthHz: input.bandwidthHz,
-    sampleCount: input.sampleCount,
-  });
+  return analytic;
 }
 
 function constellationPlan(profile: ReferenceComplexIqProfile): ConstellationPlan {
@@ -143,6 +188,28 @@ function constellationPlan(profile: ReferenceComplexIqProfile): ConstellationPla
   }
 }
 
+export function referenceConstellationSize(profile: ReferenceComplexIqProfile): number {
+  return 1 << constellationPlan(profile).bitsPerSymbol;
+}
+
+/**
+ * Exact SignalLab state-to-point mapping before pulse shaping.
+ *
+ * This is deliberately a laboratory mapping, not a claim that the state
+ * labeling matches any protocol's bit-to-symbol mapping.
+ */
+export function referenceConstellationPoint(
+  profile: ReferenceComplexIqProfile,
+  state: number,
+): readonly [number, number] {
+  const plan = constellationPlan(profile);
+  const size = 1 << plan.bitsPerSymbol;
+  if (!Number.isSafeInteger(state) || state < 0 || state >= size) {
+    throw new RangeError(`${profile} constellation state must be an integer from 0 through ${size - 1}`);
+  }
+  return plan.point(state);
+}
+
 /** Gray-free natural square M-QAM at unit average power (levels {+-1,+-3,...}). */
 function squareQamPlan(levelsPerAxis: number, lane: number): ConstellationPlan {
   const bitsPerAxis = Math.round(Math.log2(levelsPerAxis));
@@ -162,10 +229,19 @@ function squareQamPlan(levelsPerAxis: number, lane: number): ConstellationPlan {
 }
 
 /**
- * Root-raised-cosine impulse response in symbol-normalized time (T = 1), with
- * the two removable singularities handled analytically.
+ * Root-raised-cosine impulse response in symbol-normalized time (T = 1).
+ * Exported as a pure mathematical oracle boundary; production synthesis uses
+ * the same unchecked closed form in its inner loop.
  */
-function rootRaisedCosine(tau: number, beta: number): number {
+export function referenceRootRaisedCosineImpulse(tau: number, beta: number): number {
+  if (!Number.isFinite(tau)) throw new RangeError('RRC time coordinate must be finite');
+  if (!Number.isFinite(beta) || beta <= 0 || beta > 1) {
+    throw new RangeError('RRC roll-off must be greater than zero and no greater than one');
+  }
+  return rootRaisedCosineUnchecked(tau, beta);
+}
+
+function rootRaisedCosineUnchecked(tau: number, beta: number): number {
   if (Math.abs(tau) < 1e-9) return 1 - beta + 4 * beta / Math.PI;
   const fourBetaTau = 4 * beta * tau;
   if (Math.abs(Math.abs(fourBetaTau) - 1) < 1e-9) {
@@ -185,7 +261,16 @@ function rootRaisedCosine(tau: number, beta: number): number {
  * which for a near-Nyquist RRC is nearly flat in the fractional offset tau, so
  * averaging over a few phases pins it accurately.
  */
-function rootRaisedCosinePowerNormalization(beta: number, span: number): number {
+export function referenceRootRaisedCosinePowerNormalization(
+  beta: number,
+  span: number,
+): number {
+  if (!Number.isFinite(beta) || beta <= 0 || beta > 1) {
+    throw new RangeError('RRC roll-off must be greater than zero and no greater than one');
+  }
+  if (!Number.isSafeInteger(span) || span < 1) {
+    throw new RangeError('RRC span must be a positive integer number of symbols');
+  }
   const phases = [0, 0.2, 0.4, 0.6, 0.8];
   let total = 0;
   for (const phase of phases) {
@@ -193,12 +278,20 @@ function rootRaisedCosinePowerNormalization(beta: number, span: number): number 
     for (let k = -span - 1; k <= span + 1; k += 1) {
       const tau = phase - k;
       if (Math.abs(tau) > span) continue;
-      const h = rootRaisedCosine(tau, beta);
+      const h = rootRaisedCosineUnchecked(tau, beta);
       power += h * h;
     }
     total += power;
   }
   return 1 / Math.sqrt(total / phases.length);
+}
+
+function referenceSeed(value: number | undefined): number {
+  const seed = value ?? DEFAULT_REFERENCE_IQ_SEED;
+  if (!Number.isSafeInteger(seed) || seed < 1 || seed > 0xffff_ffff) {
+    throw new RangeError('Reference complex-I/Q seed must be an integer from 1 through 0xffffffff');
+  }
+  return seed;
 }
 
 /** Seeded unit-variance complex Gaussian at an absolute sample coordinate. */

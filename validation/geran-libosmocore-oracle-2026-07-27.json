@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "geran-fixed-burst-libosmocore-2026-07-27",
+  "verifiedAsOf": "2026-07-27",
+  "result": "pass-with-explicit-unpromoted-profiles",
+  "scope": {
+    "kind": "digital-burst-and-modulator-input",
+    "release": 19,
+    "profiles": [
+      "gsm-900-loaded-bcch",
+      "gsm-normal-burst",
+      "gsm-qpsk-higher-symbol-rate-burst",
+      "gsm-aqpsk-normal-burst",
+      "gsm-8psk-normal-burst",
+      "gsm-16qam-higher-symbol-rate-burst",
+      "gsm-32qam-higher-symbol-rate-burst"
+    ],
+    "rfConformance": "not-in-scope"
+  },
+  "specificationArchives": [
+    {
+      "specification": "TS 45.002",
+      "version": "19.0.0",
+      "archiveUrl": "https://www.3gpp.org/ftp/Specs/archive/45_series/45.002/45002-j00.zip",
+      "archiveSha256": "84d7f48aea5c11d7c85a8fb273ebe46fc756c637224f136d6f9ab5ae44c4c62d"
+    },
+    {
+      "specification": "TS 45.003",
+      "version": "19.0.0",
+      "archiveUrl": "https://www.3gpp.org/ftp/Specs/archive/45_series/45.003/45003-j00.zip",
+      "archiveSha256": "903afd8aa61b3bd121a70759f4e893d6264e888bdc06f7a3b9ed883bc935b6ab"
+    },
+    {
+      "specification": "TS 45.004",
+      "version": "19.0.0",
+      "archiveUrl": "https://www.3gpp.org/ftp/Specs/archive/45_series/45.004/45004-j00.zip",
+      "archiveSha256": "c056a4f210b279ec9cf36aa4ae33b86c6979ef7f2103ff723e8139ab9e0d8c09"
+    }
+  ],
+  "oracle": {
+    "providerId": "libosmocore",
+    "repositoryUrl": "https://gitea.osmocom.org/osmocom/libosmocore",
+    "sourceCommitSha": "a9ea438f2d3ee85167bc7ec90ae3c010e47ded92",
+    "codingSourceSha256": "98ad47a01b09fa8b9a66bdf51be5d622a3b9672a6dc63260e31c9c88588198d7",
+    "mappingSourceSha256": "82eb0428a40030139a8423bbbc504b4d00c08cef0e8d353f6d052b2c67992a38",
+    "testSourceSha256": "bbc33be9692c8f3777807c6c3b26335ddd3861187a1c7f6454cdb7b7fc0dbb6b",
+    "testOutputSha256": "41ec1663f121fb5ad98a6210222a484e4c890be144859e025cfddbe4172e4514",
+    "function": "gsm0503_xcch_encode/gsm0503_xcch_decode",
+    "inputL2Hex": "0303010000000000000000000000000000000000000000",
+    "comparison": "all four 116-bit encoded bursts exact; retained oracle output decodes to the same 23-octet L2 input"
+  },
+  "transmissionOrderBitSha256": {
+    "hashEncoding": "UTF-8 ASCII digit string, one '0' or '1' per transmission-order bit",
+    "xcchNormalBurst0": "214f926e6a302ba5ddfce7aad66055c0ea49db7f7fd002a2b988f55bb239044e",
+    "xcchNormalBurst1": "08fa784ce92926917b0ebbd8f291ab12bd9f4f2ff1543f281c68d4c3ff35304d",
+    "xcchNormalBurst2": "905e838a9a1ad9b5263fe8b5b1d64da3af0b9e9f5ec141938cd3fbffa1fd26b1",
+    "xcchNormalBurst3": "d11f29dafdc70f3e0d857fa82e1a72196d56b804a9bfac5951bc98f21c13d1b5",
+    "gmskDummyBurst": "72bb16900a7243fdeb3813546e7a4125780f91d9fa07db4d78476453e7e8e6c3",
+    "higherQpsk": "089781fd4c1ce505c7dffb8ce4a5ec26a788a8bb0b1c94b3a11d8c4de6457a72",
+    "aqpsk": "e658442c4f50a49546fe1c64b2b4c232c5a6ff94b3355be8758ce1993cca0ad6",
+    "normal8psk": "0ed4adae27afa5d6676da3db08e47adf649422d0a8ee2b9a15f474359ace58e1",
+    "higher16qam": "c5c8051deb7358208f8791038b1af33dde68e7773ea64467e18e37a872e6b89b",
+    "higher32qam": "b46c7e5c3352086bc0c51f3f820c62c03ddea38c7a85540946523b002f54cb89"
+  },
+  "qualification": {
+    "gsm-900-loaded-bcch": "libosmocore-xcch-encode-decode-oracle plus exact TS 45.002 dummy burst",
+    "gsm-normal-burst": "libosmocore-xcch-encode-decode-oracle",
+    "gsm-qpsk-higher-symbol-rate-burst": "unpromoted; TS equation and nearest-symbol decoder roundtrip only",
+    "gsm-aqpsk-normal-burst": "unpromoted; TS equation and nearest-symbol decoder roundtrip only",
+    "gsm-8psk-normal-burst": "unpromoted; TS equation and nearest-symbol decoder roundtrip only",
+    "gsm-16qam-higher-symbol-rate-burst": "unpromoted; TS equation and nearest-symbol decoder roundtrip only",
+    "gsm-32qam-higher-symbol-rate-burst": "unpromoted; TS equation and nearest-symbol decoder roundtrip only"
+  },
+  "qualificationBoundary": {
+    "channelCoding": "Only the fixed GMSK xCCH block is independently encode/decode matched. Other encrypted fields are fixed all-zero TS 45.002 modulator inputs and make no TS 45.003 channel-coding claim.",
+    "schedule": "The loaded profile uses TS0 xCCH normal bursts and TS1 through TS7 dummy bursts. It is not a complete BCCH 51-multiframe or universal network model.",
+    "conductedRfEvidence": "not-provided",
+    "radiatedOtaEvidence": "not-provided",
+    "statement": "This evidence verifies fixed digital burst content and equations only. It is not TS 45.005 RF conformance evidence, product qualification, or a broad 3GPP compliance claim."
+  }
+}

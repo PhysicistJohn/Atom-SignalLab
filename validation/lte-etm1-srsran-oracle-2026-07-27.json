@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "lte-etm1-srsran-full-frame-2026-07-27",
+  "executedAt": "2026-07-27T08:07:36.609Z",
+  "result": "pass",
+  "scope": {
+    "kind": "digital-complex-baseband",
+    "presetId": "lte-etm-1-1-10mhz-fdd",
+    "presetRevision": "2.0.0",
+    "recipeId": "lte-etm-1-1-10mhz-fdd-reference-frame",
+    "recipeRevision": "1.0.1",
+    "physicalCellId": 1,
+    "systemFrameNumberModuloFour": 0,
+    "sampleRateHz": 15360000,
+    "complexSamples": 153600
+  },
+  "subject": {
+    "providerId": "signallab",
+    "implementationId": "signallab.lte-etm1-reference",
+    "sourceBaselineCommitSha": "7c8303a0338b0f7c088737f8df2d935fd04bb033",
+    "generatorSourceSha256": "762c7a40cc3f815581960cd74cf5b8a38edd2ff2bf82d5d172cc8cae319b9388",
+    "providerSourceSha256": "613f6a46be4d068ac2b926d8fd97a855808f577304788e86058a4ed126726b6a",
+    "dependencyLockSha256": "5dd71450021febce4acbb9a835a3cadea659e5b4ee088217b9b697bf3f0a5fa6",
+    "configurationSha256": "60e4b8ab807a79952863f556f8580e723dbf93bf951203822908e02e7719bb18",
+    "artifactCf64leSha256": "1cb66b49be2518ea33a2bbf1f7075b54e6e62e10a9c05491a0ba4727bfe05511"
+  },
+  "oracle": {
+    "providerId": "srsran-project",
+    "implementationId": "srsran-4g.lte-phy-plus-etm-harness",
+    "repositoryUrl": "https://github.com/srsran/srsRAN_4G",
+    "sourceCommitSha": "6bcbd9e5bf8686aa7085202cd847c5ddd64a9c16",
+    "sourceTreeBuildOnlyPatchSha256": "284e1453cc0ea4fed616a7a88e5fa65d706de698a6c0395ec575772d663d1173",
+    "harnessSourceSha256": "0742db2648c909f93e8e15719baf9d1c9ccb0c3f30d2444a86332f8a4ec3ece9",
+    "harnessBinarySha256": "e0306c21b925d76fa33a55d7e08759679c1560a28f723b9c2d5c9d6fdbbd597f",
+    "dependencies": [
+      {
+        "name": "FFTW",
+        "version": "3.3.10",
+        "archiveSha256": "56c932549852cddcfafdab3820b0200c7742675be92179e59e6215b340e26467"
+      },
+      {
+        "name": "Boost",
+        "version": "1.83.0",
+        "archiveSha256": "6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e"
+      },
+      {
+        "name": "Mbed TLS",
+        "version": "2.28.10",
+        "sourceCommitSha": "2fc8413bfcb51354c8e679141b17b3f1a5942561"
+      }
+    ],
+    "resourceGridCf32leSha256": "8be0dd55e7f8104f720876696e9b65d3c6d1bcdc480ac54e235e90ee8da99413",
+    "timeDomainCf32leSha256": "6e7ce0f4070c8f61cdc53c688064d673e62762833828c7243bc2261ff5d3f3e9"
+  },
+  "test": {
+    "sourceLocation": "src/lte-etm1-independent-oracle.test.ts#matches every resource element and OFDM sample from the pinned independent implementation",
+    "sourceSha256": "8683e2564871bab61669f4e23f8935710a7e01940856ea775ec03eb61193a0a8",
+    "runner": {
+      "name": "Vitest",
+      "version": "4.1.10",
+      "nodeVersion": "22.23.1"
+    },
+    "vitestJsonReportSha256": "e560b50ef40bc0a43f79925654be4d30be72d22a883f4c9b0bce08672236dcb1",
+    "testsPassed": 2,
+    "testsFailed": 0,
+    "testsSkipped": 0
+  },
+  "comparison": {
+    "resourceElementsCompared": 84000,
+    "timeDomainComplexSamplesCompared": 153600,
+    "maximumNonPssGridComponentError": 5.960464499743523e-8,
+    "maximumPssComponentError": 0.00022353510823804046,
+    "maximumTimeDomainComponentError": 1.1386674185279166e-6,
+    "nonPssGridComponentTolerance": 1e-6,
+    "pssComponentTolerance": 0.00023,
+    "timeDomainComponentTolerance": 2e-6,
+    "notes": [
+      "The PSS tolerance covers srsRAN's float32 phase evaluation; SignalLab evaluates the normative closed-form sequence in float64.",
+      "The oracle build patch changes macOS build plumbing only and does not change LTE PHY algorithms.",
+      "The evidence test executes the pinned harness binary into fresh files and requires both outputs to be byte-identical to the retained vectors before comparison."
+    ]
+  },
+  "qualificationBoundary": {
+    "independentDigitalComparison": "passed",
+    "broad3gppComplianceClaim": "not-made",
+    "conductedRfEvidence": "not-provided",
+    "radiatedOtaEvidence": "not-provided",
+    "statement": "This report verifies only the exact fixed digital waveform and content hashes above. It is not RF conformance evidence and cannot qualify another preset, recipe, artifact, implementation, or dependency state."
+  }
+}

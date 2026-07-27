@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "signallab-lte-etm3-independent-full-frame-oracles-2026-07-27",
+  "executedAt": "2026-07-27T17:53:38.000Z",
+  "result": "pass",
+  "governingBody": {
+    "organization": "3GPP",
+    "technicalGroup": "TSG RAN",
+    "specifications": [
+      "3GPP TS 36.141 V19.1.0",
+      "3GPP TS 36.211 V19.3.0"
+    ]
+  },
+  "scope": {
+    "technology": "E-UTRA",
+    "profiles": [
+      "E-TM3.1",
+      "E-TM3.1a",
+      "E-TM3.1b"
+    ],
+    "normativeClauses": [
+      "TS 36.141 6.1.1.4 and Table 6.1.1.4-1",
+      "TS 36.141 6.1.1.4a and Table 6.1.1.4-1",
+      "TS 36.141 6.1.1.4b and Table 6.1.1.4-1",
+      "TS 36.211 6.3.1, 6.3.4, 6.3.5, 6.4, 6.10, 7.1.4-7.1.6, and 7.2"
+    ],
+    "configuration": "10 MHz FDD, normal CP, 50 resource blocks, physical cell ID 1, antenna port 0, one 10 ms radio frame",
+    "claim": "Independent exhaustive fixed-digital-baseband verification of the three exact content-addressed resource grids, OFDM frames, and cf32le catalog artifacts only",
+    "standardsComplianceClaimed": false,
+    "rfConformanceClaimed": false,
+    "productCertificationClaimed": false
+  },
+  "subjects": {
+    "generatorSource": {
+      "path": "src/lte-etm3-reference.ts",
+      "sha256": "0052a7b82623d3183459d7e87048e8765667c4464fb12479c153a0f58ca31f72"
+    },
+    "catalogAdapterSource": {
+      "path": "src/lte-etm3-catalog-iq.ts",
+      "sha256": "03864a85698186bccfcaa28c71f49865b883ac2ae99b581ea1088918c2f2bc06"
+    },
+    "referenceTestSource": {
+      "path": "src/lte-etm3-reference.test.ts",
+      "sha256": "920a5a714bb8e38f242d7e0c5c44cba987bff8bdbd39034210a2a462cb92fad9"
+    },
+    "catalogTestSource": {
+      "path": "src/lte-etm3-catalog-iq.test.ts",
+      "sha256": "5ca3244b6986e9fbd1e678315170c19a3e3a615120014a15eafb1d83f40653a4"
+    },
+    "dependencyLock": {
+      "path": "package-lock.json",
+      "sha256": "5dd71450021febce4acbb9a835a3cadea659e5b4ee088217b9b697bf3f0a5fa6"
+    }
+  },
+  "independentOracle": {
+    "method": "A freshly executed pinned srsRAN_4G E-TM1.1 harness supplies the complete external non-PDSCH base. A zero-import repository oracle independently derives the 74,436-element PDSCH mask, runs separate circular-LFSR Gold generation and recursive TS QAM equations, and renders all 140 symbols with a separate radix-2 inverse FFT and cyclic-prefix implementation. It does not import or call the production Gold, QAM, mapper, or FFT primitives.",
+    "generatorSource": {
+      "path": "src/lte-etm3-independent-oracle.ts",
+      "sha256": "0a76b5a2de7660ea4297c50e4dd5f9b1f9f4249be16f0e31474cd7d7ccef8f7a"
+    },
+    "testSource": {
+      "path": "src/lte-etm3-independent-oracle.test.ts",
+      "sha256": "c1204c1013bb6984d7d0aab5a68d9c8b20fe77244e3c8adaacf2c58995355ed1"
+    },
+    "externalBase": {
+      "implementation": "srsRAN_4G",
+      "repositoryUrl": "https://github.com/srsran/srsRAN_4G.git",
+      "sourceCommitSha": "6bcbd9e5bf8686aa7085202cd847c5ddd64a9c16",
+      "sourceTreeBuildOnlyPatchSha256": "284e1453cc0ea4fed616a7a88e5fa65d706de698a6c0395ec575772d663d1173",
+      "harnessSourceSha256": "0742db2648c909f93e8e15719baf9d1c9ccb0c3f30d2444a86332f8a4ec3ece9",
+      "harnessBinarySha256": "e0306c21b925d76fa33a55d7e08759679c1560a28f723b9c2d5c9d6fdbbd597f",
+      "resourceGridCf32leSha256": "8be0dd55e7f8104f720876696e9b65d3c6d1bcdc480ac54e235e90ee8da99413",
+      "timeDomainCf32leSha256": "6e7ce0f4070c8f61cdc53c688064d673e62762833828c7243bc2261ff5d3f3e9",
+      "freshExecutionByteIdenticalToRetained": true
+    },
+    "externalQamAnchors": {
+      "srsran": {
+        "sourceCommitSha": "6bcbd9e5bf8686aa7085202cd847c5ddd64a9c16",
+        "harnessSourceSha256": "f4d436bf982c61f62df5ee954d33bfe274d74e6dbd7d6643804925a782b7395b",
+        "harnessBinarySha256": "d28e8d1f8b4e323eaa7e0a2b21e1b27bc936dc384f0f401113cf43cc8b38550f",
+        "64qamVectorSha256": "66de7646dfcb96d6a2aa2c452f2e273450f7771ff14fa6ed8459cf130cad7d00",
+        "256qamVectorSha256": "ee4474e3b04eae29bcbacf8bf94ad7b9fa6626552c03edb4bc475eff7e5472e8",
+        "inputWordsCompared": {
+          "64qam": 64,
+          "256qam": 256
+        }
+      },
+      "ocudu": {
+        "repositoryUrl": "https://gitlab.com/ocudu/ocudu",
+        "sourceCommitSha": "f0c8467560ea894d16e50207b3db60fd5ff19c01",
+        "mapperSourceSha256": "6dbc3a8a59d1d18cca9e11aedeedb18bacd2cfa9d60694cf350449159dbebcbf",
+        "mapperHeaderSha256": "8933f8e1fb042a09759c8e903ee55e7e86f3a4aaa934cd903e9f60df6e5f5891",
+        "harnessSourceSha256": "76b52539b609ab8e4c1b0d95e7ef8eb46d3d9a8c6259d652458f6c8241560e8a",
+        "harnessBinarySha256": "eb4543383d7203a89e54ac82b736fafe040b2b320878a6f6ab7c055423c60067",
+        "1024qamVectorSha256": "3f0c6d15eabe4b9fde4d7bbd23e8a22ee2e4fe9c37ca6b03761021c233614049",
+        "inputWordsCompared": 1024,
+        "buildCompatibilityOverlaySha256": {
+          "errorHandling": "a02b1df2302c1aad55ed30fe907d5431a0c7fbbfa27a648dd4720613bf04f5d6",
+          "assertion": "8a0720c0cd4c9b37e09890773d631457ef615dd86e8912aed9d5d1b1a7ca7f18"
+        },
+        "overlayScope": "Runtime fmt assertion and error formatting only; modulation mapper source and lookup tables are unchanged."
+      }
+    },
+    "primitiveAnchors": {
+      "gold": {
+        "freshExternalPdschQpskSymbolsCompared": 74436,
+        "maximumComponentError": 1.2101617152815436e-8,
+        "componentTolerance": 0.000001
+      },
+      "ofdm": {
+        "freshExternalBaseSamplesCompared": 153600,
+        "maximumComponentError": 1.2633349352753065e-8,
+        "componentTolerance": 0.000002
+      }
+    }
+  },
+  "profiles": [
+    {
+      "profileId": "lte-etm3.1",
+      "model": "E-TM3.1",
+      "modulation": "64QAM",
+      "resourceElementsCompared": 84000,
+      "pdschElementsCompared": 74436,
+      "nonPdschElementsCompared": 9564,
+      "pdschClassificationsCompared": 84000,
+      "timeDomainComplexSamplesCompared": 153600,
+      "maximumPdschComponentError": 0,
+      "maximumNonPssComponentError": 5.960464499743523e-8,
+      "maximumPssComponentError": 0.00022353510823804046,
+      "maximumTimeDomainComponentError": 0.0000011378106545625877,
+      "tolerances": {
+        "pdschComponent": 1e-12,
+        "nonPssComponent": 0.000001,
+        "pssComponent": 0.00023,
+        "timeDomainComponent": 0.000002
+      },
+      "subjectGridCf64leSha256": "eb2539306a3747869f8bec00699261aa38c799997b3fd09e7c5a9b647fdb045f",
+      "subjectTimeDomainCf64leSha256": "8d9ba4aaae567c9c23cad21362accaeae72b878cfbc173325df684eaae8498ab",
+      "subjectCatalogCf32leSha256": "5472e9cd8c923bd62da527d0b2f5d655aa516b5e762a27ed29ca21817f124219",
+      "oracleGridCf64leSha256": "131ea36432354146e19b9e01388c589fa0dbd3aa39e44629baf560a944353178",
+      "oracleTimeDomainCf64leSha256": "09b484d5ca3c68bbb4a124c59041521b692616ffcc1ef68b528120e9b7eb007a"
+    },
+    {
+      "profileId": "lte-etm3.1a",
+      "model": "E-TM3.1a",
+      "modulation": "256QAM",
+      "resourceElementsCompared": 84000,
+      "pdschElementsCompared": 74436,
+      "nonPdschElementsCompared": 9564,
+      "pdschClassificationsCompared": 84000,
+      "timeDomainComplexSamplesCompared": 153600,
+      "maximumPdschComponentError": 0,
+      "maximumNonPssComponentError": 5.960464499743523e-8,
+      "maximumPssComponentError": 0.00022353510823804046,
+      "maximumTimeDomainComponentError": 0.0000011378106545625877,
+      "tolerances": {
+        "pdschComponent": 1e-12,
+        "nonPssComponent": 0.000001,
+        "pssComponent": 0.00023,
+        "timeDomainComponent": 0.000002
+      },
+      "subjectGridCf64leSha256": "77444abb636cae2c195e14b8fac0891e2b9f8249e69cf42c4c6df06a50c063ac",
+      "subjectTimeDomainCf64leSha256": "349e9b9944a9416665756c6ce69a3118ff49665e6c93a7af4cf473a0533e6782",
+      "subjectCatalogCf32leSha256": "4e552324f32862337b31f9cb6a94deb8a306655770570f2ec84b30ec808ffc85",
+      "oracleGridCf64leSha256": "f37dcfbf7b657e964128053a0b190a71505ef3e0af5779cc5591daea3920dcb9",
+      "oracleTimeDomainCf64leSha256": "b12f653e42edd86d0b908d828a86579b46438457aa66fa2d489b98d548bef064"
+    },
+    {
+      "profileId": "lte-etm3.1b",
+      "model": "E-TM3.1b",
+      "modulation": "1024QAM",
+      "resourceElementsCompared": 84000,
+      "pdschElementsCompared": 74436,
+      "nonPdschElementsCompared": 9564,
+      "pdschClassificationsCompared": 84000,
+      "timeDomainComplexSamplesCompared": 153600,
+      "maximumPdschComponentError": 0,
+      "maximumNonPssComponentError": 5.960464499743523e-8,
+      "maximumPssComponentError": 0.00022353510823804046,
+      "maximumTimeDomainComponentError": 0.0000011378106545591182,
+      "tolerances": {
+        "pdschComponent": 1e-12,
+        "nonPssComponent": 0.000001,
+        "pssComponent": 0.00023,
+        "timeDomainComponent": 0.000002
+      },
+      "subjectGridCf64leSha256": "114512e5557a1a12a7a3ea4150ed87e0294aeba96bacdbcf33a0ef9c988468f2",
+      "subjectTimeDomainCf64leSha256": "6c70c146796bec2b487aeca1e0f5b59a1f868becbdfecc86a931192b5ec18c73",
+      "subjectCatalogCf32leSha256": "e55e2253f32ff9ff7cfb04f6c4ca36bb5acf53e00764f547a5788f7221310e9f",
+      "oracleGridCf64leSha256": "0eb99f2097b6d39014a52a321c36a204905e3fe3ed4daf9d8f426da2e89c0cb8",
+      "oracleTimeDomainCf64leSha256": "5c83fb3b09a77ef0149e0a9ac6f9b81bcd6e0cd98cf465ac6102f0a81b0c52ef"
+    }
+  ],
+  "qualificationBoundary": {
+    "independentDigitalComparison": "passed",
+    "broad3gppComplianceClaim": "not-made",
+    "conductedRfEvidence": "not-provided",
+    "radiatedOtaEvidence": "not-provided",
+    "productCertification": "not-provided",
+    "statement": "This report verifies only the exact fixed E-TM3.1, E-TM3.1a, and E-TM3.1b digital waveform content hashes and locked configuration above. It does not establish RF conformance, product certification, or any other configuration."
+  }
+}

@@ -353,6 +353,15 @@ function ProfileDetail({ descriptor, active, switching }: { descriptor: Waveform
     <dl className={styles.configurationGrid}>
       {configuration.map(([term, value]) => <div key={term}><dt>{term}</dt><dd>{value}</dd></div>)}
     </dl>
+    <section className={styles.claimState} aria-label="Waveform governance and claim state">
+      <div><small>Governance / claim</small><strong>{governanceHeadline(descriptor)}</strong></div>
+      <p>
+        Standards compliance: {displayToken(descriptor.governance.claims.standardsCompliance)}
+        {' · '}Digital standards adherence: {displayToken(descriptor.governance.claims.digitalStandardsAdherence)}
+        {' · '}Digital: {displayToken(descriptor.governance.claims.digitalQualification)}
+        {' · '}RF: {displayToken(descriptor.governance.claims.rfConformance)}
+      </p>
+    </section>
     <section className={styles.sourceEvidence} aria-label="Waveform source evidence">
       <div><small>Source basis</small><strong>{descriptor.source.organization}</strong></div>
       <ul>{descriptor.source.references.map((reference) => <li key={`${reference.specification}-${reference.revision}`} title={reference.url}>
@@ -390,6 +399,16 @@ export function catalogGroup(descriptor: WaveformDescriptor): SignalLabCatalogGr
 
 function familyLabel(descriptor: WaveformDescriptor): string {
   return ({ geran: 'GSM', 'e-utra': 'LTE', nr: '5G NR', wlan: 'Wi-Fi', bluetooth: 'Bluetooth', tone: 'Lab', analog: 'Lab', reference: 'Reference' })[descriptor.family];
+}
+
+function governanceHeadline(descriptor: WaveformDescriptor): string {
+  if (descriptor.governance.signalKind === 'mathematical-lab-reference') return 'STANDARD N/A · MATHEMATICAL REFERENCE';
+  if (descriptor.governance.signalKind === 'operator-defined-builder') return 'CONFIGURATION ONLY · NOT QUALIFIED';
+  return descriptor.governance.claims.digitalQualification === 'qualified'
+    ? descriptor.governance.signalKind === 'standards-component-fixture'
+      ? 'CONTENT-BOUND COMPONENT · DIGITALLY QUALIFIED'
+      : 'CONTENT-BOUND PROFILE · DIGITALLY QUALIFIED'
+    : 'ENGINEERING PROJECTION · NOT QUALIFIED';
 }
 
 function stateLabel(state: SignalLabSourceState | SignalLabSessionState): string {

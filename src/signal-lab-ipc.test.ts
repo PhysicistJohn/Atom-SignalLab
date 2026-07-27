@@ -1,8 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
+import { SIGNAL_LAB_CONTRACT_VERSION } from './contracts.js';
 import { DEFAULT_REPLAY_CHANNEL } from './waveforms.js';
 import { registerSignalLabIpc, SIGNAL_LAB_IPC_CHANNELS, type SignalLabIpcController, type SignalLabIpcMainLike } from './signal-lab-ipc.js';
 
 describe('SignalLab privileged IPC admission', () => {
+  it('publishes only the version-2 standalone IPC namespace', () => {
+    expect(SIGNAL_LAB_CONTRACT_VERSION).toBe(2);
+    expect(Object.values(SIGNAL_LAB_IPC_CHANNELS)).toEqual([
+      'signal-lab:status:v2',
+      'signal-lab:select:v2',
+      'signal-lab:channel:v2',
+    ]);
+  });
+
   it('checks renderer trust and exact argument counts before every operation', () => {
     const harness = createHarness();
     const status = harness.controller.status();
@@ -75,7 +85,7 @@ function createHarness() {
 
 function createController(operations: (...args: unknown[]) => void): SignalLabIpcController {
   const status = {
-    contractVersion: 1 as const,
+    contractVersion: SIGNAL_LAB_CONTRACT_VERSION,
     owner: 'tinysa-signal-lab' as const,
     available: true as const,
     active: true as const,
