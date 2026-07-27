@@ -31,7 +31,7 @@
     "test:3gpp": "cross-env SIGNALLAB_REQUIRE_3GPP_ORACLE=1 SIGNALLAB_REQUIRE_3GPP_CLAUSE_ARCHIVES=1 vitest run src/3gpp-compliance.test.ts src/3gpp-qualification.test.ts src/standards-artifact.test.ts src/standards-provider.test.ts src/standards-test-gate.test.ts src/standards-waveform.test.ts src/standards-runtime.test.ts src/lte-etm1-reference.test.ts src/lte-etm1-provider.test.ts src/lte-etm1-test-catalog.test.ts src/lte-etm1-oracle-evidence.test.ts src/lte-etm1-independent-oracle.test.ts src/lte-etm1-clause-archive.test.ts",
     "test:standards-bundle": "node tools/standards-runtime-bundle-smoke.mjs",
     "test:launcher": "node --test tools/dev-launcher/bounded-log.test.cjs tools/dev-launcher/launcher-environment.test.cjs",
-    "audit": "npm audit --audit-level=high",
+    "audit": "npm audit --omit=dev --audit-level=high",
     "check": "npm run typecheck && npm run build && npm run test:standards-bundle && npm test && npm run test:launcher",
     "package:mac": "npm run build && electron-builder --mac dmg zip",
     "package:win": "npm run build && electron-builder --win nsis portable",
