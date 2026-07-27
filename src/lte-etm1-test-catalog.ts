@@ -1,4 +1,4 @@
-import { sha256HexOfBytes } from './platform-bytes.js';
+import { isUint8Array, sha256HexOfBytes } from './platform-bytes.js';
 import {
   standardsTestCampaignSchema,
   standardsTestCatalogSchema,
@@ -371,7 +371,7 @@ function retainedClauseRecord(value: unknown): Record<string, unknown> {
 export function parseRetainedLteEtm11ClauseEvidence(
   reportBytes: Uint8Array,
 ): readonly VerifiedLteEtm11ClauseDigest[] {
-  if (!(reportBytes instanceof Uint8Array)) {
+  if (!isUint8Array(reportBytes)) {
     throw new TypeError('Retained clause evidence must be supplied as UTF-8 bytes');
   }
   if (sha256HexOfBytes(reportBytes) !== LTE_ETM1_1_CLAUSE_EVIDENCE_REPORT_SHA256) {

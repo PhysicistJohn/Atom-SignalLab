@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isUint8Array } from './platform-bytes.js';
 
 /**
  * Runtime contract for immutable, provider-generated standards waveform assets.
@@ -148,7 +149,7 @@ export class IncrementalSha256 {
 
   update(chunk: Uint8Array): this {
     if (this.#digest !== null) throw new Error('SHA-256 instance is already finalized');
-    if (!(chunk instanceof Uint8Array)) throw new TypeError('SHA-256 chunks must be Uint8Array values');
+    if (!isUint8Array(chunk)) throw new TypeError('SHA-256 chunks must be Uint8Array values');
 
     this.#totalBytes += BigInt(chunk.byteLength);
     if (this.#totalBytes * 8n > 0xffff_ffff_ffff_ffffn) {
@@ -724,7 +725,7 @@ async function verifyChunks(
   const retainedChunks: Uint8Array[] = [];
   let byteLength = 0;
   for await (const chunk of chunks) {
-    if (!(chunk instanceof Uint8Array)) {
+    if (!isUint8Array(chunk)) {
       throw new StandardsArtifactAdmissionError('invalid-chunk', 'Artifact stream yielded a non-Uint8Array chunk');
     }
     if (chunk.byteLength === 0) continue;

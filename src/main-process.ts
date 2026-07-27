@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { replayChannelConfigurationSchema, SIGNAL_LAB_CONTRACT_VERSION, synthesizedSignalProfileSchema, type ReplayChannelConfiguration, type SignalLabStatus, type SynthesizedSignalProfile } from './contracts.js';
-import { registerSignalLabIpc } from './signal-lab-ipc.js';
+import { registerSignalLabIpc, SIGNAL_LAB_IPC_CHANNELS } from './signal-lab-ipc.js';
 import { installSignalLabRendererBoundary } from './renderer-boundary.js';
 import {
   assertTrustedRendererEvent,
@@ -42,7 +42,7 @@ function status(): SignalLabStatus {
 function publish(): SignalLabStatus {
   const value = status();
   if (window && !window.isDestroyed() && isTrustedRendererUrl(window.webContents.mainFrame.url, rendererTrust)) {
-    window.webContents.send('signal-lab:status:v1', value);
+    window.webContents.send(SIGNAL_LAB_IPC_CHANNELS.status, value);
   }
   return value;
 }

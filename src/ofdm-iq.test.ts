@@ -120,7 +120,7 @@ describe('standards engineering complex-I/Q projection', () => {
     expect(metrics.meanPower).toBeGreaterThan(0);
   }, 15_000);
 
-  it('applies the independent requested low-pass bandwidth deterministically', () => {
+  it('does not turn the declared bandwidth into a hidden capture filter', () => {
     const common = {
       profile: 'custom-wifi' as const,
       sampleRateHz: 20_000_000,
@@ -128,8 +128,7 @@ describe('standards engineering complex-I/Q projection', () => {
     };
     const narrow = synthesizeStandardsEngineeringComplexIq({ ...common, bandwidthHz: 10_000 });
     const wide = synthesizeStandardsEngineeringComplexIq({ ...common, bandwidthHz: common.sampleRateHz });
-    expect(narrow).not.toEqual(wide);
-    expect(sampleMetrics(narrow).meanPower).toBeLessThan(sampleMetrics(wide).meanPower);
+    expect(narrow).toEqual(wide);
   });
 
   it('rejects non-standards profiles, invalid geometry, and descriptor drift before allocation', () => {

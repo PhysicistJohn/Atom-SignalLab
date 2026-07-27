@@ -34,6 +34,7 @@ import {
   LTE_ETM1_1_REQUIRED_CLAUSES,
 } from './lte-etm1-test-catalog.js';
 import { LTE_ETM1_1_REFERENCE_CF64LE_SHA256 } from './lte-etm1-provider.js';
+import { isUint8Array } from './platform-bytes.js';
 
 export interface ThreeGppEvidenceArtifactBytes {
   readonly artifactId: string;
@@ -418,7 +419,7 @@ function verifyEvidenceArtifactBytes(
     if (
       record === null
       || typeof record.artifactId !== 'string'
-      || !(record.bytes instanceof Uint8Array)
+      || !isUint8Array(record.bytes)
     ) {
       appendReason(reasons, `Evidence artifact bytes entry ${index} is malformed.`);
       continue;

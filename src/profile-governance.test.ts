@@ -596,10 +596,11 @@ describe('operator-profile governance registry', () => {
       expect(descriptor.qualification)
         .toBe('independently-verified-digital-baseband');
       expect(descriptor.assetSha256).toBe(evidence?.artifact.sha256);
+      const binding = FIXED_DIGITAL_PROFILE_BINDINGS[
+        profileId as keyof typeof FIXED_DIGITAL_PROFILE_BINDINGS
+      ];
       expect(descriptor.centerHz)
-        .toBe(FIXED_DIGITAL_PROFILE_BINDINGS[
-          profileId as keyof typeof FIXED_DIGITAL_PROFILE_BINDINGS
-        ].centerHz);
+        .toBe(binding.profileReferenceCenterHz - binding.nativeCarrierOffsetHz);
     }
   });
 

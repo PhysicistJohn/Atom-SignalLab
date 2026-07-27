@@ -44,12 +44,12 @@ interface GeneratorGoldenPins {
 const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, GeneratorGoldenPins>>> = Object.freeze({
   cw: {
     spectrumSha256: 'eb7d92060f7213cdee880b4046aa8224c626a8281ddcadb1022b7fd29e128862',
-    zeroSpanSha256: '70673dfaddd4788d1f6cd4e00f9dfa6b95e4f5f3e9e220fbfd884cb47ea3af77',
+    zeroSpanSha256: '4e85a60109eb1844373e88fb2ee03cdbaeea12974fb1ce32b5ef56f43552e143',
     complexIqSha256: '209f1f991e3ff657ad20a247216dc24762843b2a54090e73a83cfc918ccea017',
   },
   'gsm-900-loaded-bcch': {
     spectrumSha256: 'ca9e2d69999471908b12f0619c232eb95c4ffe2c9f81d77ac59c4cc0b442ea19',
-    zeroSpanSha256: '097f17defa475e7136f44aeb20edbc37612f8e1d680b25a7c3088c41351b4928',
+    zeroSpanSha256: 'ad110436e2e3402c9e5dde1961cb1c8c43e25d8c5113df570a328db8dcb1ceb8',
     complexIqSha256: '28f468648385ca060e940cb1b234f23db8fe79109556155b37a9bc2355110192',
   },
   'lte-band3-fdd-20m': {
@@ -66,7 +66,7 @@ const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, G
     complexIqSha256: '8c367577df9fe00c7c46545dfb41f896c966d79016473318f431f202c1149655',
   },
   'wifi-hr-dsss-11m': {
-    spectrumSha256: 'c69de34a8b355398a55290603d5e223a26c197ffdf79562c7690e94d9657bd9b',
+    spectrumSha256: '2a47f3bf1ef2a00e5ef91e8765d5caa1cdc3d19720d04d8b072c32c8f16dfd44',
     zeroSpanSha256: '3a491f87c663cb3a0355b2bf3aaa1efdf42900078465675af0ed6eb72ae799b8',
     complexIqSha256: 'bf0bdb1aecf407fbc3510b05b619e92e60b7662c659ae3b5f5f2b6afdafc28e9',
   },
@@ -78,7 +78,7 @@ const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, G
   'ref-qpsk': {
     spectrumSha256: 'b408419824c4c1885346d0885c33c1e0d959926f789e012ee2139b1930f53cc3',
     zeroSpanSha256: '0f905bb5cd73cc661815af6726e6fd3cd6e57de2f809342966d3c95047751e1a',
-    complexIqSha256: '9eb6d13de5ad1884bac2c14a9d6d8886ef824668df003110e1edb4b2df689de6',
+    complexIqSha256: 'be4d81675bef834b366c9549540cea2ae32425391b8c9b6c7a2bf5e2bca69cc7',
   },
 });
 
@@ -151,7 +151,10 @@ describe('S1 generator determinism goldens', () => {
 
   it.each(GOLDEN_PROFILES)('%s analytic complex I/Q is bit-frozen', (profile) => {
     const exactGeometry = isFixedDigitalProfile(profile)
-      ? fixedDigitalProfileBinding(profile)
+      ? {
+          sampleRateHz: fixedDigitalProfileBinding(profile).nativeSampleRateHz,
+          bandwidthHz: fixedDigitalProfileBinding(profile).signalBandwidthHz,
+        }
       : { sampleRateHz: IQ_SAMPLE_RATE_HZ, bandwidthHz: IQ_BANDWIDTH_HZ };
     const iqBytes = synthesizeAnalyticComplexIq({
       profile,

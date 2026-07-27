@@ -137,5 +137,9 @@ describe('fixed LTE Band-3 20 MHz FDD digital reference', () => {
       timeCf64leSha256: sha256(firstTime),
     };
     expect(identities).toEqual(LTE_BAND3_FDD_20M_REFERENCE_IDENTITIES);
-  });
+    // Generating and hashing two complete 20 MHz FDD frames is genuinely
+    // expensive: about 25s alone and appreciably longer under a parallel run,
+    // so it needs a budget well above the 30s global default. Kept explicit
+    // rather than raising the global, so the cost of this test stays visible.
+  }, 120_000);
 });

@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { profileGovernanceSchema } from './profile-governance-schema.js';
 import { sourceBasisSchema } from './source-provenance.js';
 
-export const SIGNAL_LAB_CONTRACT_VERSION = 1 as const;
+export const SIGNAL_LAB_CONTRACT_VERSION = 2 as const;
+/** Reserved future SignalLab -> Firmware intent; independent of the active UI API. */
+export const SIGNAL_LAB_STIMULUS_INTENT_VERSION = 1 as const;
 export const MIN_MEASUREMENT_FREQUENCY_HZ = 1 as const;
 export const MAX_MEASUREMENT_FREQUENCY_HZ = 17_922_600_000 as const;
 export const MEASUREMENT_FREQUENCY_STEP_HZ = 1 as const;
@@ -43,8 +45,8 @@ export const replayChannelConfigurationSchema = z.object({
   noiseFloorDbm: z.number().finite().min(-150).max(-30),
   seed: z.number().int().min(1).max(0xffff_ffff),
   fadingRateHz: z.number().finite().min(0.1).max(100),
-  /** Complex-I/Q receiver preset; omitted is accepted as legacy clean state. */
-  receiverImpairment: receiverImpairmentPresetSchema.optional(),
+  /** Explicit complex-I/Q receiver preset; v2 has no implicit clean state. */
+  receiverImpairment: receiverImpairmentPresetSchema,
 }).strict();
 export type ReplayChannelConfiguration = z.infer<typeof replayChannelConfigurationSchema>;
 export const waveformProjectionSchema = z.object({
@@ -114,7 +116,7 @@ export interface SignalLabStatus {
 
 /** Versioned intent reserved for a future SignalLab -> Firmware twin stimulus sink. */
 export interface SignalLabStimulusIntent {
-  contractVersion: typeof SIGNAL_LAB_CONTRACT_VERSION;
+  contractVersion: typeof SIGNAL_LAB_STIMULUS_INTENT_VERSION;
   sequence: number;
   issuedAt: string;
   waveform: WaveformDescriptor;

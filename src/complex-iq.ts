@@ -1,5 +1,4 @@
 import {
-  onePoleLowPassAlphaForTwoSided3dbBandwidth as lowPassFeedForwardCoefficient,
   writeUnitBoundedCf32le,
 } from '@atomos/dsp';
 import {
@@ -113,9 +112,9 @@ export const MAX_ANALYTIC_COMPLEX_IQ_SAMPLES = 65_536 as const;
 export const ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE = 8 as const;
 export const MAX_ANALYTIC_COMPLEX_IQ_BYTES = MAX_ANALYTIC_COMPLEX_IQ_SAMPLES * ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE;
 export const MIN_ANALYTIC_COMPLEX_IQ_SAMPLE_RATE_HZ = 1_000_000 as const;
-export const MAX_ANALYTIC_COMPLEX_IQ_SAMPLE_RATE_HZ = 245_760_000 as const;
+export const MAX_ANALYTIC_COMPLEX_IQ_SAMPLE_RATE_HZ = 491_520_000 as const;
 export const MIN_ANALYTIC_COMPLEX_IQ_BANDWIDTH_HZ = 1_000 as const;
-export const MAX_ANALYTIC_COMPLEX_IQ_BANDWIDTH_HZ = 245_760_000 as const;
+export const MAX_ANALYTIC_COMPLEX_IQ_BANDWIDTH_HZ = 491_520_000 as const;
 
 export const ANALYTIC_IQ_AM_MODULATION_FREQUENCY_HZ = 25_000 as const;
 export const ANALYTIC_IQ_AM_MODULATION_INDEX = 0.72 as const;
@@ -144,14 +143,11 @@ export interface AnalyticComplexIqSynthesisInput {
  * PSK/QAM reference sources deliberately include their separately disclosed
  * intrinsic seeded 40 dB AWGN; they are not noiseless vectors.
  *
- * `bandwidthHz` is the two-sided steady-state -3 dB bandwidth of a causal,
- * real-coefficient, first-order low-pass: its edges are at
- * `+-bandwidthHz / 2` relative to the requested center. The recurrence is
- * initialized from the first unfiltered sample, so constant envelopes (CW)
- * remain exact and no synthetic zero-fill transient is introduced. Each
- * output is a convex combination of the current input and previous output,
- * which keeps the normalized analytic envelope inside the unit disk using
- * constant memory and O(sampleCount) work.
+ * `bandwidthHz` declares the intrinsic signal/channel support used for
+ * geometry admission and standards-parameterized source construction. It is
+ * never a capture filter. The returned source is indexed only by absolute
+ * sample coordinate, so whole and split captures are byte-identical. Any
+ * receiver filter must be a separately named transform with its own receipt.
  *
  * CW, AM, and FM are closed-form laboratory signals. Every standards-linked
  * fixed catalog member dispatches to a content-addressed digital-baseband
@@ -282,7 +278,11 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
     });
   }
   if (isStandardsEngineeringComplexIqProfile(profile)) {
-    return synthesizeStandardsEngineeringComplexIq({ ...input, profile, startSample: startSampleIndex });
+    return synthesizeStandardsEngineeringComplexIq({
+      ...input,
+      profile,
+      startSample: startSampleIndex,
+    });
   }
   if (isReferenceComplexIqProfile(profile)) {
     return synthesizeReferenceComplexIq({
@@ -300,21 +300,15 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
 
   const bytes = new Uint8Array(byteLength);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const feedForward = lowPassFeedForwardCoefficient(input.bandwidthHz, input.sampleRateHz);
-  let previousInPhase = 0;
-  let previousQuadrature = 0;
   for (let index = 0; index < input.sampleCount; index += 1) {
     const timeSeconds = (startSampleIndex + index) / input.sampleRateHz;
     const [rawInPhase, rawQuadrature] = analyticLaboratorySample(profile, timeSeconds);
-    const inPhase = index === 0
-      ? rawInPhase
-      : previousInPhase + feedForward * (rawInPhase - previousInPhase);
-    const quadrature = index === 0
-      ? rawQuadrature
-      : previousQuadrature + feedForward * (rawQuadrature - previousQuadrature);
-    previousInPhase = inPhase;
-    previousQuadrature = quadrature;
-    writeUnitBoundedCf32le(view, index * ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE, inPhase, quadrature);
+    writeUnitBoundedCf32le(
+      view,
+      index * ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE,
+      rawInPhase,
+      rawQuadrature,
+    );
   }
   return bytes;
 }
@@ -338,11 +332,11 @@ function analyticComplexIqProfile(value: SynthesizedSignalProfile): AnalyticComp
 }
 
 /**
- * Exact pre-filter complex envelope for the three closed-form lab stimuli.
+ * Exact source complex envelope for the three closed-form lab stimuli.
  *
  * Exported so conformance-policy tests can compare the implementation with
- * independent mathematical oracles without treating the shared receiver
- * low-pass or cf32 packing code as part of the source equation.
+ * independent mathematical oracles without treating cf32 packing as part of
+ * the source equation.
  */
 export function analyticLaboratorySample(
   profile: LabAnalyticComplexIqProfile,
@@ -368,30 +362,22 @@ export function analyticLaboratorySample(
   }
 }
 
-export function filterAndEncodeInterleavedSamples(
+export function encodeInterleavedSamples(
   analytic: Float32Array | Float64Array,
-  input: Pick<AnalyticComplexIqSynthesisInput, 'sampleRateHz' | 'bandwidthHz' | 'sampleCount'>,
+  input: Pick<AnalyticComplexIqSynthesisInput, 'sampleCount'>,
 ): Uint8Array {
   if (analytic.length !== input.sampleCount * 2) {
     throw new Error('Complex-I/Q engineering generator returned invalid interleaved sample geometry');
   }
   const bytes = new Uint8Array(input.sampleCount * ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const feedForward = lowPassFeedForwardCoefficient(input.bandwidthHz, input.sampleRateHz);
-  let previousInPhase = 0;
-  let previousQuadrature = 0;
   for (let index = 0; index < input.sampleCount; index += 1) {
-    const rawInPhase = analytic[index * 2]!;
-    const rawQuadrature = analytic[index * 2 + 1]!;
-    const inPhase = index === 0
-      ? rawInPhase
-      : previousInPhase + feedForward * (rawInPhase - previousInPhase);
-    const quadrature = index === 0
-      ? rawQuadrature
-      : previousQuadrature + feedForward * (rawQuadrature - previousQuadrature);
-    previousInPhase = inPhase;
-    previousQuadrature = quadrature;
-    writeUnitBoundedCf32le(view, index * ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE, inPhase, quadrature);
+    writeUnitBoundedCf32le(
+      view,
+      index * ANALYTIC_COMPLEX_IQ_BYTES_PER_SAMPLE,
+      analytic[index * 2]!,
+      analytic[index * 2 + 1]!,
+    );
   }
   return bytes;
 }

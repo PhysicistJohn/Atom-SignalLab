@@ -1,8 +1,8 @@
 /**
  * Platform-neutral byte primitives shared by the measurement producer and its
- * contract validators. SignalLab's producer runs both as the Node bridge
- * subprocess (desktop Atomizer) and directly in the page (browser Atomizer),
- * so hashing and base64 cannot come from node:crypto or Buffer.
+ * contract validators. SignalLab's in-process producer runs in both desktop
+ * and browser Atomizer realms, so hashing and base64 cannot come from
+ * node:crypto or Buffer and byte guards cannot rely on one global constructor.
  */
 
 const SHA256_K = Uint32Array.from([
@@ -64,6 +64,19 @@ export function sha256HexOfBytes(...inputs: readonly (Uint8Array | string)[]): s
 }
 
 const BASE64_CHUNK_BYTES = 0x8000;
+
+/**
+ * Cross-realm Uint8Array guard. Browser/jsdom integrations can construct byte
+ * views with a different global constructor, so `instanceof Uint8Array` is not
+ * a valid wire-boundary check.
+ */
+export function isUint8Array(value: unknown): value is Uint8Array {
+  return typeof value === 'object'
+    && value !== null
+    && ArrayBuffer.isView(value)
+    && Object.prototype.toString.call(value) === '[object Uint8Array]'
+    && (value as { readonly BYTES_PER_ELEMENT?: unknown }).BYTES_PER_ELEMENT === 1;
+}
 
 /** Canonical RFC 4648 base64 of a byte payload, without Buffer. */
 export function bytesToBase64(bytes: Uint8Array): string {

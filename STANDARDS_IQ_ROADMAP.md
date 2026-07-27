@@ -1,9 +1,11 @@
 # Standards and complex-I/Q roadmap
 
-Status: the provider-neutral, fail-closed 3GPP evidence foundation and one
-fixed LTE E-TM 1.1 digital milestone are implemented. Broad 3GPP compliance,
-conducted-RF conformance, radiated/OTA conformance, and exact GERAN or NR
-waveforms are not claimed.
+Status: all 31 fixed standards-linked catalog profiles now have immutable
+`cf32le` digital artifacts and independent evidence for their exact declared
+scope. The separate provider-neutral, fail-closed 3GPP promotion framework and
+its callable LTE E-TM 1.1 runtime lane also remain implemented. Neither path
+claims broad standards compliance, conducted-RF conformance, radiated/OTA
+conformance, antenna behavior, or product certification.
 
 ## Product boundary
 
@@ -16,45 +18,48 @@ versioned driver boundary. Direct imports share the view; they do not create a
 second bridge, hidden state channel, or cross-repository mutation path.
 
 Complex-I/Q is likewise a driver-neutral Atomizer acquisition shape rather than
-a SignalLab special case. A source advertises its center-frequency, sample-rate,
-bandwidth, sample-count, and format ranges; Atomizer configures and validates a
-complete capture before rendering time-domain I/Q and a constellation preview.
-The v1 Atomizer contract can represent `cf32le`, `ci16le`, `ci8`, and `cu8`.
-Each SignalLab acquisition currently produces one bounded, complete `cf32le`
-buffer for any of the 42 closed profiles. Its independent 1 kHz through 245.76
-MHz bandwidth setting drives a deterministic causal first-order baseband
-low-pass applied identically to I and Q, and may not exceed the selected sample
-rate. Bandwidth is the filter's two-sided steady-state -3 dB span, with edges at
-`+-B/2`; initialization from the first analytic sample preserves CW exactly.
-This is filtering, not resampling or an analog-front-end claim. Chunking,
-continuous streaming, backpressure, cancellation, and overrun reporting require
-a later streaming contract before incoming I/Q hardware may claim them.
+a SignalLab special case. SignalLab measurement contract v2 returns one bounded,
+complete `cf32le` buffer for any of the 42 profiles and advertises an ordered
+per-profile transport record. Each fixed record declares its digital-envelope
+reference center, native carrier offset, native sample rate, signal bandwidth,
+and cyclic period or one-shot limit. The 11 analytic/builder records declare
+state-free continuous generation at the requested output rate.
 
-The exact LTE artifact provider is a separate generation and admission path. It
-does not silently replace or promote an `acquireIq` catalog profile.
+`captureBandwidthHz` is distinct from the profile's `signalBandwidthHz` and
+never activates a hidden I/Q filter. Exact native fixed bytes remain immutable.
+When output rate, fractional phase, or carrier placement requires a
+hardware-ready derivation, the result receives new bytes and a deterministic
+receipt. Downsampling uses an explicit Blackman-windowed sinc only when its
+95%-of-output-Nyquist passband contains the signal bandwidth; equal-rate
+fractional delay and upsampling preserve source Nyquist. Requested RF center is
+placement metadata and not artifact identity. Chunking, continuous streaming,
+backpressure, cancellation, and overrun reporting still require a later
+instrument streaming contract.
+
+The provider-runtime LTE artifact lane is a separate generation and promotion
+path. It does not silently replace, qualify, or promote an `acquireIq` catalog
+profile.
 
 ## What works now
 
 | Family or lane | Studio catalog | Scalar replay | Complex-I/Q |
 |---|---|---|---|
-| Lab (CW/AM/FM) | Yes | Yes | Deterministic analytic `cf32le`, at most 65,536 samples; `analytic-complex-baseband` |
-| GSM / GERAN | Yes | Standards-derived visual projection | Deterministic burst/modulation engineering envelope; `standards-derived-complex-baseband` |
-| LTE / E-UTRA catalog | Yes | Standards-derived visual projection | Deterministic representative-grid engineering envelope; `standards-derived-complex-baseband` |
-| 5G NR | Yes | Standards-derived visual projection | Deterministic representative-grid engineering envelope; `standards-derived-complex-baseband` |
-| WLAN / Wi-Fi | Yes | Standards-derived visual projection | Deterministic representative-grid engineering envelope; `standards-derived-complex-baseband` |
-| Bluetooth | Yes | Standards-derived visual projection | Deterministic GFSK/FHSS-style engineering envelope; `standards-derived-complex-baseband` |
+| Lab (CW/AM/FM plus five references) | Yes | Visual projection | 8 state-free analytic `cf32le` sources at the output rate; `analytic-complex-baseband` |
+| GSM / GERAN | Yes | Standards-derived visual projection | 7 immutable fixed artifacts with exact digital-scope evidence; native or explicitly derived output |
+| LTE / E-UTRA catalog | Yes | Standards-derived visual projection | 9 immutable fixed artifacts plus one builder; fixed native bytes are independently verified for declared scope |
+| 5G NR | Yes | Standards-derived visual projection | 7 immutable fixed artifacts plus one builder; fixed native bytes are independently verified for declared scope |
+| WLAN / Wi-Fi | Yes | Standards-derived visual projection | 6 immutable fixed artifacts plus one builder; fixed native bytes are independently verified for declared scope |
+| Bluetooth | Yes | Standards-derived visual projection | 2 immutable one-shot fixed artifacts with explicit native carrier offsets and limits |
 | Fixed LTE E-TM 1.1 artifact lane | Not a catalog replacement | Not applicable | Content-addressed one-frame `cf64le` artifact; provider qualification remains `reference-generated` |
 
-The current `acquireIq` producer covers all 42 closed profiles, but it has two
-evidence tiers. CW, AM, FM, and the five constellation references are
-closed-form analytic laboratory envelopes. The other 34 buffers are
-standards-derived engineering projections. They are not packet-decodable or
-bit-exact protocol reproductions, standards test vectors, or conformance
-vectors, and their availability does not advance them through the
-provider/evidence qualification ladder below. When the requested sample rate is
-below a wideband profile's catalogued occupied support, its current output is a
-deterministic discrete-time alias projection rather than an alias-free
-reconstruction of the full channel.
+The current `acquireIq` producer therefore has three source categories: 31
+content-bound fixed digital artifacts, three standards-constrained builders,
+and eight mathematical references. Independent digital qualification attaches
+only to exact clean native artifact bytes. Resampling, fractional delay, carrier
+translation, or receiver impairment produces a separately hashed derived result
+and cannot inherit exact-byte qualification. No category implies packet
+decoding, RF calibration, antenna qualification, broad technology compliance,
+or product certification.
 
 The fixed standards preset `lte-etm-1-1-10mhz-fdd` is revision `2.0.0`: LTE
 E-TM 1.1, 10 MHz FDD, 50 resource blocks, 15 kHz subcarrier spacing, normal

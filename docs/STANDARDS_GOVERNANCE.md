@@ -1,6 +1,6 @@
 # Standards governance ledger
 
-This is the human-readable ledger for all 42 SignalLab catalog profiles. The executable authority is [`src/profile-governance.ts`](../src/profile-governance.ts), validated by [`src/profile-governance-schema.ts`](../src/profile-governance-schema.ts) and [`src/profile-governance.test.ts`](../src/profile-governance.test.ts). The exact center, native sample-rate, bandwidth, and artifact bindings for every qualified lane are executable in [`src/fixed-digital-profile-binding.ts`](../src/fixed-digital-profile-binding.ts).
+This is the human-readable ledger for all 42 SignalLab catalog profiles. The executable authority is [`src/profile-governance.ts`](../src/profile-governance.ts), validated by [`src/profile-governance-schema.ts`](../src/profile-governance-schema.ts) and [`src/profile-governance.test.ts`](../src/profile-governance.test.ts). The digital-envelope reference center, native carrier offset, native sample rate, signal bandwidth, replay policy, and artifact binding for every qualified lane are executable in [`src/fixed-digital-profile-binding.ts`](../src/fixed-digital-profile-binding.ts).
 
 ## Result at a glance
 
@@ -11,7 +11,7 @@ This is the human-readable ledger for all 42 SignalLab catalog profiles. The exe
 | Mathematical laboratory references | 8 | Standards adherence is not applicable because no unique external waveform standard governs the construction |
 | Total | 42 | Broad standards compliance and RF conformance remain unclaimed for every row |
 
-All 31 positive digital claims require exact source-preserved, unnormalized, clean `cf32le` bytes at the profile's catalog center, native sample-rate, and bandwidth binding. A different center or other configuration, resampling, filtering, receiver impairment, artifact byte, implementation, dependency, or standards revision is outside that claim.
+All 31 positive digital claims attach only to the exact source-preserved, unnormalized, clean `cf32le` artifact bytes at the declared native sample rate, signal bandwidth, and native carrier offset. Requested RF center is separate output-placement metadata and is not part of the artifact hash; changing it alone neither qualifies nor disqualifies unchanged native bytes. Resampling, fractional delay, carrier translation, filtering, receiver impairment, any artifact-byte change, or an unadmitted evidence/standards revision is outside the exact-byte claim and must carry derived or impaired qualification instead.
 
 ## Governing authorities
 

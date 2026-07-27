@@ -18,7 +18,8 @@ describe('fixed digital profile acquisition bindings', () => {
       if (!isFixedDigitalProfile(profile)) throw new Error(`${profile} is not fixed`);
       expect(fixedDigitalProfileBinding(profile)).toEqual(binding);
       const descriptor = waveformDescriptor(profile);
-      expect(descriptor.centerHz).toBe(binding.centerHz);
+      expect(descriptor.centerHz)
+        .toBe(binding.profileReferenceCenterHz - binding.nativeCarrierOffsetHz);
       expect(descriptor.qualification)
         .toBe('independently-verified-digital-baseband');
       expect(descriptor.assetSha256)
@@ -33,8 +34,8 @@ describe('fixed digital profile acquisition bindings', () => {
       const profile = profileValue as SynthesizedSignalProfile;
       const input = {
         profile,
-        sampleRateHz: binding.sampleRateHz,
-        bandwidthHz: binding.bandwidthHz,
+        sampleRateHz: binding.nativeSampleRateHz,
+        bandwidthHz: binding.signalBandwidthHz,
         sampleCount: 257,
         startSampleIndex: 0,
       } as const;
@@ -42,11 +43,11 @@ describe('fixed digital profile acquisition bindings', () => {
       expect(bytes.byteLength).toBe(257 * 8);
       expect(() => synthesizeAnalyticComplexIq({
         ...input,
-        sampleRateHz: binding.sampleRateHz + 1,
+        sampleRateHz: binding.nativeSampleRateHz + 1,
       })).toThrow(/requires/i);
       expect(() => synthesizeAnalyticComplexIq({
         ...input,
-        bandwidthHz: binding.bandwidthHz - 1,
+        bandwidthHz: binding.signalBandwidthHz - 1,
       })).toThrow(/requires/i);
     }
   });

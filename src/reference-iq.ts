@@ -1,5 +1,5 @@
 import type { SynthesizedSignalProfile } from './contracts.js';
-import { filterAndEncodeInterleavedSamples } from './complex-iq.js';
+import { encodeInterleavedSamples } from './complex-iq.js';
 
 /**
  * Analytic single-carrier PSK/QAM laboratory reference waveforms.
@@ -86,8 +86,9 @@ interface ConstellationPlan {
 
 /**
  * Produce the declared single-carrier laboratory reference in interleaved cf32le,
- * reusing the shared bandwidth low-pass + unit-disk packing so it matches every
- * other complex-I/Q generator on the wire.
+ * packing the intrinsic RRC waveform directly into the shared unit-bounded wire
+ * format. `bandwidthHz` remains part of the public source-geometry admission
+ * surface; it is not a hidden receiver or capture filter.
  */
 export function synthesizeReferenceComplexIq(input: ReferenceComplexIqSynthesisInput): Uint8Array {
   const analytic = synthesizeReferenceAnalyticSamples({
@@ -98,15 +99,13 @@ export function synthesizeReferenceComplexIq(input: ReferenceComplexIqSynthesisI
     seed: input.seed,
     includeIntrinsicNoise: true,
   });
-  return filterAndEncodeInterleavedSamples(analytic, {
-    sampleRateHz: input.sampleRateHz,
-    bandwidthHz: input.bandwidthHz,
+  return encodeInterleavedSamples(analytic, {
     sampleCount: input.sampleCount,
   });
 }
 
 /**
- * Produce the pre-receiver-filter analytic reference samples.
+ * Produce the analytic reference source samples before wire-format packing.
  *
  * This boundary makes the declared constellation, RRC pulse, and intrinsic
  * noise independently measurable. Production calls retain intrinsic noise;

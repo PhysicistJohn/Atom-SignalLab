@@ -1,9 +1,9 @@
 import type { SignalLabStatus } from './contracts.js';
 
 export const SIGNAL_LAB_IPC_CHANNELS = Object.freeze({
-  status: 'signal-lab:status:v1',
-  select: 'signal-lab:select:v1',
-  channel: 'signal-lab:channel:v1',
+  status: 'signal-lab:status:v2',
+  select: 'signal-lab:select:v2',
+  channel: 'signal-lab:channel:v2',
 } as const);
 
 export interface SignalLabIpcController {

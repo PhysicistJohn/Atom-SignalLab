@@ -246,6 +246,19 @@ export function synthesizeImpairedComplexIq(
   seed: number = DEFAULT_IMPAIRMENT_SEED,
 ): Uint8Array {
   const clean = synthesizeAnalyticComplexIq(input);
+  return applyReceiverImpairmentsToCf32le(clean, impairments, seed);
+}
+
+/**
+ * Apply the same deterministic receiver chain to an already materialized
+ * cf32le buffer. This keeps native-artifact replay/resampling separate from
+ * receiver augmentation and lets the bridge record each transform explicitly.
+ */
+export function applyReceiverImpairmentsToCf32le(
+  clean: Uint8Array,
+  impairments: ReceiverImpairments,
+  seed: number = DEFAULT_IMPAIRMENT_SEED,
+): Uint8Array {
   const { re, im } = decodeCf32le(clean);
   const impaired = applyReceiverImpairments(re, im, impairments, seed);
   return encodeCf32le(impaired.re, impaired.im);
