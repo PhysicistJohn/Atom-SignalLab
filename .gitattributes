@@ -1,0 +1,17 @@
+# This repository is content-addressed: retained oracle evidence pins the
+# SHA-256 of implementation and test SOURCE FILES, not just of generated
+# artifacts. Git's default autocrlf would rewrite LF to CRLF on Windows
+# checkout, changing those bytes and breaking every source-bound evidence
+# assertion. Normalize to LF everywhere so a file's hash is the same on every
+# platform.
+* text=auto eol=lf
+
+# Fixture and evidence payloads are compared byte-for-byte; never transform them.
+*.memh   binary
+*.bin    binary
+*.cf32le binary
+*.cf64le binary
+*.png    binary
+*.jpg    binary
+*.icns   binary
+*.ico    binary
