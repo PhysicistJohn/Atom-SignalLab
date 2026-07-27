@@ -417,6 +417,7 @@ export type StandardsWaveformPreset = z.infer<typeof standardsWaveformPresetSche
 
 const LTE_ETM_REFERENCE_ID = '3gpp-ts-36-141-r19';
 const LTE_PHY_REFERENCE_ID = '3gpp-ts-36-211-r19';
+const LTE_MULTIPLEXING_REFERENCE_ID = '3gpp-ts-36-212-r19';
 
 /**
  * Initial exact LTE configuration seed. It remains `standards-derived` until a
@@ -427,7 +428,7 @@ const LTE_PHY_REFERENCE_ID = '3gpp-ts-36-211-r19';
 export const LTE_ETM_1_1_10_MHZ_FDD_PRESET: StandardsWaveformPreset = standardsWaveformPresetSchema.parse({
   schemaVersion: STANDARDS_WAVEFORM_SCHEMA_VERSION,
   presetId: 'lte-etm-1-1-10mhz-fdd',
-  revision: '1.0.0',
+  revision: '2.0.0',
   family: 'lte',
   name: 'LTE E-TM 1.1 · 10 MHz · FDD',
   description: 'A version-pinned, concrete downlink reference-generator configuration for LTE E-TM 1.1 at 10 MHz FDD.',
@@ -445,7 +446,20 @@ export const LTE_ETM_1_1_10_MHZ_FDD_PRESET: StandardsWaveformPreset = standardsW
       title: 'E-UTRA Base Station (BS) conformance testing',
       revision: '19.1.0',
       release: 'Release 19',
-      clauses: ['6.1.1', '6.1.1.1', 'Table 6.1.1.1-1'],
+      clauses: [
+        '6.1.1',
+        '6.1.1.1',
+        'Table 6.1.1.1-1',
+        '6.1.2',
+        '6.1.2.1',
+        '6.1.2.2',
+        '6.1.2.3',
+        '6.1.2.4',
+        '6.1.2.5',
+        '6.1.2.6',
+        '6.1.2.7',
+        '6.1.2.8',
+      ],
       publicationUrl: 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136141/19.01.00_60/ts_136141v190100p.pdf',
     },
     {
@@ -457,6 +471,16 @@ export const LTE_ETM_1_1_10_MHZ_FDD_PRESET: StandardsWaveformPreset = standardsW
       release: 'Release 19',
       clauses: ['4 Frame structure', '6 Downlink physical channels and modulation'],
       publicationUrl: 'https://www.etsi.org/deliver/etsi_ts/136200_136299/136211/19.03.00_60/ts_136211v190300p.pdf',
+    },
+    {
+      referenceId: LTE_MULTIPLEXING_REFERENCE_ID,
+      organization: '3GPP',
+      documentId: 'TS 36.212',
+      title: 'E-UTRA Multiplexing and channel coding',
+      revision: '19.3.0',
+      release: 'Release 19',
+      clauses: ['5.3.4 Control format indicator', '5.3.5 HARQ indicator'],
+      publicationUrl: 'https://www.etsi.org/deliver/etsi_ts/136200_136299/136212/19.03.00_60/ts_136212v190300p.pdf',
     },
   ],
   configuration: {
@@ -471,10 +495,25 @@ export const LTE_ETM_1_1_10_MHZ_FDD_PRESET: StandardsWaveformPreset = standardsW
       { key: 'resourceGrid.subcarrierSpacingHz', value: { kind: 'integer', value: 15_000 }, unit: 'Hz', origin: 'standard', sourceReferenceIds: [LTE_PHY_REFERENCE_ID], description: 'LTE downlink subcarrier spacing.' },
       { key: 'resourceGrid.cyclicPrefix', value: { kind: 'string', value: 'normal' }, origin: 'preset-selection', sourceReferenceIds: [LTE_PHY_REFERENCE_ID], description: 'Concrete cyclic-prefix selection.' },
       { key: 'transmission.antennaPorts', value: { kind: 'integer', value: 1 }, unit: 'ports', origin: 'preset-selection', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'Single transmit antenna-port configuration.' },
+      { key: 'transmission.codewords', value: { kind: 'integer', value: 1 }, unit: 'codewords', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'E-TM common single-codeword configuration.' },
+      { key: 'transmission.layers', value: { kind: 'integer', value: 1 }, unit: 'layers', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'E-TM common single-layer configuration.' },
+      { key: 'transmission.precoding', value: { kind: 'boolean', value: false }, origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'Precoding is not used by the common E-TM configuration.' },
       { key: 'sampling.sampleRateHz', value: { kind: 'integer', value: 15_360_000 }, unit: 'samples/s', origin: 'preset-selection', sourceReferenceIds: [LTE_PHY_REFERENCE_ID], description: 'Provider-neutral complex-baseband output sample rate.' },
-      { key: 'capture.frames', value: { kind: 'integer', value: 10 }, unit: 'radio frames', origin: 'preset-selection', sourceReferenceIds: [LTE_PHY_REFERENCE_ID], description: 'Finite, deterministic 100 ms generation length.' },
-      { key: 'cell.physicalCellId', value: { kind: 'integer', value: 0 }, origin: 'preset-selection', sourceReferenceIds: [LTE_PHY_REFERENCE_ID], description: 'Deterministic physical-cell identity selected for the reference vector.' },
-      { key: 'payload.seed', value: { kind: 'integer', value: 1 }, origin: 'preset-selection', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'Deterministic payload seed selected by SignalLab; it is not prescribed by 3GPP.' },
+      { key: 'capture.radioFrames', value: { kind: 'integer', value: 1 }, unit: 'radio frames', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'E-TM duration is exactly one 10 ms radio frame.' },
+      { key: 'capture.subframes', value: { kind: 'integer', value: 10 }, unit: 'subframes', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'E-TM duration is exactly ten 1 ms subframes.' },
+      { key: 'capture.durationMs', value: { kind: 'integer', value: 10 }, unit: 'ms', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'Exact E-TM duration.' },
+      { key: 'frame.startSystemFrameNumber', value: { kind: 'integer', value: 0 }, origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'PBCH generation is initialized with system frame number zero.' },
+      { key: 'frame.startSlotNumber', value: { kind: 'integer', value: 0 }, origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'The E-TM starts at slot zero.' },
+      { key: 'cell.physicalCellId', value: { kind: 'integer', value: 1 }, origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'TS 36.141 requires physical cell identity one for the lowest configured E-TM carrier.' },
+      { key: 'control.symbolsPerSubframe', value: { kind: 'integer', value: 1 }, unit: 'OFDM symbols', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'The 10 MHz E-TM 1.1 column uses one control-channel OFDM symbol.' },
+      { key: 'phich.groups', value: { kind: 'integer', value: 2 }, unit: 'PHICH groups', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID, LTE_PHY_REFERENCE_ID], description: 'The 10 MHz E-TM 1.1 column uses two PHICH groups.' },
+      { key: 'phich.channelsPerGroup', value: { kind: 'integer', value: 2 }, unit: 'PHICH channels', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID, LTE_PHY_REFERENCE_ID], description: 'E-TM 1.1 carries two PHICH channels in each PHICH group.' },
+      { key: 'pdcch.channels', value: { kind: 'integer', value: 5 }, unit: 'PDCCHs', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'The 10 MHz E-TM 1.1 column allocates five PDCCHs.' },
+      { key: 'pdcch.controlChannelElementsPerPdcch', value: { kind: 'integer', value: 2 }, unit: 'CCEs', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'Each E-TM 1.1 PDCCH occupies two control channel elements.' },
+      { key: 'pdsch.modulation', value: { kind: 'string', value: 'QPSK' }, origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID, LTE_PHY_REFERENCE_ID], description: 'Every E-TM 1.1 PDSCH PRB uses QPSK.' },
+      { key: 'pdsch.resourceBlocks', value: { kind: 'integer', value: 50 }, unit: 'resource blocks', origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'All 50 downlink resource blocks carry E-TM 1.1 PDSCH.' },
+      { key: 'pdsch.rnti', value: { kind: 'integer', value: 0 }, origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID], description: 'E-TM 1.1 maps every PDSCH PRB to RNTI zero.' },
+      { key: 'payload.unscrambledBits', value: { kind: 'string', value: 'all-zero' }, origin: 'standard', sourceReferenceIds: [LTE_ETM_REFERENCE_ID, LTE_MULTIPLEXING_REFERENCE_ID], description: 'E-TM physical channels generate all-zero data before their specified scrambling and modulation stages.' },
     ],
   },
   referenceGenerator: null,

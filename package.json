@@ -5,19 +5,27 @@
   "type": "module",
   "packageManager": "npm@10.9.8",
   "main": "dist/main/main-process.js",
+  "exports": {
+    "./standards-runtime": "./dist/standards/standards-runtime.js"
+  },
   "files": [
-    "contracts/signal-lab-measurement-bridge-v1.json"
+    "contracts/signal-lab-measurement-bridge-v1.json",
+    "dist/standards/**"
   ],
   "scripts": {
     "dev": "npm run build:main && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 concurrently -k \"vite --port 5174\" \"wait-on http://localhost:5174 && electron .\"",
     "dev:install-app": "node tools/dev-launcher/install.mjs",
     "build:main": "tsup src/main-process.ts --format esm --out-dir dist/main --external electron && tsup src/preload.ts --format cjs --out-dir dist/main --external electron",
-    "build": "npm run build:main && vite build",
+    "build:standards": "tsup src/standards-runtime.ts --format esm --out-dir dist/standards",
+    "build": "npm run build:main && npm run build:standards && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run src",
+    "test:3gpp:structural": "vitest run src/3gpp-compliance.test.ts src/3gpp-qualification.test.ts src/standards-artifact.test.ts src/standards-provider.test.ts src/standards-test-gate.test.ts src/standards-waveform.test.ts src/standards-runtime.test.ts src/lte-etm1-reference.test.ts src/lte-etm1-provider.test.ts src/lte-etm1-test-catalog.test.ts src/lte-etm1-oracle-evidence.test.ts",
+    "test:3gpp": "cross-env SIGNALLAB_REQUIRE_3GPP_ORACLE=1 SIGNALLAB_REQUIRE_3GPP_CLAUSE_ARCHIVES=1 vitest run src/3gpp-compliance.test.ts src/3gpp-qualification.test.ts src/standards-artifact.test.ts src/standards-provider.test.ts src/standards-test-gate.test.ts src/standards-waveform.test.ts src/standards-runtime.test.ts src/lte-etm1-reference.test.ts src/lte-etm1-provider.test.ts src/lte-etm1-test-catalog.test.ts src/lte-etm1-oracle-evidence.test.ts src/lte-etm1-independent-oracle.test.ts src/lte-etm1-clause-archive.test.ts",
+    "test:standards-bundle": "node tools/standards-runtime-bundle-smoke.mjs",
     "test:launcher": "node --test tools/dev-launcher/bounded-log.test.cjs tools/dev-launcher/launcher-environment.test.cjs",
     "audit": "npm audit --audit-level=high",
-    "check": "npm run typecheck && npm run build && npm test && npm run test:launcher",
+    "check": "npm run typecheck && npm run build && npm run test:standards-bundle && npm test && npm run test:launcher",
     "package:mac": "npm run build && electron-builder --mac dmg zip",
     "package:win": "npm run build && electron-builder --win nsis portable",
     "package:linux": "npm run build && electron-builder --linux AppImage"
@@ -61,6 +69,7 @@
     "files": [
       "dist/main/**",
       "dist/renderer/**",
+      "dist/standards/**",
       "package.json"
     ],
     "mac": {

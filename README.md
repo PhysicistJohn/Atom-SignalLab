@@ -81,7 +81,69 @@ Named test models whose power-balanced allocation, per-slot PRB sequence, subslo
 
 The AM vector is full-carrier DSB with a 25 kHz message and 0.72 modulation index. The FM vector uses a 25 kHz message and ±75 kHz deviation. These closed forms are deterministic laboratory stimuli; they are not RF calibration, protocol, or standards-conformance evidence.
 
-The standards-labelled path uses deterministic GERAN burst/modulation models, bounded LTE/NR/WLAN representative-grid models, and Bluetooth GFSK/FHSS-style models. These are useful engineering projections, but they contain no claim of packet framing, payload, coding, bit-exact protocol reproduction, or conformance; they are not packet-decodable I/Q or standards test vectors. Framework-generated, content-addressed assets with independent validation remain future work and must remain separately qualified when they arrive. When a requested sample rate is below a wideband profile's catalogued occupied support, the current buffer is the disclosed deterministic discrete-time alias projection, not an alias-free reconstruction of the full channel.
+The standards-labelled catalog path uses deterministic GERAN burst/modulation models, bounded LTE/NR/WLAN representative-grid models, and Bluetooth GFSK/FHSS-style models. These are useful engineering projections, but they contain no claim of packet framing, payload, coding, bit-exact protocol reproduction, or conformance; they are not packet-decodable I/Q or standards test vectors. The separate fixed LTE content-addressed artifact below does not silently replace or promote those catalog buffers. When a requested sample rate is below a wideband profile's catalogued occupied support, its catalog output is the disclosed deterministic discrete-time alias projection, not an alias-free reconstruction of the full channel.
+
+### Exact 3GPP evidence lane
+
+Separately from the catalog `acquireIq` projections, SignalLab now implements
+one fixed, content-addressed LTE digital artifact and the fail-closed evidence
+machinery needed to assess exact claims. Preset
+`lte-etm-1-1-10mhz-fdd@2.0.0` is one 10 ms, 10 MHz FDD E-TM 1.1 frame with 50
+resource blocks, normal cyclic prefix, antenna port 0, physical cell ID 1, and
+153,600 samples at 15.36 Msamples/s. The
+`lte-etm-1-1-10mhz-fdd-reference-frame@1.0.1` provider emits raw little-endian
+interleaved complex float64 with SHA-256
+`1cb66b49be2518ea33a2bbf1f7075b54e6e62e10a9c05491a0ba4727bfe05511`.
+E-TM selects one layer, one antenna port, and `precoding=false`; the invoked
+single-port layer-mapping and precoding equations are implemented explicitly as
+checked identity processing rather than silently omitted.
+
+The digital generator has retained, hash-bound evidence comparing all 84,000
+resource elements and all 153,600 OFDM samples with an independently built
+srsRAN implementation. The exact report is
+[`validation/lte-etm1-srsran-oracle-2026-07-27.json`](./validation/lte-etm1-srsran-oracle-2026-07-27.json),
+raw SHA-256
+`55cae4fcaa514dfe6ffdd6baf25c84a0915131b7403aad095c3d4727b593d34f`.
+The explicit evidence test now executes the pinned harness binary into fresh
+temporary files, verifies their hashes and byte equality with the retained
+vectors, and only then performs the full grid/time comparison.
+
+The normative source record separately retains 59 exact OOXML ranges across
+TS 36.104 V19.2.0, TS 36.141 V19.1.0, and TS 36.211/36.212 V19.3.0 in
+[`validation/lte-etm1-release19-clause-evidence.json`](./validation/lte-etm1-release19-clause-evidence.json),
+SHA-256
+`1171018747af96b84e9fe7874ae7bbf0c426fad9a43b300c1c2e5b8288be0775`.
+Coverage now includes the 10 MHz-to-50-RB relationship, resource-grid and
+synchronization parents, CFI/HI coding parents, and the invoked one-layer/
+single-port identity stages. Those ranges feed catalog
+`lte-etm1-1-release19-clause-tests@1.3.0`: 74 exact clause obligations mapped
+to 12 semantic test contracts, canonical catalog
+SHA-256
+`90445a00cee8e5ab753c2cf4a3ce7ff18b146424cdec4cf121de3e9c6c693e3c`.
+Qualification gates bind each contract's full `sourceFileSha256`, compare
+freshness with the current wall clock, recompute revalidation fingerprints, and
+re-hash the supplied bytes of every declared evidence artifact rather than
+trusting digest strings alone.
+
+The provider manifest nevertheless remains `reference-generated`; neither
+retained report automatically promotes it. The compiled Release 19
+`profileAdmissions` matrix is enforced by both promotion and composite policy
+and keeps the exact lane, every other LTE profile, GERAN, and NR unpromoted.
+The package exports the byte-pinned developer library as
+`./standards-runtime`, built to `dist/standards`; its smoke test imports the
+bundle, regenerates and re-hashes the exact artifact, and rejects an unknown
+recipe. This adds no Studio UI or catalog behavior.
+
+The default `npm test` run exercises structural checks but skips the opt-in
+official-archive reproduction and live srsRAN evidence lanes when their required
+environment is absent; it is not compliance evidence. Use
+`npm run test:3gpp:structural` for the explicit no-external-assets structural
+set, or `npm run test:3gpp` with every documented archive/oracle path for the
+full evidence check. Even a full pass is not automatic manifest or profile
+promotion. Conducted-RF and radiated/OTA claims still require current calibrated
+external-lab evidence. See
+[`docs/3GPP_COMPLIANCE.md`](./docs/3GPP_COMPLIANCE.md) for the frozen Release 19
+versions, claim boundary, evidence identities, and command.
 
 ## Canonical classification corpus
 
@@ -117,4 +179,4 @@ SignalLab is one of nine AtomOS repositories:
 
 ## Further reading
 
-See [CONTRACTS.md](./CONTRACTS.md) for the standalone API, measurement contract, synthesis guarantees, failure algebra, and acceptance evidence. [STANDARDS_IQ_ROADMAP.md](./STANDARDS_IQ_ROADMAP.md) describes the provider-neutral framework and evidence plan. The byte-identical cross-repository composition is [contracts/trio-composition-v4.json](./contracts/trio-composition-v4.json).
+See [CONTRACTS.md](./CONTRACTS.md) for the standalone API, measurement contract, synthesis guarantees, failure algebra, and acceptance evidence. [STANDARDS_IQ_ROADMAP.md](./STANDARDS_IQ_ROADMAP.md) describes the provider-neutral framework and remaining work, while [docs/3GPP_COMPLIANCE.md](./docs/3GPP_COMPLIANCE.md) records the exact 3GPP claim and evidence boundary. The byte-identical cross-repository composition is [contracts/trio-composition-v4.json](./contracts/trio-composition-v4.json).
