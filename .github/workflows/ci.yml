@@ -13,18 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-latest is arm64, which is the architecture the standards-provider
-        # identities were authored on. src/lte-etm1-provider.ts pins the exact
-        # cf64le bytes of a float64 reference frame, and libm last-ulp rounding
-        # differs by architecture, so x86_64 hosts deterministically encode
-        # different bytes and the provider fails closed at module load. That
-        # guard is correct: the srsRAN oracle evidence in
-        # validation/lte-etm1-srsran-oracle-2026-07-27.json binds
-        # providerSourceSha256 to that exact source, so the pins cannot be
-        # relaxed or re-pinned without a provider recipe revision backed by a
-        # re-run oracle. Restoring ubuntu and windows requires that re-run, not
-        # a code change here.
-        os: [macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
