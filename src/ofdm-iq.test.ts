@@ -18,13 +18,18 @@ import {
 } from './ofdm-iq.js';
 
 describe('standards engineering complex-I/Q projection', () => {
-  it('covers the exact closed LTE, NR, and WLAN catalog without qualification promotion', () => {
+  it('covers only the three operator builders without qualification promotion', () => {
     const catalogProfiles = waveformCatalog
       .filter((descriptor) => descriptor.family === 'e-utra' || descriptor.family === 'nr' || descriptor.family === 'wlan')
+      .filter((descriptor) => descriptor.qualification === 'standards-derived')
       .map((descriptor) => descriptor.id);
 
     expect(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES).toEqual(catalogProfiles);
-    expect(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES).toHaveLength(25);
+    expect(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES).toEqual([
+      'custom-lte',
+      'custom-nr',
+      'custom-wifi',
+    ]);
     for (const profile of STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES) {
       expect(isStandardsEngineeringComplexIqProfile(profile)).toBe(true);
       expect(waveformDescriptor(profile).qualification).toBe('standards-derived');
@@ -39,61 +44,24 @@ describe('standards engineering complex-I/Q projection', () => {
     expect(STANDARDS_ENGINEERING_COMPLEX_IQ_DISCLOSURE).toMatch(/alias projection, not a reconstruction/i);
   });
 
-  it('derives RB grids, WLAN tone counts, modulation, allocation, duplex, and timing from descriptors', () => {
-    expect(standardsEngineeringComplexIqConfiguration('lte-band3-fdd-20m')).toMatchObject({
+  it('derives the operator-builder grids, modulation, duplex, and timing from descriptors', () => {
+    expect(standardsEngineeringComplexIqConfiguration('custom-lte')).toMatchObject({
       family: 'e-utra',
-      nominalResourceBlocks: 100,
       subcarrierSpacingHz: 15_000,
-      occupiedToneCount: 1_200,
       representativeToneCount: 32,
       duplex: 'fdd',
       timingModel: 'continuous-engineering-symbol-texture',
     });
-    expect(standardsEngineeringComplexIqConfiguration('lte-band38-tdd-10m')).toMatchObject({
-      nominalResourceBlocks: 50,
-      occupiedToneCount: 600,
-      duplex: 'tdd',
-      timingModel: 'lte-tdd-config0-ssp7-normal-cp-downlink-v1',
-    });
-    expect(standardsEngineeringComplexIqConfiguration('lte-ntm')).toMatchObject({
-      allocation: 'narrowband',
-      modulation: 'qpsk',
-      nominalResourceBlocks: 1,
-      occupiedToneCount: 12,
-      representativeToneCount: 12,
-    });
-    expect(standardsEngineeringComplexIqConfiguration('nr-n78-tdd-100m')).toMatchObject({
+    expect(standardsEngineeringComplexIqConfiguration('custom-nr')).toMatchObject({
       family: 'nr',
-      nominalResourceBlocks: 273,
-      subcarrierSpacingHz: 30_000,
-      occupiedToneCount: 3_276,
+      representativeToneCount: 32,
       duplex: 'tdd',
       timingModel: 'nr-tdd-7dl-3ul-engineering-v1',
     });
-    expect(standardsEngineeringComplexIqConfiguration('wifi-ofdm-20m')).toMatchObject({
+    expect(standardsEngineeringComplexIqConfiguration('custom-wifi')).toMatchObject({
       family: 'wlan',
-      subcarrierSpacingHz: 312_500,
-      occupiedToneCount: 52,
-      timingModel: 'wlan-six-of-ten-millisecond-engineering-burst-v1',
-    });
-    expect(standardsEngineeringComplexIqConfiguration('wifi6-he-su')).toMatchObject({
-      allocation: 'full',
-      modulation: 'he-ofdm',
       subcarrierSpacingHz: 78_125,
-      occupiedToneCount: 242,
-    });
-    expect(standardsEngineeringComplexIqConfiguration('wifi6-he-er-su')).toMatchObject({
-      allocation: 'resource-unit',
-      occupiedToneCount: 106,
-    });
-    expect(standardsEngineeringComplexIqConfiguration('wifi6-he-mu')).toMatchObject({
-      allocation: 'multi-ru',
-      occupiedToneCount: 242,
-    });
-    expect(standardsEngineeringComplexIqConfiguration('wifi-hr-dsss-11m')).toMatchObject({
-      modulation: 'hr-dsss',
-      chipRateHz: 11_000_000,
-      representativeToneCount: 1,
+      occupiedToneCount: 996,
       timingModel: 'wlan-six-of-ten-millisecond-engineering-burst-v1',
     });
   });
@@ -123,7 +91,7 @@ describe('standards engineering complex-I/Q projection', () => {
     expect(digests.size).toBe(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES.length);
   });
 
-  it('honors the pinned LTE/NR downlink phases and declared WLAN burst phase', () => {
+  it('honors the declared WLAN builder burst phase', () => {
     const sampleRateHz = 1_000_000;
     const capture = (profile: SynthesizedSignalProfile, startSample: number) => synthesizeStandardsEngineeringComplexIq({
       profile,
@@ -133,29 +101,19 @@ describe('standards engineering complex-I/Q projection', () => {
       startSample,
     });
 
-    expect(sampleMetrics(capture('lte-band38-tdd-10m', 0)).meanPower).toBeGreaterThan(0);
-    expect(sampleMetrics(capture('lte-band38-tdd-10m', 2_200)).meanPower).toBe(0);
-    expect(sampleMetrics(capture('lte-band3-fdd-20m', 2_200)).meanPower).toBeGreaterThan(0);
-
-    expect(sampleMetrics(capture('nr-n78-tdd-100m', 0)).meanPower).toBeGreaterThan(0);
-    expect(sampleMetrics(capture('nr-n78-tdd-100m', 4_000)).meanPower).toBe(0);
-    expect(sampleMetrics(capture('nr-n3-fdd-20m', 4_000)).meanPower).toBeGreaterThan(0);
-
-    expect(sampleMetrics(capture('wifi-ofdm-20m', 0)).meanPower).toBeGreaterThan(0);
-    expect(sampleMetrics(capture('wifi-ofdm-20m', 7_000)).meanPower).toBe(0);
-    expect(sampleMetrics(capture('wifi-hr-dsss-11m', 0)).meanPower).toBeGreaterThan(0);
-    expect(sampleMetrics(capture('wifi-hr-dsss-11m', 7_000)).meanPower).toBe(0);
+    expect(sampleMetrics(capture('custom-wifi', 0)).meanPower).toBeGreaterThan(0);
+    expect(sampleMetrics(capture('custom-wifi', 7_000)).meanPower).toBe(0);
   });
 
   it('remains bounded at maximum geometry without allocating a full NR grid or IFFT', () => {
     const bytes = synthesizeStandardsEngineeringComplexIq({
-      profile: 'nr-n78-tdd-100m',
+      profile: 'custom-nr',
       sampleRateHz: MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLE_RATE_HZ,
       bandwidthHz: MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLE_RATE_HZ,
       sampleCount: MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLES,
     });
     expect(bytes.byteLength).toBe(MAX_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLES * 8);
-    expect(standardsEngineeringComplexIqConfiguration('nr-n78-tdd-100m').representativeToneCount).toBe(32);
+    expect(standardsEngineeringComplexIqConfiguration('custom-nr').representativeToneCount).toBe(32);
     const metrics = sampleMetrics(bytes);
     expect(metrics.allFinite).toBe(true);
     expect(metrics.peakMagnitude).toBeLessThanOrEqual(1);
@@ -164,7 +122,7 @@ describe('standards engineering complex-I/Q projection', () => {
 
   it('applies the independent requested low-pass bandwidth deterministically', () => {
     const common = {
-      profile: 'wifi6-he-su' as const,
+      profile: 'custom-wifi' as const,
       sampleRateHz: 20_000_000,
       sampleCount: 8_192,
     };
@@ -176,7 +134,7 @@ describe('standards engineering complex-I/Q projection', () => {
 
   it('rejects non-standards profiles, invalid geometry, and descriptor drift before allocation', () => {
     const valid = {
-      profile: 'lte-etm1.1' as SynthesizedSignalProfile,
+      profile: 'custom-lte' as SynthesizedSignalProfile,
       sampleRateHz: MIN_STANDARDS_ENGINEERING_COMPLEX_IQ_SAMPLE_RATE_HZ,
       bandwidthHz: MIN_STANDARDS_ENGINEERING_COMPLEX_IQ_BANDWIDTH_HZ,
       sampleCount: 1,
@@ -192,7 +150,7 @@ describe('standards engineering complex-I/Q projection', () => {
     expect(() => synthesizeStandardsEngineeringComplexIq({ ...valid, sampleCount: 2, startSample: Number.MAX_SAFE_INTEGER })).toThrow(/start sample/i);
 
     expect(() => projectStandardsEngineeringComplexIqConfiguration(waveformDescriptor('cw'))).toThrow(/no standards engineering/i);
-    const drifted = structuredClone(waveformDescriptor('lte-etm1.1')) as WaveformDescriptor;
+    const drifted = structuredClone(waveformDescriptor('custom-lte')) as WaveformDescriptor;
     delete (drifted.projection as { subcarrierSpacingHz?: number }).subcarrierSpacingHz;
     expect(() => projectStandardsEngineeringComplexIqConfiguration(drifted)).toThrow(/subcarrier spacing/i);
   });

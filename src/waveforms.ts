@@ -21,7 +21,13 @@ import {
   nrTdd7Dl3UlEngineeringDownlinkActive,
 } from './canonical-timing.js';
 
-export { requireConformanceValidated, suggestedAnalyzerRange, waveformCatalog, waveformDescriptor } from './catalog.js';
+export {
+  requireConformanceValidated,
+  requireDigitallyQualified,
+  suggestedAnalyzerRange,
+  waveformCatalog,
+  waveformDescriptor,
+} from './catalog.js';
 
 export type ReplayProfile = SynthesizedSignalProfile | 'survey';
 
@@ -447,7 +453,7 @@ function modulationTexture(modulation: WaveformProjection['modulation']): number
   return ({
     unmodulated: 0, am: 0.2, fm: 0.3, gmsk: 0.3, qpsk: 0.55, aqpsk: 0.65, '8psk': 0.72,
     '16qam': 0.8, '32qam': 0.85, '64qam': 0.9, '256qam': 1.05, '1024qam': 1.2, 'ofdm-mixed': 1, 'he-ofdm': 1,
-    'hr-dsss': 0.7, 'br-edr': 0.65, 'ble-1m': 0.55,
+    'hr-dsss': 0.7, 'br-gfsk': 0.65, 'br-edr': 0.65, 'ble-1m': 0.55,
   })[modulation];
 }
 

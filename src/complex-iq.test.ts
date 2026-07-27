@@ -14,14 +14,18 @@ import {
   synthesizeAnalyticComplexIq,
   type AnalyticComplexIqProfile,
 } from './complex-iq.js';
+import {
+  fixedDigitalProfileBinding,
+  isFixedDigitalProfile,
+} from './fixed-digital-profile-binding.js';
 import { isReferenceComplexIqProfile } from './reference-iq.js';
 
 describe('analytic complex-I/Q synthesis', () => {
   // Whole-catalog sweep: 39 profiles x 2 syntheses needs headroom on slow
   // CI runners (6.7s observed on ubuntu-latest against the 5s default).
   it('evolves every non-constant profile across successive capture coordinates', { timeout: 30_000 }, () => {
-    const geometry = { sampleRateHz: 2_000_000, bandwidthHz: 1_500_000, sampleCount: 4_096 };
     for (const profile of ANALYTIC_COMPLEX_IQ_PROFILES) {
+      const geometry = profileGeometry(profile, 4_096);
       const first = synthesizeAnalyticComplexIq({ ...geometry, profile });
       const advanced = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount });
       // A later coordinate is a later moment of the same signal. CW is the
@@ -32,8 +36,8 @@ describe('analytic complex-I/Q synthesis', () => {
   });
 
   it('treats the capture coordinate as a coordinate, not a RNG', () => {
-    const geometry = { sampleRateHz: 2_000_000, bandwidthHz: 1_500_000, sampleCount: 4_096 };
     for (const profile of ['fm', 'nr-fr1-tm1.1', 'gsm-8psk-normal-burst', 'bluetooth-le-advertising'] as const) {
+      const geometry = profileGeometry(profile, 4_096);
       const first = synthesizeAnalyticComplexIq({ ...geometry, profile });
       // Omitting the coordinate is exactly coordinate 0 (pins the goldens).
       expect(synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: 0 })).toEqual(first);
@@ -172,13 +176,13 @@ describe('analytic complex-I/Q synthesis', () => {
   }, 15_000);
 
   it('installs deterministic, finite, unit-bounded, non-empty generators for the entire closed profile catalog', () => {
-    const hashes = new Set<string>();
+    const profilesByHash = new Map<string, AnalyticComplexIqProfile[]>();
     for (const profile of ANALYTIC_COMPLEX_IQ_PROFILES) {
       const input = {
         profile,
-        sampleRateHz: 122_880_000,
-        bandwidthHz: 122_880_000,
+        ...profileGeometry(profile, 1_024),
         sampleCount: 1_024,
+        ...(isContentBoundProfile(profile) ? { startSampleIndex: 0 } : {}),
       };
       const first = synthesizeAnalyticComplexIq(input);
       const second = synthesizeAnalyticComplexIq(input);
@@ -190,15 +194,41 @@ describe('analytic complex-I/Q synthesis', () => {
         && Number.isFinite(quadrature)
         && Math.hypot(inPhase, quadrature) <= 1
       ))).toBe(true);
-      expect(samples.some(([inPhase, quadrature]) => inPhase !== 0 || quadrature !== 0)).toBe(true);
+      expect(
+        samples.some(([inPhase, quadrature]) => inPhase !== 0 || quadrature !== 0),
+        profile,
+      ).toBe(true);
       expect(complexIqGeneratorBasis(profile)).toBe(
         profile === 'cw' || profile === 'am' || profile === 'fm' || isReferenceComplexIqProfile(profile)
           ? 'analytic-laboratory'
+          : isContentBoundProfile(profile)
+            ? 'content-bound-digital-baseband'
           : 'standards-derived-engineering-projection',
       );
-      hashes.add(createHash('sha256').update(first).digest('hex'));
+      const hash = createHash('sha256').update(first).digest('hex');
+      profilesByHash.set(hash, [...(profilesByHash.get(hash) ?? []), profile]);
     }
-    expect(hashes.size).toBe(ANALYTIC_COMPLEX_IQ_PROFILES.length);
+    // These 1,024-sample prefixes are intentionally shared. LTE E-TM3 variants
+    // retain the E-TM1.1 synchronization/control prefix before their PDSCH
+    // regions diverge. The narrowband artifacts share an initial component
+    // prefix, although the in-band variant diverges later; standalone/guard
+    // aliases also differ in declared composition scope. The NR n3 catalog
+    // profile reuses the exact TM1.1 artifact at a different RF coordinate.
+    // Full-artifact identities and differences are pinned in the dedicated
+    // catalog tests; do not alter standard-relevant bytes to manufacture a
+    // distinction in this arbitrary short window.
+    expect([...profilesByHash.values()].filter((profiles) => profiles.length > 1))
+      .toEqual([
+        ['lte-etm1.1', 'lte-etm3.1', 'lte-etm3.1a', 'lte-etm3.1b'],
+        [
+          'lte-ntm',
+          'lte-nbiot-guard-isolated-component',
+          'lte-nbiot-inband-isolated-component',
+          'nr-nbiot-inband-isolated-component',
+        ],
+        ['nr-n3-fdd-20m', 'nr-fr1-tm1.1'],
+      ]);
+    expect(profilesByHash.size).toBe(ANALYTIC_COMPLEX_IQ_PROFILES.length - 7);
   }, 20_000);
 
   it('rejects every value outside the exact geometry bounds before allocation', () => {
@@ -208,7 +238,22 @@ describe('analytic complex-I/Q synthesis', () => {
       bandwidthHz: MIN_ANALYTIC_COMPLEX_IQ_BANDWIDTH_HZ,
       sampleCount: 1,
     };
-    expect(() => synthesizeAnalyticComplexIq({ ...valid, profile: 'lte-etm1.1' })).not.toThrow();
+    expect(() => synthesizeAnalyticComplexIq({
+      ...valid,
+      profile: 'lte-etm1.1',
+      sampleRateHz: 15_360_000,
+      bandwidthHz: 10_000_000,
+    })).not.toThrow();
+    expect(() => synthesizeAnalyticComplexIq({ ...valid, profile: 'lte-etm1.1' }))
+      .toThrow(/resampling is forbidden/i);
+    expect(() => synthesizeAnalyticComplexIq({
+      ...valid,
+      profile: 'nr-fr1-tm1.1',
+      sampleRateHz: 30_720_000,
+      bandwidthHz: 20_000_000,
+    })).not.toThrow();
+    expect(() => synthesizeAnalyticComplexIq({ ...valid, profile: 'nr-fr1-tm1.1' }))
+      .toThrow(/resampling is forbidden/i);
     expect(() => synthesizeAnalyticComplexIq(valid)).not.toThrow();
     expect(() => synthesizeAnalyticComplexIq({
       ...valid,
@@ -240,6 +285,25 @@ describe('analytic complex-I/Q synthesis', () => {
     })).toThrow(/may not exceed.*sample rate/i);
   });
 });
+
+function isContentBoundProfile(profile: AnalyticComplexIqProfile): boolean {
+  return isFixedDigitalProfile(profile);
+}
+
+function profileGeometry(
+  profile: AnalyticComplexIqProfile,
+  sampleCount: number,
+): { sampleRateHz: number; bandwidthHz: number; sampleCount: number } {
+  if (isFixedDigitalProfile(profile)) {
+    const binding = fixedDigitalProfileBinding(profile);
+    return {
+      sampleRateHz: binding.sampleRateHz,
+      bandwidthHz: binding.bandwidthHz,
+      sampleCount,
+    };
+  }
+  return { sampleRateHz: 122_880_000, bandwidthHz: 122_880_000, sampleCount };
+}
 
 function decodeCf32le(bytes: Uint8Array): Array<[number, number]> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

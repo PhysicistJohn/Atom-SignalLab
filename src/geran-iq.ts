@@ -8,6 +8,12 @@ import {
   type WaveformProjection,
 } from './contracts.js';
 import { waveformDescriptor } from './catalog.js';
+import {
+  GERAN_FIXED_BURST_VECTORS,
+  geranScheduledBurst,
+  type GeranDigitalValidation,
+  type GeranFixedBurstProfile,
+} from './geran-fixed-bursts.js';
 
 /** Every GERAN profile currently admitted by the closed SignalLab catalog. */
 export const GERAN_COMPLEX_IQ_PROFILES = [
@@ -18,7 +24,7 @@ export const GERAN_COMPLEX_IQ_PROFILES = [
   'gsm-8psk-normal-burst',
   'gsm-16qam-higher-symbol-rate-burst',
   'gsm-32qam-higher-symbol-rate-burst',
-] as const;
+] as const satisfies readonly GeranFixedBurstProfile[];
 
 export type GeranComplexIqProfile = typeof GERAN_COMPLEX_IQ_PROFILES[number];
 export type GeranIqModulation = Extract<
@@ -38,7 +44,15 @@ export const GERAN_HIGHER_USEFUL_SYMBOLS = 176 as const;
 export const GERAN_NORMAL_ACTIVE_SYMBOLS = 148 as const;
 export const GERAN_HIGHER_ACTIVE_SYMBOLS = 177 as const;
 export const GERAN_GMSK_BT = 0.3 as const;
+export const GERAN_AQPSK_ALPHA_RADIANS = Math.PI / 4;
 export const DEFAULT_GERAN_IQ_SEED = 407 as const;
+
+/**
+ * The TS 45.004 constellations and pulse equations are evaluated first, then
+ * uniformly scaled for the unit-bounded cf32 API. This does not alter digital
+ * geometry, relative constellation geometry, rotation, or pulse shape.
+ */
+export const GERAN_CF32_WIRE_SCALE = 0.1 as const;
 
 // These match the bridge's existing cf32le producer limits. They are repeated
 // here instead of imported from complex-iq.ts so that complex-iq.ts can import
@@ -53,10 +67,13 @@ export const MAX_GERAN_IQ_BYTES = MAX_GERAN_IQ_SAMPLES * GERAN_IQ_BYTES_PER_SAMP
 export const MAX_GERAN_IQ_START_SAMPLE_INDEX = 0x7fff_ffff as const;
 
 export const GERAN_IQ_DISCLOSURE =
-  'Deterministic standards-derived GERAN complex-baseband engineering projection. '
-  + 'It preserves the catalogued symbol rate, constellation family/rotation, and declared TDMA burst geometry, '
-  + 'but uses synthetic payload symbols and an engineering pulse approximation. It is not bit-exact, '
-  + 'protocol-decodable, calibrated, conformance-validated, or suitable as a 3GPP test vector.';
+  'Seed-invariant, content-addressed GERAN fixed-burst engineering projection. '
+  + 'The TS 45.002 Release 19 burst fields, tail bits, selected TSC0 sequences and dummy burst are fixed exactly; '
+  + 'the GMSK xCCH block is independently encode/decode matched to pinned libosmocore. '
+  + 'QPSK, AQPSK, 8PSK, 16QAM and 32QAM stop at fixed modulator-input bits and remain unpromoted '
+  + 'equation/roundtrip-tested digital vectors, with no TS 45.003 channel-coding claim. '
+  + 'TS 45.004 mappings, rotations and pulse equations are numerically evaluated and uniformly cf32-scaled. '
+  + 'This is not calibrated RF, a TS 45.005 conformance waveform, product qualification, or a universal network schedule.';
 
 export interface GeranIqDefinition {
   readonly profile: GeranComplexIqProfile;
@@ -68,8 +85,9 @@ export interface GeranIqDefinition {
   readonly usefulSymbolPeriods: number;
   readonly activeSymbolPeriods: number;
   readonly symbolRotationRadians: number;
-  readonly timingModel: 'continuous-loaded-slots' | 'one-of-eight-tdma-engineering';
-  readonly pulseModel: 'gaussian-cpfsk-bt-0.3' | 'linearised-gmsk-pulse-engineering-approximation';
+  readonly timingModel: 'fixed-normal-and-dummy-every-slot' | 'fixed-ts0-one-of-eight';
+  readonly pulseModel: 'gaussian-cpfsk-bt-0.3-ts-45.004' | 'linearised-gmsk-c0-ts-45.004-numerical';
+  readonly digitalValidation: GeranDigitalValidation;
   readonly qualification: typeof GERAN_IQ_QUALIFICATION;
   readonly disclosure: typeof GERAN_IQ_DISCLOSURE;
 }
@@ -92,6 +110,10 @@ function definition(
   timingModel: GeranIqDefinition['timingModel'],
   pulseModel: GeranIqDefinition['pulseModel'],
 ): InternalGeranIqDefinition {
+  const vector = GERAN_FIXED_BURST_VECTORS[profile];
+  if (vector.bitsPerSymbol !== bitsPerSymbol || vector.activeSymbols !== activeSymbolPeriods) {
+    throw new Error(`${profile} fixed burst and analytic definition geometry disagree`);
+  }
   return Object.freeze({
     profile,
     modulation,
@@ -105,57 +127,55 @@ function definition(
     rotationTurnsPerSymbol,
     timingModel,
     pulseModel,
+    digitalValidation: vector.digitalValidation,
     qualification: GERAN_IQ_QUALIFICATION,
     disclosure: GERAN_IQ_DISCLOSURE,
   });
 }
 
 /**
- * TS 45.004 v19.0.0 clauses 2, 3, 5 and 6 provide the symbol rates,
- * mappings and continuous rotations represented below. TS 45.002 v19.0.0
- * clause 5.2.3 supplies the normal/higher-rate burst structures.
- *
- * The loaded-BCCH entry is deliberately an engineering always-loaded carrier;
- * the other entries use the scalar replay's explicit one-active-slot-per-frame
- * schedule. Neither schedule claims to reproduce a decoded traffic channel.
+ * TS 45.004 V19.0.0 clauses 2, 3, 5 and 6 provide the symbol rates,
+ * mappings, pulse equations and continuous rotations represented below.
+ * TS 45.002 V19.0.0 clauses 5.2.3 and 5.2.6 provide the fixed burst fields.
  */
-const INTERNAL_GERAN_IQ_DEFINITIONS: Readonly<Record<GeranComplexIqProfile, InternalGeranIqDefinition>> = Object.freeze({
-  'gsm-900-loaded-bcch': definition(
-    'gsm-900-loaded-bcch', 'gmsk', GERAN_NORMAL_SYMBOL_RATE_HZ, 1, 200_000,
-    GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
-    0, 'continuous-loaded-slots', 'gaussian-cpfsk-bt-0.3',
-  ),
-  'gsm-normal-burst': definition(
-    'gsm-normal-burst', 'gmsk', GERAN_NORMAL_SYMBOL_RATE_HZ, 1, 200_000,
-    GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
-    0, 'one-of-eight-tdma-engineering', 'gaussian-cpfsk-bt-0.3',
-  ),
-  'gsm-qpsk-higher-symbol-rate-burst': definition(
-    'gsm-qpsk-higher-symbol-rate-burst', 'qpsk', GERAN_HIGHER_SYMBOL_RATE_HZ, 2, 325_000,
-    GERAN_HIGHER_SLOT_SYMBOLS, GERAN_HIGHER_USEFUL_SYMBOLS, GERAN_HIGHER_ACTIVE_SYMBOLS,
-    3 / 8, 'one-of-eight-tdma-engineering', 'linearised-gmsk-pulse-engineering-approximation',
-  ),
-  'gsm-aqpsk-normal-burst': definition(
-    'gsm-aqpsk-normal-burst', 'aqpsk', GERAN_NORMAL_SYMBOL_RATE_HZ, 2, 250_000,
-    GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
-    1 / 4, 'one-of-eight-tdma-engineering', 'linearised-gmsk-pulse-engineering-approximation',
-  ),
-  'gsm-8psk-normal-burst': definition(
-    'gsm-8psk-normal-burst', '8psk', GERAN_NORMAL_SYMBOL_RATE_HZ, 3, 250_000,
-    GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
-    3 / 16, 'one-of-eight-tdma-engineering', 'linearised-gmsk-pulse-engineering-approximation',
-  ),
-  'gsm-16qam-higher-symbol-rate-burst': definition(
-    'gsm-16qam-higher-symbol-rate-burst', '16qam', GERAN_HIGHER_SYMBOL_RATE_HZ, 4, 325_000,
-    GERAN_HIGHER_SLOT_SYMBOLS, GERAN_HIGHER_USEFUL_SYMBOLS, GERAN_HIGHER_ACTIVE_SYMBOLS,
-    1 / 8, 'one-of-eight-tdma-engineering', 'linearised-gmsk-pulse-engineering-approximation',
-  ),
-  'gsm-32qam-higher-symbol-rate-burst': definition(
-    'gsm-32qam-higher-symbol-rate-burst', '32qam', GERAN_HIGHER_SYMBOL_RATE_HZ, 5, 325_000,
-    GERAN_HIGHER_SLOT_SYMBOLS, GERAN_HIGHER_USEFUL_SYMBOLS, GERAN_HIGHER_ACTIVE_SYMBOLS,
-    -1 / 8, 'one-of-eight-tdma-engineering', 'linearised-gmsk-pulse-engineering-approximation',
-  ),
-});
+const INTERNAL_GERAN_IQ_DEFINITIONS: Readonly<Record<GeranComplexIqProfile, InternalGeranIqDefinition>> =
+  Object.freeze({
+    'gsm-900-loaded-bcch': definition(
+      'gsm-900-loaded-bcch', 'gmsk', GERAN_NORMAL_SYMBOL_RATE_HZ, 1, 200_000,
+      GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
+      0, 'fixed-normal-and-dummy-every-slot', 'gaussian-cpfsk-bt-0.3-ts-45.004',
+    ),
+    'gsm-normal-burst': definition(
+      'gsm-normal-burst', 'gmsk', GERAN_NORMAL_SYMBOL_RATE_HZ, 1, 200_000,
+      GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
+      0, 'fixed-ts0-one-of-eight', 'gaussian-cpfsk-bt-0.3-ts-45.004',
+    ),
+    'gsm-qpsk-higher-symbol-rate-burst': definition(
+      'gsm-qpsk-higher-symbol-rate-burst', 'qpsk', GERAN_HIGHER_SYMBOL_RATE_HZ, 2, 325_000,
+      GERAN_HIGHER_SLOT_SYMBOLS, GERAN_HIGHER_USEFUL_SYMBOLS, GERAN_HIGHER_ACTIVE_SYMBOLS,
+      3 / 8, 'fixed-ts0-one-of-eight', 'linearised-gmsk-c0-ts-45.004-numerical',
+    ),
+    'gsm-aqpsk-normal-burst': definition(
+      'gsm-aqpsk-normal-burst', 'aqpsk', GERAN_NORMAL_SYMBOL_RATE_HZ, 2, 250_000,
+      GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
+      1 / 4, 'fixed-ts0-one-of-eight', 'linearised-gmsk-c0-ts-45.004-numerical',
+    ),
+    'gsm-8psk-normal-burst': definition(
+      'gsm-8psk-normal-burst', '8psk', GERAN_NORMAL_SYMBOL_RATE_HZ, 3, 250_000,
+      GERAN_NORMAL_SLOT_SYMBOLS, GERAN_NORMAL_USEFUL_SYMBOLS, GERAN_NORMAL_ACTIVE_SYMBOLS,
+      3 / 16, 'fixed-ts0-one-of-eight', 'linearised-gmsk-c0-ts-45.004-numerical',
+    ),
+    'gsm-16qam-higher-symbol-rate-burst': definition(
+      'gsm-16qam-higher-symbol-rate-burst', '16qam', GERAN_HIGHER_SYMBOL_RATE_HZ, 4, 325_000,
+      GERAN_HIGHER_SLOT_SYMBOLS, GERAN_HIGHER_USEFUL_SYMBOLS, GERAN_HIGHER_ACTIVE_SYMBOLS,
+      1 / 8, 'fixed-ts0-one-of-eight', 'linearised-gmsk-c0-ts-45.004-numerical',
+    ),
+    'gsm-32qam-higher-symbol-rate-burst': definition(
+      'gsm-32qam-higher-symbol-rate-burst', '32qam', GERAN_HIGHER_SYMBOL_RATE_HZ, 5, 325_000,
+      GERAN_HIGHER_SLOT_SYMBOLS, GERAN_HIGHER_USEFUL_SYMBOLS, GERAN_HIGHER_ACTIVE_SYMBOLS,
+      -1 / 8, 'fixed-ts0-one-of-eight', 'linearised-gmsk-c0-ts-45.004-numerical',
+    ),
+  });
 
 export const GERAN_IQ_DEFINITIONS: Readonly<Record<GeranComplexIqProfile, GeranIqDefinition>> =
   INTERNAL_GERAN_IQ_DEFINITIONS;
@@ -164,6 +184,10 @@ export interface GeranAnalyticSamplesInput {
   readonly profile: SynthesizedSignalProfile;
   readonly sampleRateHz: number;
   readonly sampleCount: number;
+  /**
+   * Retained for API compatibility and bounds checking. Fixed GERAN digital
+   * vectors are deliberately seed-invariant.
+   */
   readonly seed?: number;
   /** Absolute sample coordinate, allowing deterministic chunked generation. */
   readonly startSampleIndex?: number;
@@ -178,15 +202,14 @@ interface ValidatedGeranInput {
   readonly definition: InternalGeranIqDefinition;
   readonly sampleRateHz: number;
   readonly sampleCount: number;
-  readonly seed: number;
   readonly startSampleIndex: number;
 }
 
-interface GmskSequence {
+interface GmskBurstState {
+  readonly bits: string;
+  /** Includes the transition back to a post-burst dummy one at index bits.length. */
   readonly alpha: Int8Array;
   readonly prefix: Int16Array;
-  readonly cycleSum: number;
-  readonly initialPhase: number;
 }
 
 /** Return true only for the seven closed GERAN profile IDs above. */
@@ -205,7 +228,7 @@ export function geranIqDefinition(profile: SynthesizedSignalProfile): GeranIqDef
   if (descriptor.family !== 'geran'
     || descriptor.projection.modulation !== result.modulation
     || descriptor.occupiedBandwidthHz !== result.occupiedBandwidthHz
-    || (result.timingModel === 'continuous-loaded-slots'
+    || (result.timingModel === 'fixed-normal-and-dummy-every-slot'
       ? descriptor.projection.timing !== 'continuous'
       : descriptor.projection.timing !== 'burst')) {
     throw new Error(`${admitted} GERAN complex-I/Q definition no longer matches its catalog descriptor`);
@@ -214,39 +237,47 @@ export function geranIqDefinition(profile: SynthesizedSignalProfile): GeranIqDef
 }
 
 /**
- * Generate normalized interleaved [I,Q] float64 analytic samples.
+ * Generate deterministic, interleaved [I,Q] float64 analytic samples.
  *
- * GMSK uses differential symbols and a BT=0.3 Gaussian CPFSK phase response
- * with modulation index 1/2. The linear modes use their TS 45.004 constellation
- * geometry and continuous symbol rotation, passed through a positive,
- * finite-support approximation of the standard's linearised-GMSK pulse. The
- * approximation is deliberately identified as engineering—not conformance I/Q.
+ * The digital sequence is selected only from the fixed, hashed vectors in
+ * geran-fixed-bursts.ts. GMSK uses TS 45.004 differential data and BT=0.3
+ * Gaussian CPFSK. Linear modes use the standard constellation mapping,
+ * continuous symbol rotation and numerical evaluation of c0(t).
  */
 export function synthesizeGeranAnalyticSamples(input: GeranAnalyticSamplesInput): Float64Array {
   const validated = validateGeranInput(input);
   const output = new Float64Array(validated.sampleCount * 2);
-  const gmsk = validated.definition.modulation === 'gmsk'
-    ? createGmskSequence(validated.seed)
-    : undefined;
+  const gmskStates = new Map<string, GmskBurstState>();
 
   for (let index = 0; index < validated.sampleCount; index += 1) {
     const absoluteSampleIndex = validated.startSampleIndex + index;
-    const coordinate = absoluteSampleIndex / validated.sampleRateHz * validated.definition.symbolRateHz;
-    const envelope = burstEnvelope(validated.definition, absoluteSampleIndex, validated.sampleRateHz);
-    let inPhase = 0;
-    let quadrature = 0;
-    if (envelope > 0) {
-      const sample = gmsk
-        ? gmskSample(gmsk, coordinate)
-        : linearlyPulseShapedSample(validated.definition, coordinate, validated.seed);
-      const phaseOffset = validated.definition.timingModel === 'one-of-eight-tdma-engineering'
-        ? deterministicBurstPhase(validated.seed, absoluteSampleIndex, validated.sampleRateHz)
-        : 0;
-      const cosine = Math.cos(phaseOffset);
-      const sine = Math.sin(phaseOffset);
-      inPhase = envelope * (sample[0] * cosine - sample[1] * sine);
-      quadrature = envelope * (sample[0] * sine + sample[1] * cosine);
+    const slotCoordinate = absoluteSampleIndex * 26_000 / (validated.sampleRateHz * 15);
+    const slotIndex = Math.floor(slotCoordinate);
+    const burst = geranScheduledBurst(validated.definition.profile, slotIndex);
+    if (burst === undefined) continue;
+
+    const symbolWithinSlot =
+      (slotCoordinate - slotIndex) * validated.definition.slotSymbolPeriods;
+    if (symbolWithinSlot < 0 || symbolWithinSlot >= burst.activeSymbols) continue;
+
+    let sample: readonly [number, number];
+    if (validated.definition.modulation === 'gmsk') {
+      let state = gmskStates.get(burst.bits);
+      if (state === undefined) {
+        state = createGmskBurstState(burst.bits);
+        gmskStates.set(burst.bits, state);
+      }
+      sample = gmskBurstSample(state, symbolWithinSlot);
+    } else {
+      sample = linearlyPulseShapedBurstSample(
+        validated.definition,
+        burst.bits,
+        symbolWithinSlot,
+      );
     }
+
+    const inPhase = sample[0] * GERAN_CF32_WIRE_SCALE;
+    const quadrature = sample[1] * GERAN_CF32_WIRE_SCALE;
     const magnitude = Math.hypot(inPhase, quadrature);
     if (!Number.isFinite(magnitude) || magnitude > 1 + 1e-12) {
       throw new Error(`${validated.definition.profile} produced a non-finite or non-unit-bounded analytic sample`);
@@ -286,6 +317,106 @@ export function synthesizeGeranComplexIq(input: GeranComplexIqSynthesisInput): U
   return bytes;
 }
 
+/**
+ * Exact TS 45.004 memoryless constellation point before continuous rotation
+ * and before the uniform cf32 wire scaling.
+ */
+export function geranConstellationPoint(
+  modulation: Exclude<GeranIqModulation, 'gmsk'>,
+  state: number,
+): readonly [number, number] {
+  const bitsPerSymbol = ({ qpsk: 2, aqpsk: 2, '8psk': 3, '16qam': 4, '32qam': 5 })[modulation];
+  if (!Number.isSafeInteger(state) || state < 0 || state >= 2 ** bitsPerSymbol) {
+    throw new RangeError(`${modulation} symbol state must be an integer from 0 through ${2 ** bitsPerSymbol - 1}`);
+  }
+  switch (modulation) {
+    case 'qpsk': {
+      const scale = Math.SQRT1_2;
+      return [state & 2 ? -scale : scale, state & 1 ? -scale : scale];
+    }
+    case 'aqpsk': {
+      const cosine = Math.cos(GERAN_AQPSK_ALPHA_RADIANS);
+      const sine = Math.sin(GERAN_AQPSK_ALPHA_RADIANS);
+      return [state & 2 ? -cosine : cosine, state & 1 ? -sine : sine];
+    }
+    case '8psk': {
+      // TS 45.004 table 1, states 000 through 111 in MSB-first order.
+      const mappedPhaseIndex = [3, 4, 2, 1, 6, 5, 7, 0] as const;
+      const phase = 2 * Math.PI * mappedPhaseIndex[state]! / 8;
+      return [Math.cos(phase), Math.sin(phase)];
+    }
+    case '16qam': {
+      // TS 45.004 table 2, including its 1/sqrt(10) average-power scale.
+      const inPhase = (state & 8 ? -1 : 1) * (state & 2 ? 3 : 1);
+      const quadrature = (state & 4 ? -1 : 1) * (state & 1 ? 3 : 1);
+      return [inPhase / Math.sqrt(10), quadrature / Math.sqrt(10)];
+    }
+    case '32qam': {
+      // TS 45.004 table 3, including its 1/sqrt(20) average-power scale.
+      const point = QAM32_POINTS[state]!;
+      return [point[0] / Math.sqrt(20), point[1] / Math.sqrt(20)];
+    }
+  }
+}
+
+/** Apply the profile's TS 45.004 symbol-index rotation to one mapped point. */
+export function geranRotatedConstellationPoint(
+  profile: Exclude<GeranComplexIqProfile, 'gsm-900-loaded-bcch' | 'gsm-normal-burst'>,
+  state: number,
+  symbolIndex: number,
+): readonly [number, number] {
+  if (!Number.isSafeInteger(symbolIndex)) {
+    throw new RangeError('GERAN symbol index must be a safe integer');
+  }
+  const definitionValue = INTERNAL_GERAN_IQ_DEFINITIONS[profile];
+  if (definitionValue.modulation === 'gmsk') {
+    throw new Error(`${profile} unexpectedly resolved to GMSK`);
+  }
+  const base = geranConstellationPoint(definitionValue.modulation, state);
+  const rotationPeriod = rotationPeriodSymbols(definitionValue.rotationTurnsPerSymbol);
+  const reducedIndex = positiveModulo(symbolIndex, rotationPeriod);
+  const angle = 2 * Math.PI * definitionValue.rotationTurnsPerSymbol * reducedIndex;
+  const cosine = Math.cos(angle);
+  const sine = Math.sin(angle);
+  return [base[0] * cosine - base[1] * sine, base[0] * sine + base[1] * cosine];
+}
+
+/**
+ * Numerical evaluation of TS 45.004 c0(t/T), clauses 3.5, 5.4 and 6.4.
+ * The mathematical support is exactly 0 <= t/T <= 5.
+ */
+export function geranLinearizedGmskPulse(normalizedTime: number): number {
+  if (!Number.isFinite(normalizedTime)) {
+    throw new RangeError('GERAN normalized pulse time must be finite');
+  }
+  if (normalizedTime < 0 || normalizedTime > 5) return 0;
+  let value = 1;
+  for (let offset = 0; offset <= 3; offset += 1) {
+    value *= linearizedGmskS(normalizedTime + offset);
+  }
+  return Math.max(0, value);
+}
+
+/** Read one MSB-first symbol state from a transmission-order bit string. */
+export function geranSymbolState(bits: string, symbolIndex: number, bitsPerSymbol: number): number {
+  if (!/^[01]+$/.test(bits)) throw new RangeError('GERAN symbol input must be a binary string');
+  if (!Number.isSafeInteger(symbolIndex) || symbolIndex < 0) {
+    throw new RangeError('GERAN symbol index must be a non-negative safe integer');
+  }
+  if (!Number.isSafeInteger(bitsPerSymbol) || bitsPerSymbol < 1 || bitsPerSymbol > 5) {
+    throw new RangeError('GERAN bits per symbol must be an integer from 1 through 5');
+  }
+  const start = symbolIndex * bitsPerSymbol;
+  if (start + bitsPerSymbol > bits.length) {
+    throw new RangeError('GERAN symbol input does not contain the requested complete symbol');
+  }
+  let state = 0;
+  for (let offset = 0; offset < bitsPerSymbol; offset += 1) {
+    state = state * 2 + Number(bits[start + offset]!);
+  }
+  return state;
+}
+
 function validateGeranInput(input: GeranAnalyticSamplesInput): ValidatedGeranInput {
   const definitionValue = geranIqDefinition(input.profile) as InternalGeranIqDefinition;
   if (!Number.isSafeInteger(input.sampleRateHz)
@@ -313,7 +444,12 @@ function validateGeranInput(input: GeranAnalyticSamplesInput): ValidatedGeranInp
   if (!Number.isSafeInteger(byteLength) || byteLength > MAX_GERAN_IQ_BYTES) {
     throw new RangeError(`GERAN complex-I/Q payload may not exceed ${MAX_GERAN_IQ_BYTES} bytes`);
   }
-  return { definition: definitionValue, sampleRateHz: input.sampleRateHz, sampleCount: input.sampleCount, seed, startSampleIndex };
+  return {
+    definition: definitionValue,
+    sampleRateHz: input.sampleRateHz,
+    sampleCount: input.sampleCount,
+    startSampleIndex,
+  };
 }
 
 function validateBandwidth(bandwidthHz: number, sampleRateHz: number): void {
@@ -335,96 +471,48 @@ function geranProfile(value: SynthesizedSignalProfile): GeranComplexIqProfile {
   return profile;
 }
 
-function burstEnvelope(
-  definitionValue: InternalGeranIqDefinition,
-  absoluteSampleIndex: number,
-  sampleRateHz: number,
-): number {
-  if (definitionValue.timingModel === 'continuous-loaded-slots') return 1;
-  const slotCoordinate = absoluteSampleIndex * 26_000 / (sampleRateHz * 15);
-  const slotIndex = Math.floor(slotCoordinate);
-  if (positiveModulo(slotIndex, 8) !== 0) return 0;
-  const symbolWithinSlot = (slotCoordinate - slotIndex) * definitionValue.slotSymbolPeriods;
-  if (symbolWithinSlot < 0 || symbolWithinSlot >= definitionValue.activeSymbolPeriods) return 0;
-  // TS 45.004 depicts the active interval with one half-symbol beyond the
-  // useful interval at each edge. A deterministic raised-cosine power ramp is
-  // an explicit engineering choice because the normative ramp is not supplied
-  // by the catalog and this output is not a conformance vector.
-  const distanceFromEdge = Math.min(symbolWithinSlot, definitionValue.activeSymbolPeriods - symbolWithinSlot);
-  if (distanceFromEdge >= 0.5) return 1;
-  const sine = Math.sin(Math.PI * distanceFromEdge);
-  return sine * sine;
-}
-
-function deterministicBurstPhase(seed: number, absoluteSampleIndex: number, sampleRateHz: number): number {
-  const frameCoordinate = absoluteSampleIndex * 13_000 / (sampleRateHz * 60);
-  const frameIndex = Math.floor(frameCoordinate);
-  return hash32(seed, frameIndex, 0x6275_7273) / 0x1_0000_0000 * 2 * Math.PI;
-}
-
-function createGmskSequence(seed: number): GmskSequence {
-  // A finite deterministic synthetic payload repeats only to make its signed
-  // prefix sum available at arbitrary sample offsets. It is not a GSM channel
-  // coding, interleaving, ciphering, training-sequence, or dummy-burst source.
-  const period = 256;
-  const bits = new Uint8Array(period);
-  let parity = 0;
-  for (let index = 0; index < period - 1; index += 1) {
-    bits[index] = hash32(seed, index, 0x676d_736b) & 1;
-    parity ^= bits[index]!;
-  }
-  // Even input parity makes the recursive differential-encoder state periodic,
-  // so absolute-offset generation and separately requested chunks agree.
-  bits[period - 1] = parity;
-  const alpha = new Int8Array(period);
-  const prefix = new Int16Array(period + 1);
-  let previousDifferentialBit = 1;
-  for (let index = 0; index < period; index += 1) {
-    // TS 45.004 clause 2.3: the current input bit is XORed with the previous
-    // differential-encoder output, not merely with the preceding input bit.
-    const differentialBit = bits[index]! ^ previousDifferentialBit;
-    previousDifferentialBit = differentialBit;
-    alpha[index] = differentialBit === 0 ? 1 : -1;
+function createGmskBurstState(bits: string): GmskBurstState {
+  if (!/^[01]+$/.test(bits)) throw new Error('GERAN GMSK burst contains a non-binary digit');
+  const alpha = new Int8Array(bits.length + 1);
+  const prefix = new Int16Array(alpha.length + 1);
+  for (let index = 0; index <= bits.length; index += 1) {
+    const currentBit = index < bits.length ? Number(bits[index]!) : 1;
+    const previousBit = index === 0 ? 1 : Number(bits[index - 1]!);
+    // TS 45.004 clause 2.3: d-hat_i = d_i XOR d_(i-1);
+    alpha[index] = (currentBit ^ previousBit) === 0 ? 1 : -1;
     prefix[index + 1] = prefix[index]! + alpha[index]!;
   }
-  return {
-    alpha,
-    prefix,
-    cycleSum: prefix[period]!,
-    initialPhase: hash32(seed, 0, 0x7068_6173) / 0x1_0000_0000 * 2 * Math.PI,
-  };
+  return { bits, alpha, prefix };
 }
 
-function gmskSample(sequence: GmskSequence, symbolCoordinate: number): readonly [number, number] {
+function gmskBurstSample(state: GmskBurstState, symbolCoordinate: number): readonly [number, number] {
   const center = Math.floor(symbolCoordinate);
-  const firstTransition = center - 8;
-  const lastTransition = center + 8;
-  let phaseUnits = periodicAlphaPrefix(sequence, firstTransition);
+  const firstTransition = center - 10;
+  const lastTransition = center + 10;
+  let phaseUnits = gmskAlphaPrefix(state, firstTransition);
   for (let symbolIndex = firstTransition; symbolIndex <= lastTransition; symbolIndex += 1) {
-    phaseUnits += periodicAlpha(sequence, symbolIndex) * gaussianPhaseResponse(symbolCoordinate - symbolIndex);
+    phaseUnits += gmskAlphaAt(state, symbolIndex)
+      * gaussianPhaseResponse(symbolCoordinate - symbolIndex);
   }
-  // Modulation index h=1/2 gives a maximum pi/2 phase change per symbol.
-  const phase = sequence.initialPhase + Math.PI / 2 * phaseUnits;
+  const phase = Math.PI / 2 * phaseUnits;
   return [Math.cos(phase), Math.sin(phase)];
 }
 
-function periodicAlpha(sequence: GmskSequence, symbolIndex: number): number {
-  return sequence.alpha[positiveModulo(symbolIndex, sequence.alpha.length)]!;
+function gmskAlphaAt(state: GmskBurstState, symbolIndex: number): number {
+  if (symbolIndex < 0 || symbolIndex >= state.alpha.length) return 1;
+  return state.alpha[symbolIndex]!;
 }
 
 /** Sum alpha[k] for every integer k in [0, exclusiveEnd), including negative ends. */
-function periodicAlphaPrefix(sequence: GmskSequence, exclusiveEnd: number): number {
-  const period = sequence.alpha.length;
-  const cycles = Math.floor(exclusiveEnd / period);
-  const remainder = exclusiveEnd - cycles * period;
-  return cycles * sequence.cycleSum + sequence.prefix[remainder]!;
+function gmskAlphaPrefix(state: GmskBurstState, exclusiveEnd: number): number {
+  if (exclusiveEnd <= 0) return exclusiveEnd;
+  if (exclusiveEnd <= state.alpha.length) return state.prefix[exclusiveEnd]!;
+  return state.prefix[state.alpha.length]! + exclusiveEnd - state.alpha.length;
 }
 
 /**
- * Integrated Gaussian-filtered rectangular frequency pulse in symbol units.
- * The Gaussian sigma follows the BT=0.3 time-bandwidth relationship. The
- * implementation is analytic and stateless, so adjacent requested chunks are
- * byte-identical to slices from one larger unfiltered analytic request.
+ * Integrated BT=0.3 Gaussian-filtered rectangular frequency pulse, normalized
+ * from zero to one. TS 45.004 uses the equivalent half-normalized q(t) form.
  */
 function gaussianPhaseResponse(symbolTime: number): number {
   const sigma = Math.sqrt(Math.log(2)) / (2 * Math.PI * GERAN_GMSK_BT);
@@ -435,100 +523,99 @@ function gaussianPhaseResponse(symbolTime: number): number {
 }
 
 function normalIntegralPrimitive(value: number): number {
-  return value * normalCdf(value) + Math.exp(-0.5 * value * value) / Math.sqrt(2 * Math.PI);
+  return value * normalCdf(value) + normalDensity(value);
+}
+
+function linearlyPulseShapedBurstSample(
+  definitionValue: InternalGeranIqDefinition,
+  bits: string,
+  symbolCoordinate: number,
+): readonly [number, number] {
+  const higherRate = definitionValue.symbolRateHz === GERAN_HIGHER_SYMBOL_RATE_HZ;
+  const timeScale = higherRate
+    ? GERAN_NORMAL_SYMBOL_RATE_HZ / GERAN_HIGHER_SYMBOL_RATE_HZ
+    : 1;
+  const pulseOffset = higherRate ? 2.5 : 2;
+  const minimumSymbol = Math.max(
+    0,
+    Math.ceil(symbolCoordinate + pulseOffset - 5 / timeScale),
+  );
+  const maximumSymbol = Math.min(
+    definitionValue.activeSymbolPeriods - 1,
+    Math.floor(symbolCoordinate + pulseOffset),
+  );
+  let inPhase = 0;
+  let quadrature = 0;
+  for (let symbolIndex = minimumSymbol; symbolIndex <= maximumSymbol; symbolIndex += 1) {
+    const normalizedPulseTime =
+      (symbolCoordinate - symbolIndex + pulseOffset) * timeScale;
+    const pulse = geranLinearizedGmskPulse(normalizedPulseTime);
+    const state = geranSymbolState(bits, symbolIndex, definitionValue.bitsPerSymbol);
+    const symbol = geranRotatedConstellationPoint(
+      definitionValue.profile as Exclude<
+        GeranComplexIqProfile,
+        'gsm-900-loaded-bcch' | 'gsm-normal-burst'
+      >,
+      state,
+      symbolIndex,
+    );
+    inPhase += symbol[0] * pulse;
+    quadrature += symbol[1] * pulse;
+  }
+  return [inPhase, quadrature];
+}
+
+/**
+ * TS 45.004 S(t/T) used to define c0. The Gaussian g integral is evaluated
+ * analytically through the normal-Q primitive, avoiding sampled coefficients.
+ */
+function linearizedGmskS(normalizedTime: number): number {
+  if (normalizedTime < 0 || normalizedTime > 8) return 0;
+  if (normalizedTime <= 4) {
+    return Math.sin(Math.PI * gaussianGIntegral(normalizedTime));
+  }
+  return Math.sin(Math.PI / 2 - Math.PI * gaussianGIntegral(normalizedTime - 4));
+}
+
+function gaussianGIntegral(normalizedTime: number): number {
+  const k = 2 * Math.PI * GERAN_GMSK_BT / Math.sqrt(Math.log(2));
+  const integral = 0.5 * (
+    normalQIntegral(normalizedTime, 2.5, k)
+    - normalQIntegral(normalizedTime, 1.5, k)
+  );
+  return Math.max(0, Math.min(0.5, integral));
+}
+
+function normalQIntegral(upper: number, center: number, scale: number): number {
+  const upperValue = scale * (upper - center);
+  const lowerValue = -scale * center;
+  return (normalQPrimitive(upperValue) - normalQPrimitive(lowerValue)) / scale;
+}
+
+function normalQPrimitive(value: number): number {
+  return value * normalQ(value) - normalDensity(value);
+}
+
+function normalQ(value: number): number {
+  return 1 - normalCdf(value);
+}
+
+function normalDensity(value: number): number {
+  return Math.exp(-0.5 * value * value) / Math.sqrt(2 * Math.PI);
 }
 
 function normalCdf(value: number): number {
   return 0.5 * (1 + erf(value / Math.SQRT2));
 }
 
-// Abramowitz-Stegun 7.1.26; sufficient for a deterministic engineering pulse.
+// Abramowitz-Stegun 7.1.26, used only to evaluate the published equations.
 function erf(value: number): number {
   const sign = value < 0 ? -1 : 1;
   const magnitude = Math.abs(value);
   const t = 1 / (1 + 0.3275911 * magnitude);
-  const polynomial = (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t;
+  const polynomial =
+    (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t;
   return sign * (1 - polynomial * Math.exp(-magnitude * magnitude));
-}
-
-function linearlyPulseShapedSample(
-  definitionValue: InternalGeranIqDefinition,
-  symbolCoordinate: number,
-  seed: number,
-): readonly [number, number] {
-  const center = Math.floor(symbolCoordinate);
-  let inPhase = 0;
-  let quadrature = 0;
-  let totalWeight = 0;
-  // Positive normalized weights make the pulse a convex combination of
-  // unit-bounded symbols. This four-symbol-neighbourhood Gaussian projection
-  // approximates the linearised-GMSK family while remaining explicitly
-  // non-conformance; exact TS 45.004 coefficients are not claimed.
-  for (let symbolIndex = center - 4; symbolIndex <= center + 4; symbolIndex += 1) {
-    const distance = symbolCoordinate - symbolIndex;
-    const weight = Math.exp(-0.5 * (distance / 0.85) ** 2);
-    const symbol = rotatedConstellationSymbol(definitionValue, symbolIndex, seed);
-    inPhase += weight * symbol[0];
-    quadrature += weight * symbol[1];
-    totalWeight += weight;
-  }
-  return [inPhase / totalWeight, quadrature / totalWeight];
-}
-
-function rotatedConstellationSymbol(
-  definitionValue: InternalGeranIqDefinition,
-  symbolIndex: number,
-  seed: number,
-): readonly [number, number] {
-  const stateMask = 2 ** definitionValue.bitsPerSymbol - 1;
-  const state = hash32(seed, symbolIndex, modulationLane(definitionValue.modulation)) & stateMask;
-  const base = constellationSymbol(definitionValue.modulation, state);
-  // All admitted rotations are exact rational multiples of a complete turn.
-  // Reducing the integer coordinate avoids large-angle floating-point drift.
-  const rotationPeriod = rotationPeriodSymbols(definitionValue.rotationTurnsPerSymbol);
-  const reducedIndex = positiveModulo(symbolIndex, rotationPeriod);
-  const angle = 2 * Math.PI * definitionValue.rotationTurnsPerSymbol * reducedIndex;
-  const cosine = Math.cos(angle);
-  const sine = Math.sin(angle);
-  return [base[0] * cosine - base[1] * sine, base[0] * sine + base[1] * cosine];
-}
-
-function constellationSymbol(modulation: GeranIqModulation, state: number): readonly [number, number] {
-  switch (modulation) {
-    case 'qpsk': {
-      const scale = Math.SQRT1_2;
-      return [state & 2 ? -scale : scale, state & 1 ? -scale : scale];
-    }
-    case 'aqpsk': {
-      // Balanced alpha=pi/4 (SCPIR=0 dB) is one valid deterministic selection
-      // inside the clause-6 SCPIR <= 10 dB parameter space; it is not universal.
-      const alpha = Math.PI / 4;
-      const cosine = Math.cos(alpha);
-      const sine = Math.sin(alpha);
-      return [state & 2 ? -cosine : cosine, state & 1 ? -sine : sine];
-    }
-    case '8psk': {
-      // Exact Gray mapping l for binary states 000 through 111 (TS 45.004 table 1).
-      const grayMappedL = [3, 4, 2, 1, 6, 5, 7, 0] as const;
-      const phase = 2 * Math.PI * grayMappedL[state]! / 8;
-      return [Math.cos(phase), Math.sin(phase)];
-    }
-    case '16qam': {
-      // Table-2 relative geometry, peak-normalized to fit the API unit disk.
-      const inPhase = (state & 8 ? -1 : 1) * (state & 2 ? 3 : 1);
-      const quadrature = (state & 4 ? -1 : 1) * (state & 1 ? 3 : 1);
-      return [inPhase / Math.sqrt(18), quadrature / Math.sqrt(18)];
-    }
-    case '32qam': {
-      // Exact Table-3 cross-32-QAM point ordering, peak-normalized. The table's
-      // original 1/sqrt(20) average-power scale is uniformly changed to
-      // 1/sqrt(34) solely to honor this API's unit-peak contract.
-      const point = QAM32_POINTS[state]!;
-      return [point[0] / Math.sqrt(34), point[1] / Math.sqrt(34)];
-    }
-    case 'gmsk':
-      throw new Error('GMSK uses the continuous-phase path, not a memoryless constellation');
-  }
 }
 
 const QAM32_POINTS = [
@@ -538,27 +625,11 @@ const QAM32_POINTS = [
   [1, -3], [1, -1], [1, 3], [1, 1], [3, -3], [3, -1], [3, 3], [3, 1],
 ] as const;
 
-function modulationLane(modulation: GeranIqModulation): number {
-  return ({ gmsk: 1, qpsk: 2, aqpsk: 3, '8psk': 4, '16qam': 5, '32qam': 6 })[modulation];
-}
-
 function rotationPeriodSymbols(turnsPerSymbol: number): number {
   for (let period = 1; period <= 16; period += 1) {
     if (Math.abs(turnsPerSymbol * period - Math.round(turnsPerSymbol * period)) < 1e-12) return period;
   }
   throw new Error(`Unsupported non-rational GERAN symbol rotation ${turnsPerSymbol}`);
-}
-
-function hash32(seed: number, index: number, lane: number): number {
-  const low = index >>> 0;
-  const high = Math.floor(index / 0x1_0000_0000) >>> 0;
-  let value = (seed ^ lane ^ Math.imul(low, 0x9e37_79b1) ^ Math.imul(high, 0x85eb_ca6b)) >>> 0;
-  value ^= value >>> 16;
-  value = Math.imul(value, 0x7feb_352d) >>> 0;
-  value ^= value >>> 15;
-  value = Math.imul(value, 0x846c_a68b) >>> 0;
-  value ^= value >>> 16;
-  return value >>> 0;
 }
 
 function positiveModulo(value: number, modulus: number): number {

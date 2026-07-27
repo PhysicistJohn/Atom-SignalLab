@@ -55,101 +55,47 @@ The separate SignalLab-to-Firmware integration surface is the versioned `SignalL
 
 ## Catalog
 
-The catalog contains exactly 42 profiles. Every selector uses an operator-facing colloquial recipe name while the detail card retains the precise engineering descriptor:
+The catalog contains exactly 42 profiles, and every one has a machine-validated governance record:
 
-- 3 canonized CW/AM/FM scalar-observable profiles.
-- 7 GERAN profiles: one canonized loaded GSM observable plus 6 standards-derived GERAN/EDGE burst projections.
-- 11 E-UTRA-family profiles: canonized Band 3 FDD and Band 38 TDD observables; 4 retained full-allocation Release 19 E-TM projections; 3 isolated N-TM component presentations; the isolated E-UTRA/NB-IoT component imported by NR-N-TM; and one custom LTE builder.
-- 7 NR-family profiles: canonized n3 FDD and n78 TDD observables, 4 retained full-allocation Release 19 FR1 test-model projections, and one custom 5G NR builder.
-- 7 IEEE 802.11 profiles: canonized HR-DSSS and 20 MHz OFDM observables, 4 802.11ax HE PPDU projections, and one custom Wi-Fi builder.
-- 2 canonized Bluetooth scalar-observable profiles for BR/EDR connected hopping and LE primary advertising.
-- 5 analytic single-carrier constellation references: QPSK, 8-PSK, 16-QAM, 64-QAM, and 256-QAM.
+- 31 fixed standards-linked profiles have content-addressed digital-baseband artifacts and passing independent-oracle evidence for their exact declared scope: 7 GERAN, 9 E-UTRA/LTE, 7 NR, 6 IEEE 802.11, and 2 Bluetooth.
+- 3 operator-configurable builders (`custom-lte`, `custom-nr`, and `custom-wifi`) are standards-constrained configuration tools, not fixed qualified waveforms.
+- 8 SignalLab mathematical references (`cw`, `am`, `fm`, and five PSK/QAM references) have no unique governing waveform standard, so standards adherence is not applicable.
 
-Named test models whose power-balanced allocation, per-slot PRB sequence, subslot/slot timing, or SBFD spectral partition is not reproduced are excluded from the selectable catalog. The catalog descriptors and scalar replays remain spectrum/time projections. Standards-labelled complex envelopes are engineering projections, not packet-decodable or conformance vectors. A profile cannot be labeled `conformance-validated` without an admitted immutable SHA-256 asset.
+The applicable technical bodies are 3GPP TSG RAN, the IEEE Standards Association / IEEE 802.11 Working Group, and the Bluetooth SIG Core Specification Working Group. SignalLab governs only the eight mathematical references. The complete per-profile matrix, exact clauses, artifact hashes, evidence hashes, and test commands are in [`docs/STANDARDS_GOVERNANCE.md`](./docs/STANDARDS_GOVERNANCE.md).
+
+“Digitally qualified” here is deliberately narrow. It means that the exact fixed clean `cf32le` artifact is bound by SHA-256 and its declared digital construction passed the named independent oracle. It does not mean that SignalLab, a technology family, an arbitrary configuration, or a device is broadly standards compliant. Every governance record therefore keeps `standardsCompliance=not-claimed` and `rfConformance=not-qualified`; no conducted-RF, radiated/OTA, interoperability, regulatory, Wi-Fi Alliance, Bluetooth product-qualification, or 3GPP device-certification claim is made.
 
 ## Complex I/Q v1
 
 `acquireIq` is a deliberately bounded complex-envelope boundary, not a generic standards waveform or packet generator:
 
-- All 42 closed catalog profiles are admitted. `cw`, `am`, `fm`, and the five constellation references use analytic laboratory synthesis and return `qualification=analytic-complex-baseband`. The 34 GERAN, LTE, NR, WLAN, Bluetooth, and custom profiles return deterministic engineering envelopes qualified `standards-derived-complex-baseband`.
+- All 42 closed catalog profiles are admitted. The 31 fixed standards-linked profiles return clean, source-preserved, unnormalized bytes as `independently-verified-digital-baseband` only at their exact center, native sample-rate, and bandwidth bindings. The three builders return `standards-derived-complex-baseband`. The eight mathematical references return `analytic-complex-baseband`.
 - The only sample format is little-endian interleaved `cf32le`, encoded as canonical base64 with an exact SHA-256 digest and exactly eight bytes per complex sample.
 - `sampleCount` is 1 through 65,536; `sampleRateHz` is 1,000,000 through 245,760,000; `centerHz` is 1 through 17,922,600,000. All are safe integers.
-- `bandwidthHz` is an independent safe integer from 1,000 through 245,760,000 Hz and may not exceed `sampleRateHz`. It is the two-sided steady-state -3 dB span of a causal first-order low-pass with identical real coefficients on I and Q, so its response edges are at `+-bandwidthHz / 2` relative to center. The filter is initialized from the first analytic sample rather than zero; constant CW therefore remains bit-exact for every admitted bandwidth. There is no full-band bypass: at `bandwidthHz=sampleRateHz`, the -3 dB edges are the two Nyquist endpoints.
-- Successive acquisitions advance the generator's time coordinate, so repeated captures are successive moments of one evolving waveform, not one frozen buffer. CW is legitimately constant.
-- The requested center is the reference for the normalized, unit-peak envelope; no sampled absolute RF carrier is inserted, though frequency-agile profiles can contain component offsets around that reference.
-- The scalar AWGN/Rayleigh setting remains specific to spectrum and detected-power replays. The separate receiver-I/Q preset is applied after clean synthesis with the configured deterministic seed. Every result declares the selected `receiverImpairment`; clean output says `channelApplication=not-applied`, while a non-clean preset says `channelApplication=receiver-impairment-preset`. Results remain unit-peak normalized with `timingQualification=simulation-exact` and explicit profile-dependent qualification.
+- `bandwidthHz` is a safe integer from 1,000 through 245,760,000 Hz and may not exceed `sampleRateHz`. For analytic and builder profiles it controls the disclosed causal first-order low-pass. For a fixed content-bound profile it is instead an exact interface binding: the generator accepts only that artifact's native bandwidth and applies no filter.
+- Successive acquisitions advance a dedicated cumulative I/Q sample cursor for analytic, builder, and cyclic fixed profiles; scalar acquisitions do not move it, and any admitted configuration change resets it to sample zero. One-shot Bluetooth re-acquisition instead returns the same bounded checked window; it does not invent a recurrence schedule. CW is legitimately constant.
+- The requested center is metadata for the complex envelope; no sampled absolute RF carrier is inserted. Analytic/builder paths use their declared normalization, while fixed content-bound paths preserve source scaling exactly.
+- The scalar AWGN/Rayleigh setting remains specific to spectrum and detected-power replays. A receiver-I/Q impairment explicitly downgrades any fixed artifact to `receiver-impaired-complex-baseband`; it cannot inherit the content-bound claim. Every result declares `receiverImpairment`, `channelApplication`, representation, normalization, and the profile-dependent qualification.
 
-The AM vector is full-carrier DSB with a 25 kHz message and 0.72 modulation index. The FM vector uses a 25 kHz message and ±75 kHz deviation. These closed forms are deterministic laboratory stimuli; they are not RF calibration, protocol, or standards-conformance evidence.
+The AM vector is full-carrier DSB with a 25 kHz message and 0.72 modulation index. The FM vector uses a 25 kHz message and ±75 kHz deviation. These closed forms are deterministic laboratory stimuli; they are not broadcast-service profiles, RF calibration, protocol, or standards-conformance evidence.
 
-The standards-labelled catalog path uses deterministic GERAN burst/modulation models, bounded LTE/NR/WLAN representative-grid models, and Bluetooth GFSK/FHSS-style models. These are useful engineering projections, but they contain no claim of packet framing, payload, coding, bit-exact protocol reproduction, or conformance; they are not packet-decodable I/Q or standards test vectors. The separate fixed LTE content-addressed artifact below does not silently replace or promote those catalog buffers. When a requested sample rate is below a wideband profile's catalogued occupied support, its catalog output is the disclosed deterministic discrete-time alias projection, not an alias-free reconstruction of the full channel.
+The five constellation references use SignalLab-defined direct symbol-state indexing (natural, non-Gray level indexing on each square-QAM axis), a fixed 7 Msym/s rate, an RRC pulse with beta 0.35 truncated to ±8 symbols, and intrinsic deterministic complex AWGN at 40 dB SNR. Their 9.45 MHz catalog field is the nominal `7 Msym/s × (1 + 0.35)` raised-cosine support before finite-span truncation, broadband noise, and downstream receiver filtering; it is not measured, 99%-power, necessary, or regulatory occupied bandwidth. “Clean I/Q” means that no additional receiver-impairment preset is applied; it does not remove the reference generator's declared intrinsic 40 dB dither.
+
+Each fixed standards-linked acquisition rejects the wrong center, sample rate, or bandwidth instead of relabeling, resampling, or filtering a qualified artifact. Captures remain inside the hash-bound source timeline: periodic frame/PPDU artifacts use declared cyclic slicing, while Bluetooth permits only windows inside its one-shot fixed capture. Qualification applies to that source construction—not to the scalar spectrum renderer. The GERAN component fixtures begin at frozen modulator-input fields where stated; the E-UTRA/NR narrowband component fixtures omit their declared host/composite context; the WLAN artifacts stop at their declared ideal complex-chip or complex-baseband interface; and the Bluetooth artifacts use ideal analytic GFSK. Those boundaries are part of the claim, not footnotes.
 
 ### Exact 3GPP evidence lane
 
-Separately from the catalog `acquireIq` projections, SignalLab now implements
-one fixed, content-addressed LTE digital artifact and the fail-closed evidence
-machinery needed to assess exact claims. Preset
-`lte-etm-1-1-10mhz-fdd@2.0.0` is one 10 ms, 10 MHz FDD E-TM 1.1 frame with 50
-resource blocks, normal cyclic prefix, antenna port 0, physical cell ID 1, and
-153,600 samples at 15.36 Msamples/s. The
-`lte-etm-1-1-10mhz-fdd-reference-frame@1.0.1` provider emits raw little-endian
-interleaved complex float64 with SHA-256
-`1cb66b49be2518ea33a2bbf1f7075b54e6e62e10a9c05491a0ba4727bfe05511`.
-E-TM selects one layer, one antenna port, and `precoding=false`; the invoked
-single-port layer-mapping and precoding equations are implemented explicitly as
-checked identity processing rather than silently omitted.
+All 23 fixed 3GPP-linked catalog profiles now use content-addressed exact digital artifacts: 7 GERAN, 9 E-UTRA/LTE, and 7 NR. The suite checks complete fixed constructions at the applicable boundary—among them all samples and resource elements for the LTE/NR frame lanes, every GERAN component sample, pinned coding or constellation oracles, and retained evidence-file hashes. Each LTE E-TM3 variant is checked across all 84,000 resource elements and all 153,600 OFDM samples by a separately structured full-frame oracle. Five GERAN higher-order profiles, three narrowband/composite presentations, and the Band 38 downlink fixture are explicitly component fixtures; their evidence does not silently claim omitted coding, host placement, relative power, or a named test model.
 
-The digital generator has retained, hash-bound evidence comparing all 84,000
-resource elements and all 153,600 OFDM samples with an independently built
-srsRAN implementation. The exact report is
-[`validation/lte-etm1-srsran-oracle-2026-07-27.json`](./validation/lte-etm1-srsran-oracle-2026-07-27.json),
-raw SHA-256
-`55cae4fcaa514dfe6ffdd6baf25c84a0915131b7403aad095c3d4727b593d34f`.
-The explicit evidence test now executes the pinned harness binary into fresh
-temporary files, verifies their hashes and byte equality with the retained
-vectors, and only then performs the full grid/time comparison.
+The earlier Release 19 promotion framework and its `standards-runtime` LTE E-TM 1.1 provider remain useful fail-closed infrastructure, but broad manifest promotion is a different claim from the catalog's content-bound digital qualification. Neither path claims RF, OTA, a certified product, or “all of 3GPP.”
 
-The normative source record separately retains 59 exact OOXML ranges across
-TS 36.104 V19.2.0, TS 36.141 V19.1.0, and TS 36.211/36.212 V19.3.0 in
-[`validation/lte-etm1-release19-clause-evidence.json`](./validation/lte-etm1-release19-clause-evidence.json),
-SHA-256
-`1171018747af96b84e9fe7874ae7bbf0c426fad9a43b300c1c2e5b8288be0775`.
-Coverage now includes the 10 MHz-to-50-RB relationship, resource-grid and
-synchronization parents, CFI/HI coding parents, and the invoked one-layer/
-single-port identity stages. Those ranges feed catalog
-`lte-etm1-1-release19-clause-tests@1.3.0`: 74 exact clause obligations mapped
-to 12 semantic test contracts, canonical catalog
-SHA-256
-`90445a00cee8e5ab753c2cf4a3ce7ff18b146424cdec4cf121de3e9c6c693e3c`.
-Qualification gates bind each contract's full `sourceFileSha256`, compare
-freshness with the current wall clock, recompute revalidation fingerprints, and
-re-hash the supplied bytes of every declared evidence artifact rather than
-trusting digest strings alone.
-
-The provider manifest nevertheless remains `reference-generated`; neither
-retained report automatically promotes it. The compiled Release 19
-`profileAdmissions` matrix is enforced by both promotion and composite policy
-and keeps the exact lane, every other LTE profile, GERAN, and NR unpromoted.
-The package exports the byte-pinned developer library as
-`./standards-runtime`, built to `dist/standards`; its smoke test imports the
-bundle, regenerates and re-hashes the exact artifact, and rejects an unknown
-recipe. This adds no Studio UI or catalog behavior.
-
-The default `npm test` run exercises structural checks but skips the opt-in
-official-archive reproduction and live srsRAN evidence lanes when their required
-environment is absent; it is not compliance evidence. Use
-`npm run test:3gpp:structural` for the explicit no-external-assets structural
-set, or `npm run test:3gpp` with every documented archive/oracle path for the
-full evidence check. Even a full pass is not automatic manifest or profile
-promotion. Conducted-RF and radiated/OTA claims still require current calibrated
-external-lab evidence. See
-[`docs/3GPP_COMPLIANCE.md`](./docs/3GPP_COMPLIANCE.md) for the frozen Release 19
-versions, claim boundary, evidence identities, and command.
+Run `npm run test:standards:structural` for repository-owned structural, hash, and internal-oracle checks. After supplying the documented pinned external checkouts, binaries, vectors, scripts, reports, and archives, `npm run test:standards:live` makes every srsRAN, py3gpp/NumPy, OCUDU, gr-ieee802-11, and official-archive lane mandatory; missing evidence fails rather than skips. [`docs/3GPP_COMPLIANCE.md`](./docs/3GPP_COMPLIANCE.md) records the exact cellular boundary and commands; [`docs/STANDARDS_GOVERNANCE.md`](./docs/STANDARDS_GOVERNANCE.md) is the complete 42-profile ledger.
 
 ## Canonical classification corpus
 
 `src/waveforms.ts` owns the executable definitions and synthesis kernel shared by the public canonized observable profiles and `src/classification-corpus.ts`. Corpus v13 canonizes deterministic scalar observations for Bayesian detector/classifier development, including CW, physical DSB full-carrier AM sideband ratios, Bessel-series FM, standards-parameterized heuristic projections of GSM, LTE FDD/TDD, NR FDD/TDD, Wi-Fi DSSS/OFDM and Bluetooth Classic/LE, plus corpus-only explicit hard negatives. These hand-built power projections are not conformance waveforms. Every scenario records truth class, parameters, seed, acquisition settings, and a non-conformance disclosure. Its source provenance is an ordered per-document reference list: independently versioned 3GPP specifications never share an invented aggregate revision or a URL that resolves only half of the stated basis. Live profile identity remains status-only and never enters the shared measurement evidence or classifier.
 
-Version 13 retains the explicit TDD and LE timing choices introduced in v11. It also separates swept-spectrum bin-equivalent RBW from the generator-internal receiver-filter width used for detected-power synthesis. Public replays and the corpus both pin that synthesis width to 100 kHz, record it for reproducibility, and never represent it as observed or calibrated measurement metadata. The LTE Band 38 projection is downlink-only UL/DL configuration 0 with normal downlink/uplink cyclic prefixes and special-subframe configuration 7 (`srs-UpPtsAdd` absent): DwPTS is 21,952 `Ts`, while GP and UpPTS are 4,384 `Ts` each. Guard and UpPTS time is never modeled as downlink energy. The NR n78 projection is the versioned SignalLab engineering schedule `nr-tdd-7dl-3ul-engineering-v1`: one valid 5 ms, 30 kHz-SCS selection with seven complete downlink slots followed by three complete uplink slots, not a pattern prescribed for n78 or all NR deployments. The BLE engineering schedule uses all three primary centers in sequential 37-to-38-to-39 order plus a seeded per-event pseudorandom 0 to 10 ms `advDelay`. That sequence is standards-consistent for the modeled legacy all-three-channel event; configured subsets, early event closure, and extended advertising differ. Its all-three use, packet timing, interval, and deterministic delay generator are engineering choices, not universal Bluetooth traffic or PDU behavior. The n3 `carrierRasterHz` metadata is the ordinary 100 kHz band-specific channel raster, not the 5 kHz global NR-ARFCN step.
+Version 13 retains the explicit TDD and LE timing choices introduced in v11. It also separates swept-spectrum bin-equivalent RBW from the generator-internal receiver-filter width used for detected-power synthesis. Public replays and the corpus both pin that synthesis width to 100 kHz, record it for reproducibility, and never represent it as observed or calibrated measurement metadata. The LTE Band 38 scalar projection is downlink-only UL/DL configuration 0 with normal downlink/uplink cyclic prefixes and special-subframe configuration 7 (`srs-UpPtsAdd` absent): DwPTS is 21,952 `Ts`, while GP and UpPTS are 4,384 `Ts` each. Guard and UpPTS time is never modeled as downlink energy. The separate fixed n78 complex-I/Q artifact covers the required 20 ms (two radio frames) and repeats the TS 38.141-1 Table 4.9.2.2-1 five-millisecond pattern four times: seven full downlink slots, one mixed slot with six downlink and four uplink symbols, and two full uplink slots per repetition. The corpus's scalar power projection remains non-decodable and cannot inherit that digital claim. The BLE engineering schedule uses all three primary centers in sequential 37-to-38-to-39 order plus a seeded per-event pseudorandom 0 to 10 ms `advDelay`. That sequence is standards-consistent for the modeled legacy all-three-channel event; configured subsets, early event closure, and extended advertising differ. Its all-three use, packet timing, interval, and deterministic delay generator are engineering choices, not universal Bluetooth traffic or PDU behavior. The n3 `carrierRasterHz` metadata is the ordinary 100 kHz band-specific channel raster, not the 5 kHz global NR-ARFCN step.
 
 The catalog's 2 kHz CW width is a nominal display-support floor for a mathematical line, not analyzer RBW or source occupied bandwidth. The 52 kHz AM width is the 50 kHz outer-sideband spacing plus that nominal 2 kHz display floor. Actual rendered line width follows each observation's RBW and may extend beyond those nominal display-support fields.
 
@@ -179,4 +125,4 @@ SignalLab is one of nine AtomOS repositories:
 
 ## Further reading
 
-See [CONTRACTS.md](./CONTRACTS.md) for the standalone API, measurement contract, synthesis guarantees, failure algebra, and acceptance evidence. [STANDARDS_IQ_ROADMAP.md](./STANDARDS_IQ_ROADMAP.md) describes the provider-neutral framework and remaining work, while [docs/3GPP_COMPLIANCE.md](./docs/3GPP_COMPLIANCE.md) records the exact 3GPP claim and evidence boundary. The byte-identical cross-repository composition is [contracts/trio-composition-v4.json](./contracts/trio-composition-v4.json).
+See [CONTRACTS.md](./CONTRACTS.md) for the standalone API, measurement contract, synthesis guarantees, failure algebra, and acceptance evidence. [docs/STANDARDS_GOVERNANCE.md](./docs/STANDARDS_GOVERNANCE.md) is the complete 42-profile authority, clause, artifact, evidence, and limitation ledger; [docs/3GPP_COMPLIANCE.md](./docs/3GPP_COMPLIANCE.md) expands the cellular claim boundary. [STANDARDS_IQ_ROADMAP.md](./STANDARDS_IQ_ROADMAP.md) describes the provider-neutral framework. The byte-identical cross-repository composition is [contracts/trio-composition-v4.json](./contracts/trio-composition-v4.json).

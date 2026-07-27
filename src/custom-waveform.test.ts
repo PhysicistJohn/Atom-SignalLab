@@ -25,7 +25,7 @@ function resolvedValue(standard: 'lte' | 'nr' | 'wifi', selections: Record<strin
 }
 
 describe('LTE constraint lattice', () => {
-  it('maps every channel bandwidth to its exact N_RB (TS 36.101 Table 5.6-1)', () => {
+  it('maps every channel bandwidth to its exact N_RB (TS 36.104 Table 5.6-1)', () => {
     const expected: Record<string, string> = { '1.4': '6', '3': '15', '5': '25', '10': '50', '15': '75', '20': '100' };
     for (const [bandwidth, rb] of Object.entries(expected)) {
       expect(resolvedValue('lte', { channelBandwidthMHz: bandwidth }, 'resourceBlocks')).toBe(rb);
@@ -34,8 +34,12 @@ describe('LTE constraint lattice', () => {
 
   it('pins modulation per E-TM and rejects a contradicting selection', () => {
     expect(resolvedValue('lte', { testModel: 'E-TM3.1a' }, 'modulation')).toBe('256qam');
+    expect(resolvedValue('lte', { testModel: 'E-TM3.1b' }, 'modulation')).toBe('1024qam');
+    expect(resolvedValue('lte', { testModel: 'E-TM3.1b' }, 'mcsIndex')).toBe('n/a');
     expect(resolvedValue('lte', { testModel: 'E-TM3.2' }, 'modulation')).toBe('16qam');
+    expect(resolvedValue('lte', { testModel: 'E-TM1.1' }, 'cellId')).toBe('1');
     expect(() => resolveCustomWaveform('lte', { testModel: 'E-TM3.1', modulation: 'qpsk' })).toThrow(/modulation/);
+    expect(() => resolveCustomWaveform('lte', { testModel: 'E-TM1.1', cellId: '0' })).toThrow(/cellId/);
   });
 
   it('forces normal CP under a test model and gates 7.5 kHz on extended CP', () => {

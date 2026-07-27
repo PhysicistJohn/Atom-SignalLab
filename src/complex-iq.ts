@@ -12,13 +12,55 @@ import {
   synthesizeGeranComplexIq,
 } from './geran-iq.js';
 import {
+  isGeranFixedCatalogProfile,
+  synthesizeGeranFixedCatalogIq,
+} from './geran-fixed-catalog-iq.js';
+import {
   isStandardsEngineeringComplexIqProfile,
   synthesizeStandardsEngineeringComplexIq,
 } from './ofdm-iq.js';
 import {
-  isBluetoothAnalyticIqProfile,
-  synthesizeBluetoothAnalyticSamples,
-} from './bluetooth-iq.js';
+  LTE_ETM1_1_CATALOG_PROFILE,
+  synthesizeLteEtm11CatalogIq,
+} from './lte-etm1-catalog-iq.js';
+import {
+  isLteEtm3CatalogProfile,
+  synthesizeLteEtm3CatalogIq,
+} from './lte-etm3-catalog-iq.js';
+import {
+  synthesizeLteBand3Fdd20mCatalogIq,
+} from './lte-band3-fdd-20m-catalog-iq.js';
+import {
+  LTE_BAND3_FDD_20M_PROFILE,
+} from './lte-band3-fdd-20m-reference.js';
+import {
+  synthesizeLteBand38Tdd10mCatalogIq,
+} from './lte-band38-tdd-10m-catalog-iq.js';
+import {
+  LTE_BAND38_TDD_10M_PROFILE,
+} from './lte-band38-tdd-10m-reference.js';
+import {
+  synthesizeLteNtmCatalogIq,
+} from './lte-ntm-catalog-iq.js';
+import {
+  isLteNtmProfile,
+} from './lte-ntm-reference.js';
+import {
+  isNrFr1TmCatalogProfile,
+  synthesizeNrFr1TmCatalogIq,
+} from './nr-fr1-test-model-catalog-iq.js';
+import {
+  isNrRemainingFixedProfile,
+  synthesizeNrRemainingFixedCatalogIq,
+} from './nr-remaining-fixed-catalog-iq.js';
+import {
+  isBluetoothFixedCatalogProfile,
+  synthesizeBluetoothFixedCatalogIq,
+} from './bluetooth-fixed-catalog-iq.js';
+import {
+  isWlanFixedProfileId,
+  synthesizeWlanFixedCatalogIq,
+} from './wlan-fixed-iq.js';
 import {
   DEFAULT_REFERENCE_IQ_SEED,
   isReferenceComplexIqProfile,
@@ -28,12 +70,16 @@ import {
 export const LAB_ANALYTIC_COMPLEX_IQ_PROFILES = ['cw', 'am', 'fm'] as const;
 export type LabAnalyticComplexIqProfile = typeof LAB_ANALYTIC_COMPLEX_IQ_PROFILES[number];
 
-/** Every profile in the closed catalog has an installed deterministic analytic
- * complex-envelope generator. The standards-labelled members remain
- * engineering projections; membership is never a conformance claim. */
+/** Every profile in the closed catalog has an installed deterministic complex-
+ * envelope generator. Fixed standards-linked members dispatch to exact,
+ * content-addressed digital artifacts; operator builders remain engineering
+ * projections. Catalog membership is never a broad or RF-conformance claim. */
 export const ANALYTIC_COMPLEX_IQ_PROFILES = SYNTHESIZED_SIGNAL_PROFILES;
 export type AnalyticComplexIqProfile = typeof ANALYTIC_COMPLEX_IQ_PROFILES[number];
-export type ComplexIqGeneratorBasis = 'analytic-laboratory' | 'standards-derived-engineering-projection';
+export type ComplexIqGeneratorBasis =
+  | 'analytic-laboratory'
+  | 'standards-derived-engineering-projection'
+  | 'content-bound-digital-baseband';
 
 export function complexIqGeneratorBasis(profile: SynthesizedSignalProfile): ComplexIqGeneratorBasis {
   const admitted = synthesizedSignalProfileSchema.parse(profile);
@@ -46,7 +92,20 @@ export function complexIqGeneratorBasis(profile: SynthesizedSignalProfile): Comp
   // mismatch.
   const isAnalyticLab = LAB_ANALYTIC_COMPLEX_IQ_PROFILES.some((candidate) => candidate === admitted)
     || isReferenceComplexIqProfile(admitted);
-  return isAnalyticLab ? 'analytic-laboratory' : 'standards-derived-engineering-projection';
+  if (isAnalyticLab) return 'analytic-laboratory';
+  if (isGeranFixedCatalogProfile(admitted)
+    || admitted === LTE_BAND3_FDD_20M_PROFILE
+    || admitted === LTE_BAND38_TDD_10M_PROFILE
+    || admitted === LTE_ETM1_1_CATALOG_PROFILE
+    || isLteEtm3CatalogProfile(admitted)
+    || isLteNtmProfile(admitted)
+    || isNrFr1TmCatalogProfile(admitted)
+    || isNrRemainingFixedProfile(admitted)
+    || isWlanFixedProfileId(admitted)
+    || isBluetoothFixedCatalogProfile(admitted)) {
+    return 'content-bound-digital-baseband';
+  }
+  return 'standards-derived-engineering-projection';
 }
 
 /** Hard producer bounds, shared with the bridge contract to prevent drift. */
@@ -79,7 +138,11 @@ export interface AnalyticComplexIqSynthesisInput {
 }
 
 /**
- * Produce a clean, normalized complex envelope in interleaved cf32le.
+ * Produce a normalized source complex envelope in interleaved cf32le.
+ *
+ * "Source" here means before an optional receiver-impairment preset. The
+ * PSK/QAM reference sources deliberately include their separately disclosed
+ * intrinsic seeded 40 dB AWGN; they are not noiseless vectors.
  *
  * `bandwidthHz` is the two-sided steady-state -3 dB bandwidth of a causal,
  * real-coefficient, first-order low-pass: its edges are at
@@ -90,11 +153,10 @@ export interface AnalyticComplexIqSynthesisInput {
  * which keeps the normalized analytic envelope inside the unit disk using
  * constant memory and O(sampleCount) work.
  *
- * CW, AM, and FM are closed-form laboratory signals. Every standards-labelled
- * catalog entry dispatches to an explicitly non-conformance engineering
- * projection: GERAN burst/modulation synthesis, a bounded LTE/NR/WLAN
- * representative-grid projection, or Bluetooth GFSK/FHSS-style synthesis.
- * Those outputs are neither packet-decodable nor standards test vectors.
+ * CW, AM, and FM are closed-form laboratory signals. Every standards-linked
+ * fixed catalog member dispatches to a content-addressed digital-baseband
+ * artifact without filtering or resampling. The three operator-defined
+ * builders remain standards-parameterized engineering generators.
  */
 export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInput): Uint8Array {
   const profile = analyticComplexIqProfile(input.profile);
@@ -126,6 +188,91 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
     throw new RangeError('Analytic complex-I/Q start sample index must be a non-negative safe integer');
   }
 
+  if (profile === LTE_ETM1_1_CATALOG_PROFILE) {
+    return synthesizeLteEtm11CatalogIq({
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (profile === LTE_BAND3_FDD_20M_PROFILE) {
+    return synthesizeLteBand3Fdd20mCatalogIq({
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (profile === LTE_BAND38_TDD_10M_PROFILE) {
+    return synthesizeLteBand38Tdd10mCatalogIq({
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isLteEtm3CatalogProfile(profile)) {
+    return synthesizeLteEtm3CatalogIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isLteNtmProfile(profile)) {
+    return synthesizeLteNtmCatalogIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isNrFr1TmCatalogProfile(profile)) {
+    return synthesizeNrFr1TmCatalogIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isNrRemainingFixedProfile(profile)) {
+    return synthesizeNrRemainingFixedCatalogIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isWlanFixedProfileId(profile)) {
+    return synthesizeWlanFixedCatalogIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isBluetoothFixedCatalogProfile(profile)) {
+    return synthesizeBluetoothFixedCatalogIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isGeranFixedCatalogProfile(profile)) {
+    return synthesizeGeranFixedCatalogIq({
+      ...input,
+      profile,
+      startSampleIndex,
+    });
+  }
   if (isGeranComplexIqProfile(profile)) {
     return synthesizeGeranComplexIq({
       ...input,
@@ -136,16 +283,6 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
   }
   if (isStandardsEngineeringComplexIqProfile(profile)) {
     return synthesizeStandardsEngineeringComplexIq({ ...input, profile, startSample: startSampleIndex });
-  }
-  if (isBluetoothAnalyticIqProfile(profile)) {
-    const analytic = synthesizeBluetoothAnalyticSamples({
-      profile,
-      sampleRateHz: input.sampleRateHz,
-      sampleCount: input.sampleCount,
-      seed: DEFAULT_STANDARDS_ENGINEERING_COMPLEX_IQ_SEED,
-      startSampleIndex,
-    });
-    return filterAndEncodeInterleavedSamples(analytic, input);
   }
   if (isReferenceComplexIqProfile(profile)) {
     return synthesizeReferenceComplexIq({
@@ -168,7 +305,7 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
   let previousQuadrature = 0;
   for (let index = 0; index < input.sampleCount; index += 1) {
     const timeSeconds = (startSampleIndex + index) / input.sampleRateHz;
-    const [rawInPhase, rawQuadrature] = analyticSample(profile, timeSeconds);
+    const [rawInPhase, rawQuadrature] = analyticLaboratorySample(profile, timeSeconds);
     const inPhase = index === 0
       ? rawInPhase
       : previousInPhase + feedForward * (rawInPhase - previousInPhase);
@@ -200,7 +337,20 @@ function analyticComplexIqProfile(value: SynthesizedSignalProfile): AnalyticComp
   return profile;
 }
 
-function analyticSample(profile: LabAnalyticComplexIqProfile, timeSeconds: number): readonly [number, number] {
+/**
+ * Exact pre-filter complex envelope for the three closed-form lab stimuli.
+ *
+ * Exported so conformance-policy tests can compare the implementation with
+ * independent mathematical oracles without treating the shared receiver
+ * low-pass or cf32 packing code as part of the source equation.
+ */
+export function analyticLaboratorySample(
+  profile: LabAnalyticComplexIqProfile,
+  timeSeconds: number,
+): readonly [number, number] {
+  if (!Number.isFinite(timeSeconds)) {
+    throw new RangeError('Analytic laboratory sample time must be finite');
+  }
   switch (profile) {
     case 'cw':
       return [1, 0];

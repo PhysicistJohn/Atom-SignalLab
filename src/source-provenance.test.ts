@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BLUETOOTH_BR_DH1_FIXED_VECTOR_SOURCE,
+  BLUETOOTH_LE_ADV_NONCONN_IND_FIXED_VECTOR_SOURCE,
   BLUETOOTH_OBSERVABLE_SOURCE,
   GSM_OBSERVABLE_SOURCE,
+  IEEE_802154_SOURCE,
   LTE_OBSERVABLE_SOURCE,
   LTE_TDD_OBSERVABLE_SOURCE,
   NR_OBSERVABLE_SOURCE,
   NR_TDD_OBSERVABLE_SOURCE,
+  WIFI_ERP_OFDM_SOURCE,
+  WIFI_HR_DSSS_SOURCE,
   sourceBasis,
   sourceBasisSchema,
 } from './source-provenance.js';
@@ -14,20 +19,21 @@ describe('source provenance', () => {
   it('retains one immutable reference per independently versioned document', () => {
     expect(GSM_OBSERVABLE_SOURCE.references.map((reference) => [reference.specification, reference.revision])).toEqual([
       ['TS 45.002', '19.0.0'],
+      ['TS 45.003', '19.0.0'],
       ['TS 45.004', '19.0.0'],
       ['TS 45.008', '19.0.0'],
       ['TS 45.005', '19.0.0'],
     ]);
-    expect(GSM_OBSERVABLE_SOURCE.references[1]?.clause).toMatch(/GMSK.*symbol rate/i);
-    expect(GSM_OBSERVABLE_SOURCE.references[2]?.clause).toMatch(/7\.1.*BCCH.*continuous.*dummy bursts/i);
-    expect(GSM_OBSERVABLE_SOURCE.references[3]?.clause)
+    expect(GSM_OBSERVABLE_SOURCE.references[2]?.clause).toMatch(/GMSK.*symbol rate/i);
+    expect(GSM_OBSERVABLE_SOURCE.references[3]?.clause).toMatch(/7\.1.*BCCH.*continuous.*dummy bursts/i);
+    expect(GSM_OBSERVABLE_SOURCE.references[4]?.clause)
       .toMatch(/Clause 2.*GSM 900.*RF-channel arrangement\/raster/i);
     expect(LTE_OBSERVABLE_SOURCE.references.map((reference) => [reference.specification, reference.revision])).toEqual([
-      ['TS 36.101', '19.5.0'],
+      ['TS 36.104', '19.2.0'],
       ['TS 36.211', '19.3.0'],
     ]);
     expect(LTE_TDD_OBSERVABLE_SOURCE.references.map((reference) => reference.specification))
-      .toEqual(['TS 36.101', 'TS 36.211']);
+      .toEqual(['TS 36.104', 'TS 36.211']);
     expect(LTE_TDD_OBSERVABLE_SOURCE.references[1]?.clause)
       .toMatch(/Tables 4\.2-1 and 4\.2-2.*configuration 0.*configuration 7/i);
     expect(NR_OBSERVABLE_SOURCE.references.map((reference) => reference.specification))
@@ -35,15 +41,39 @@ describe('source provenance', () => {
     expect(NR_OBSERVABLE_SOURCE.references[0]?.clause).toMatch(/5\.4\.2\.3.*band-specific channel raster/i);
     expect(NR_TDD_OBSERVABLE_SOURCE.references.map((reference) => [reference.specification, reference.revision])).toEqual([
       ['TS 38.104', '19.4.0'],
-      ['TS 38.211', '19.3.0'],
+      ['TS 38.211', '19.4.0'],
       ['TS 38.331', '19.1.0'],
       ['TS 38.213', '19.3.0'],
     ]);
     expect(NR_TDD_OBSERVABLE_SOURCE.references[2]?.clause).toMatch(/TDD-UL-DL-Pattern/i);
     expect(NR_TDD_OBSERVABLE_SOURCE.references[3]?.clause).toMatch(/11\.1.*slot configuration/i);
+    expect(WIFI_HR_DSSS_SOURCE.references[0]?.clause).toMatch(/16\.3\.6\.6\.4.*CCK/i);
+    expect(WIFI_ERP_OFDM_SOURCE.references[0]?.clause).toMatch(/17\.3\.5\.10.*ERP-OFDM/i);
     expect(BLUETOOTH_OBSERVABLE_SOURCE.references).toHaveLength(4);
     expect(BLUETOOTH_OBSERVABLE_SOURCE.references[3]?.clause)
       .toMatch(/2\.3\.1.*4\.4\.2.*4\.4\.2\.1.*4\.4\.2\.2\.1.*4\.4\.2\.4\.3.*next-used-channel.*advDelay/i);
+    expect(BLUETOOTH_BR_DH1_FIXED_VECTOR_SOURCE.references.map((reference) => reference.specification))
+      .toEqual([
+        'Bluetooth Core 6.3, Vol 2, Part A',
+        'Bluetooth Core 6.3, Vol 2, Part B',
+        'Bluetooth Core 6.3, Vol 2, Part G',
+      ]);
+    expect(BLUETOOTH_BR_DH1_FIXED_VECTOR_SOURCE.references[2]?.clause)
+      .toMatch(/2\.1.*3.*4.*5.*6\.1.*8.*connection-state.*access-code.*HEC.*CRC.*DH1.*whitening/i);
+    expect(BLUETOOTH_LE_ADV_NONCONN_IND_FIXED_VECTOR_SOURCE.references.map((reference) => reference.specification))
+      .toEqual([
+        'Bluetooth Core 6.3, Vol 6, Part A',
+        'Bluetooth Core 6.3, Vol 6, Part B',
+        'Bluetooth Core 6.3, Vol 6, Part C',
+      ]);
+    expect(BLUETOOTH_LE_ADV_NONCONN_IND_FIXED_VECTOR_SOURCE.references[2]?.clause)
+      .toMatch(/4\.1.*4\.2\.1.*channel-38 whitening.*complete LE 1M ADV_NONCONN_IND/i);
+    expect(IEEE_802154_SOURCE.references).toEqual([{
+      specification: 'IEEE 802.15.4-2024',
+      clause: '2450 MHz O-QPSK PHY channelization',
+      revision: '2024',
+      url: 'https://standards.ieee.org/ieee/802.15.4/11041/',
+    }]);
     expect(Object.isFrozen(LTE_OBSERVABLE_SOURCE)).toBe(true);
     expect(Object.isFrozen(LTE_OBSERVABLE_SOURCE.references)).toBe(true);
     expect(LTE_OBSERVABLE_SOURCE.references.every(Object.isFrozen)).toBe(true);

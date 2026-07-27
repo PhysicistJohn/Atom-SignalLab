@@ -101,6 +101,12 @@
 .configurationGrid dt { color: #687471; font: 8px var(--signal-lab-mono); }
 .configurationGrid dd { overflow: hidden; margin: 4px 0 0; color: #a1aaa7; font: 9px var(--signal-lab-mono); text-overflow: ellipsis; white-space: nowrap; }
 
+.claimState { margin-top: 10px; padding: 8px 9px; border: 1px solid rgba(255, 159, 10, .18); border-radius: 8px; background: rgba(255, 159, 10, .035); }
+.claimState > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.claimState small { color: #817767; font: 8px var(--signal-lab-mono); letter-spacing: .08em; text-transform: uppercase; }
+.claimState strong { color: #c6a86d; font: 8px var(--signal-lab-mono); font-weight: 550; letter-spacing: .03em; text-align: right; }
+.claimState p { margin: 5px 0 0; color: #837d72; font: 8px var(--signal-lab-mono); line-height: 1.4; }
+
 .sourceEvidence { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--signal-lab-line); }
 .sourceEvidence > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .sourceEvidence > div small { color: #687471; font: 8px var(--signal-lab-mono); letter-spacing: .08em; text-transform: uppercase; }

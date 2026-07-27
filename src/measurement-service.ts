@@ -11,6 +11,10 @@ import {
   isAnalyticComplexIqProfile,
   synthesizeAnalyticComplexIq,
 } from './complex-iq.js';
+import {
+  fixedDigitalProfileBinding,
+  isFixedDigitalProfile,
+} from './fixed-digital-profile-binding.js';
 import { receiverImpairmentsForPreset, synthesizeImpairedComplexIq } from './impairments.js';
 import { setCustomWaveformSelections } from './custom-waveform.js';
 import {
@@ -66,6 +70,7 @@ export const measurementServiceContinuationSchema = z.object({
   profile: synthesizedSignalProfileSchema,
   channel: replayChannelConfigurationSchema,
   sequence: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  iqSampleCursor: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
 }).strict();
 export type MeasurementServiceContinuation = z.infer<typeof measurementServiceContinuationSchema>;
 
@@ -95,6 +100,7 @@ export class AtomizerMeasurementService {
   #profile: SynthesizedSignalProfile = 'cw';
   #channel: ReplayChannelConfiguration = structuredClone(DEFAULT_REPLAY_CHANNEL);
   #sequence = 0;
+  #iqSampleCursor = 0;
   #closed = false;
   readonly #uuid: () => string;
   readonly #now: () => Date;
@@ -114,6 +120,7 @@ export class AtomizerMeasurementService {
       this.#profile = continuation.profile;
       this.#channel = structuredClone(continuation.channel);
       this.#sequence = continuation.sequence;
+      this.#iqSampleCursor = continuation.iqSampleCursor;
     }
     this.identity = measurementSourceIdentitySchema.parse({
       driverId: 'signal-lab',
@@ -238,20 +245,63 @@ export class AtomizerMeasurementService {
         `${this.#profile} has no truthful complex-I/Q generator installed`,
       );
     }
+    const fixedBinding = isFixedDigitalProfile(this.#profile)
+      ? fixedDigitalProfileBinding(this.#profile)
+      : undefined;
+    if (fixedBinding !== undefined) {
+      if (request.centerHz !== fixedBinding.centerHz) {
+        throw new RangeError(
+          `${this.#profile} digitally qualified replay requires center `
+          + `${fixedBinding.centerHz} Hz; retuning would relabel the checked artifact`,
+        );
+      }
+      if (request.sampleRateHz !== fixedBinding.sampleRateHz) {
+        throw new RangeError(
+          `${this.#profile} digitally qualified replay requires `
+          + `${fixedBinding.sampleRateHz} samples/s`,
+        );
+      }
+      if (request.bandwidthHz !== fixedBinding.bandwidthHz) {
+        throw new RangeError(
+          `${this.#profile} digitally qualified replay requires `
+          + `${fixedBinding.bandwidthHz} Hz bandwidth`,
+        );
+      }
+      if (
+        fixedBinding.replay === 'one-shot'
+        && request.sampleCount > fixedBinding.captureSamples!
+      ) {
+        throw new RangeError(
+          `${this.#profile} digitally qualified one-shot capture contains only `
+          + `${fixedBinding.captureSamples} samples`,
+        );
+      }
+    }
+    const oneShotReplay = fixedBinding?.replay === 'one-shot';
+    if (
+      !oneShotReplay
+      && this.#iqSampleCursor > Number.MAX_SAFE_INTEGER - request.sampleCount
+    ) {
+      throw new RangeError('Complex-I/Q sample cursor is exhausted');
+    }
     const started = this.#monotonicMilliseconds();
-    const sequence = this.#nextSequence();
+    const sequence = this.#nextSequenceCandidate();
+    const startSampleIndex = oneShotReplay ? 0 : this.#iqSampleCursor;
     const synthesisInput = {
       profile: this.#profile,
       sampleRateHz: request.sampleRateHz,
       bandwidthHz: request.bandwidthHz,
       sampleCount: request.sampleCount,
-      // Same time-evolution rule as every other acquisition kind (zero-span
-      // passes sweepIndex): each capture starts where a capture with the
-      // prior sequence would have ended, so a Run renders a moving signal
-      // instead of one bit-frozen buffer per configuration.
-      startSampleIndex: (sequence - 1) * request.sampleCount,
+      // Cyclic captures use a dedicated cumulative sample cursor, independent
+      // of scalar-measurement sequence numbers and prior capture lengths.
+      // Configuration changes reset the cursor to the start of the new signal.
+      // A one-shot packet is a bounded artifact rather than an invented event
+      // schedule. Re-acquisition returns the same checked window.
+      startSampleIndex,
     } as const;
     const receiverImpairment = this.#channel.receiverImpairment ?? 'clean';
+    const generatorBasis = complexIqGeneratorBasis(this.#profile);
+    const descriptor = waveformDescriptor(this.#profile);
     const samples = receiverImpairment === 'clean'
       ? synthesizeAnalyticComplexIq(synthesisInput)
       : synthesizeImpairedComplexIq(
@@ -260,7 +310,18 @@ export class AtomizerMeasurementService {
           (this.#channel.seed ^ Math.imul(sequence, 0x9e37_79b1)) >>> 0,
         );
     const samplesBytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
-    return complexIqMeasurementSchema.parse({
+    const cleanContentBound = receiverImpairment === 'clean'
+      && generatorBasis === 'content-bound-digital-baseband';
+    const qualification = receiverImpairment !== 'clean'
+      ? 'receiver-impaired-complex-baseband' as const
+      : generatorBasis === 'analytic-laboratory'
+        ? 'analytic-complex-baseband' as const
+        : cleanContentBound
+          ? descriptor.governance.claims.digitalQualification === 'qualified'
+            ? 'independently-verified-digital-baseband' as const
+            : 'reference-generated-digital-baseband' as const
+          : 'standards-derived-complex-baseband' as const;
+    const measurement = complexIqMeasurementSchema.parse({
       ...this.#measurementBase(sequence, started),
       kind: 'complex-iq',
       centerHz: request.centerHz,
@@ -275,14 +336,21 @@ export class AtomizerMeasurementService {
       samplesBase64: bytesToBase64(samplesBytes),
       samplesSha256: sha256HexOfBytes(samplesBytes),
       timingQualification: 'simulation-exact',
-      qualification: complexIqGeneratorBasis(this.#profile) === 'analytic-laboratory'
-        ? 'analytic-complex-baseband'
-        : 'standards-derived-complex-baseband',
-      representation: 'normalized-complex-envelope',
-      normalization: 'unit-peak',
+      qualification,
+      representation: cleanContentBound
+        ? 'source-preserved-complex-envelope'
+        : 'normalized-complex-envelope',
+      normalization: cleanContentBound
+        ? 'none'
+        : receiverImpairment === 'clean'
+          ? 'unit-peak'
+          : 'peak-to-0.98',
       receiverImpairment,
       channelApplication: receiverImpairment === 'clean' ? 'not-applied' : 'receiver-impairment-preset',
     });
+    this.#commitSequence(sequence);
+    if (!oneShotReplay) this.#iqSampleCursor += request.sampleCount;
+    return measurement;
   }
 
   dispatch(request: MeasurementBridgeRequest): MeasurementSourceStatus | MeasurementResult | { kind: 'shutdown'; closed: true } {
@@ -318,12 +386,25 @@ export class AtomizerMeasurementService {
   #replaceConfigurationRevision(): void {
     this.#configurationRevision = this.#nextOpaqueId('configuration revision');
     this.#updatedAt = this.#nextInstant();
+    this.#iqSampleCursor = 0;
+  }
+
+  #nextSequenceCandidate(): number {
+    if (this.#sequence >= Number.MAX_SAFE_INTEGER) throw new Error('Measurement sequence is exhausted');
+    return this.#sequence + 1;
+  }
+
+  #commitSequence(sequence: number): void {
+    if (sequence !== this.#sequence + 1) {
+      throw new Error('Measurement sequence commit is not monotonic');
+    }
+    this.#sequence = sequence;
   }
 
   #nextSequence(): number {
-    if (this.#sequence >= Number.MAX_SAFE_INTEGER) throw new Error('Measurement sequence is exhausted');
-    this.#sequence += 1;
-    return this.#sequence;
+    const sequence = this.#nextSequenceCandidate();
+    this.#commitSequence(sequence);
+    return sequence;
   }
 
   #nextOpaqueId(label: string): string {

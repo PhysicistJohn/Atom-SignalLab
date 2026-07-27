@@ -18,34 +18,11 @@ import {
 } from './canonical-timing.js';
 
 /**
- * Closed standards-labelled profile surface supported by this engineering
- * complex-baseband projection. The module-level catalog check below makes a
- * later LTE, NR, or WLAN catalog addition fail visibly until it is admitted
- * here rather than silently receiving a generic substitute.
+ * Closed operator-builder surface supported by this engineering complex-
+ * baseband projection. All fixed standards-linked catalog profiles dispatch
+ * through content-bound exact adapters instead.
  */
 export const STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES = [
-  'lte-band3-fdd-20m',
-  'lte-band38-tdd-10m',
-  'lte-etm1.1',
-  'lte-etm3.1',
-  'lte-etm3.1a',
-  'lte-etm3.1b',
-  'lte-ntm',
-  'lte-nbiot-guard-isolated-component',
-  'lte-nbiot-inband-isolated-component',
-  'nr-n3-fdd-20m',
-  'nr-n78-tdd-100m',
-  'nr-fr1-tm1.1',
-  'nr-fr1-tm3.1',
-  'nr-fr1-tm3.1a',
-  'nr-fr1-tm3.1b',
-  'nr-nbiot-inband-isolated-component',
-  'wifi-hr-dsss-11m',
-  'wifi-ofdm-20m',
-  'wifi6-he-su',
-  'wifi6-he-er-su',
-  'wifi6-he-mu',
-  'wifi6-he-tb',
   'custom-lte',
   'custom-nr',
   'custom-wifi',
@@ -105,7 +82,8 @@ export interface StandardsEngineeringComplexIqSynthesisInput {
 
 const profileSet = new Set<SynthesizedSignalProfile>(STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES);
 const cataloguedStandardsProfiles = waveformCatalog
-  .filter((descriptor) => isStandardsFamily(descriptor.family))
+  .filter((descriptor) => isStandardsFamily(descriptor.family)
+    && descriptor.qualification === 'standards-derived')
   .map((descriptor) => descriptor.id);
 
 if (cataloguedStandardsProfiles.length !== STANDARDS_ENGINEERING_COMPLEX_IQ_PROFILES.length
@@ -138,15 +116,11 @@ export function projectStandardsEngineeringComplexIqConfiguration(
   const projection = descriptor.projection;
   let occupiedToneCount: number | undefined;
   let chipRateHz: number | undefined;
-  if (descriptor.id === 'wifi-hr-dsss-11m'
-    || (descriptor.id === 'custom-wifi' && projection.modulation === 'hr-dsss')) {
+  if (descriptor.id === 'custom-wifi' && projection.modulation === 'hr-dsss') {
     if (projection.modulation !== 'hr-dsss' || projection.timing !== 'burst') {
       throw new Error(`${descriptor.id} descriptor no longer matches its admitted chip-rate projection`);
     }
     chipRateHz = 11_000_000;
-  } else if (descriptor.id === 'wifi-ofdm-20m') {
-    requirePositiveSafeInteger(projection.subcarrierSpacingHz, `${descriptor.id} subcarrier spacing`);
-    occupiedToneCount = 52;
   } else if (descriptor.family === 'wlan') {
     const spacingHz = requirePositiveSafeInteger(projection.subcarrierSpacingHz, `${descriptor.id} subcarrier spacing`);
     const derivedToneCount = descriptor.occupiedBandwidthHz / spacingHz;

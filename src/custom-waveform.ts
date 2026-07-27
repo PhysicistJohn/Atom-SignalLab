@@ -1,5 +1,6 @@
 import type { SynthesizedSignalProfile, WaveformDescriptor, WaveformProjection } from './contracts.js';
 import { MAX_MEASUREMENT_FREQUENCY_HZ } from './contracts.js';
+import { profileGovernanceFor } from './profile-governance.js';
 import { sourceBasis } from './source-provenance.js';
 
 /**
@@ -10,7 +11,7 @@ import { sourceBasis } from './source-provenance.js';
  * remaining legal options to exactly what the standard allows, and 'auto'
  * resolves to a spec-valid default. The numeric tables below were deep-researched
  * and independently re-derived against 3GPP TS 36.101/36.104/36.141/36.211/36.213,
- * TS 38.101-1/-2/38.104/38.141 and IEEE 802.11-2020 / 802.11ax-2021 (including
+ * TS 38.101-1/-2/38.104/38.141 and IEEE 802.11-2024 (including
  * corrections: LTE 256QAM MCS split at index 4, NR 60 kHz @ 100 MHz = 135 RB,
  * NR TDD 0.5 ms not valid at 15 kHz, VHT 80 MHz MCS9/Nss6 hole, no HE RU gate
  * on QAM order).
@@ -58,7 +59,7 @@ export interface CustomParameterDefinition {
 }
 
 // ---------------------------------------------------------------------------
-// LTE — 3GPP TS 36.101/36.104 Table 5.6-1, TS 36.141 §6.1.1, TS 36.211, 36.213
+// LTE — 3GPP TS 36.104 Tables 5.5-1/5.6-1, TS 36.141 §6.1.1, TS 36.211, 36.213
 // ---------------------------------------------------------------------------
 
 /** Channel bandwidth (MHz) -> transmission bandwidth configuration N_RB. */
@@ -66,11 +67,12 @@ export const LTE_BANDWIDTH_TO_RB: Readonly<Record<string, number>> = Object.free
   '1.4': 6, '3': 15, '5': 25, '10': 50, '15': 75, '20': 100,
 });
 /** E-UTRA test model -> pinned PDSCH modulation (TS 36.141 §6.1.1). */
-export const LTE_TEST_MODEL_MODULATION: Readonly<Record<string, 'qpsk' | '16qam' | '64qam' | '256qam'>> = Object.freeze({
+export const LTE_TEST_MODEL_MODULATION: Readonly<Record<string, 'qpsk' | '16qam' | '64qam' | '256qam' | '1024qam'>> = Object.freeze({
   'E-TM1.1': 'qpsk', 'E-TM1.2': 'qpsk', 'E-TM2': '64qam', 'E-TM2a': '256qam',
-  'E-TM3.1': '64qam', 'E-TM3.1a': '256qam', 'E-TM3.2': '16qam', 'E-TM3.3': 'qpsk',
+  'E-TM3.1': '64qam', 'E-TM3.1a': '256qam', 'E-TM3.1b': '1024qam',
+  'E-TM3.2': '16qam', 'E-TM3.3': 'qpsk',
 });
-/** Representative operating bands: duplex + downlink range (TS 36.101 Table 5.5-1). */
+/** Representative BS operating bands: duplex + downlink range (TS 36.104 Table 5.5-1). */
 export const LTE_BANDS: Readonly<Record<string, { duplex: 'fdd' | 'tdd'; dlLowMHz: number; dlHighMHz: number }>> = Object.freeze({
   '1': { duplex: 'fdd', dlLowMHz: 2110, dlHighMHz: 2170 },
   '2': { duplex: 'fdd', dlLowMHz: 1930, dlHighMHz: 1990 },
@@ -103,25 +105,25 @@ const LTE_SSF_EXTENDED = ['0', '1', '2', '3', '4', '5', '6'] as const;
 const LTE_PARAMETERS: readonly CustomParameterDefinition[] = [
   {
     key: 'operatingBand', label: 'Operating band', tier: 'metadata',
-    specRef: 'TS 36.101 Table 5.5-1',
+    specRef: 'TS 36.104 Table 5.5-1',
     options: () => Object.keys(LTE_BANDS),
     resolve: () => '3',
   },
   {
     key: 'duplexMode', label: 'Duplex mode', tier: 'observable',
-    specRef: 'TS 36.211 §4.1-4.2; TS 36.101 Table 5.5-1',
+    specRef: 'TS 36.211 §4.1-4.2; TS 36.104 Table 5.5-1',
     options: (r) => [LTE_BANDS[r.get('operatingBand')!]!.duplex],
     resolve: (r) => LTE_BANDS[r.get('operatingBand')!]!.duplex,
   },
   {
     key: 'channelBandwidthMHz', label: 'Channel bandwidth (MHz)', tier: 'observable',
-    specRef: 'TS 36.101 Table 5.6-1',
+    specRef: 'TS 36.104 Table 5.6-1',
     options: () => Object.keys(LTE_BANDWIDTH_TO_RB),
     resolve: () => '10',
   },
   {
     key: 'resourceBlocks', label: 'Resource blocks (N_RB)', tier: 'observable',
-    specRef: 'TS 36.101 Table 5.6-1 (one-to-one with bandwidth)',
+    specRef: 'TS 36.104 Table 5.6-1 (one-to-one with bandwidth)',
     options: (r) => [String(LTE_BANDWIDTH_TO_RB[r.get('channelBandwidthMHz')!]!)],
     resolve: (r) => String(LTE_BANDWIDTH_TO_RB[r.get('channelBandwidthMHz')!]!),
   },
@@ -159,12 +161,14 @@ const LTE_PARAMETERS: readonly CustomParameterDefinition[] = [
     key: 'mcsIndex', label: 'MCS index (256QAM table)', tier: 'metadata',
     specRef: 'TS 36.213 Table 7.1.7.1-1A (QPSK 0-3, 16QAM 4-10, 64QAM 11-19, 256QAM 20-28)',
     options: (r) => {
+      if (r.get('testModel') !== 'none') return ['n/a'];
       const modulation = r.get('modulation')!;
       const all = Array.from({ length: 29 }, (_, index) => String(index));
       if (modulation === 'ofdm-mixed') return all;
       return all.filter((index) => lteMcsModulation(Number(index)) === modulation);
     },
     resolve: (r) => {
+      if (r.get('testModel') !== 'none') return 'n/a';
       const modulation = r.get('modulation')!;
       return modulation === 'qpsk' ? '0' : modulation === '16qam' ? '4' : modulation === '256qam' ? '20' : '11';
     },
@@ -192,9 +196,9 @@ const LTE_PARAMETERS: readonly CustomParameterDefinition[] = [
   },
   {
     key: 'cellId', label: 'Cell identity (N_ID)', tier: 'metadata',
-    specRef: 'TS 36.211 §6.11 (0..503; E-TM uses 0)',
-    options: (r) => (r.get('testModel') !== 'none' ? ['0'] : Array.from({ length: 504 }, (_, index) => String(index))),
-    resolve: () => '0',
+    specRef: 'TS 36.211 §6.11 (0..503); TS 36.141 §6.1.1 (E-TM lowest carrier uses 1)',
+    options: (r) => (r.get('testModel') !== 'none' ? ['1'] : Array.from({ length: 504 }, (_, index) => String(index))),
+    resolve: (r) => (r.get('testModel') !== 'none' ? '1' : '0'),
   },
   {
     key: 'transmissionMode', label: 'Transmission mode', tier: 'metadata',
@@ -374,7 +378,7 @@ const NR_PARAMETERS: readonly CustomParameterDefinition[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Wi-Fi — IEEE 802.11-2020 Tables 17-5/19-6/21-5, 802.11ax-2021 Table 27-5
+// Wi-Fi — IEEE 802.11-2024 Clauses 16/17/18/19/21/27
 // ---------------------------------------------------------------------------
 
 export interface WifiPhyDefinition {
@@ -399,7 +403,7 @@ export function wifiUsedTones(phy: string, bandwidthMHz: string): number {
   if (phy === '11ax-HE') return ({ '20': 242, '40': 484, '80': 996, '160': 1992 })[bandwidthMHz]!;
   return ({ '20': 56, '40': 114, '80': 242, '160': 484 })[bandwidthMHz]!;
 }
-/** Per-stream MCS -> constellation (802.11-2020 / 802.11ax-2021). */
+/** Per-stream MCS -> constellation (IEEE 802.11-2024). */
 export function wifiMcsConstellation(mcs: number): string {
   if (mcs === 0) return 'BPSK';
   if (mcs <= 2) return 'QPSK';
@@ -409,7 +413,7 @@ export function wifiMcsConstellation(mcs: number): string {
   return '1024-QAM';
 }
 /**
- * VHT MCS/Nss exclusion holes (802.11-2020 §21.5, corrected to include the
+ * VHT MCS/Nss exclusion holes (IEEE 802.11-2024 §21.5, including the
  * 80 MHz MCS9/Nss6 hole). Returns true when the combination is NOT permitted.
  */
 export function vhtExclusionHole(bandwidthMHz: string, mcs: number, nss: number): boolean {
@@ -430,13 +434,13 @@ const WIFI_DSSS_RATES = ['11M-CCK', '5.5M-CCK', '2M-DQPSK', '1M-DBPSK'] as const
 const WIFI_PARAMETERS: readonly CustomParameterDefinition[] = [
   {
     key: 'phyType', label: 'PHY generation', tier: 'observable',
-    specRef: 'IEEE 802.11-2020 Clauses 15/17/19/21; 802.11ax-2021 Clause 27',
+    specRef: 'IEEE 802.11-2024 Clauses 16/17/18/19/21/27',
     options: () => Object.keys(WIFI_PHYS),
     resolve: () => '11ax-HE',
   },
   {
     key: 'band', label: 'Band', tier: 'metadata',
-    specRef: '802.11-2020 Annex E (6 GHz is HE-only)',
+    specRef: 'IEEE 802.11-2024 Annex E (6 GHz is HE-only)',
     options: (r) => WIFI_PHYS[r.get('phyType')!]!.bands,
     resolve: (r) => {
       const bands = WIFI_PHYS[r.get('phyType')!]!.bands;
@@ -445,7 +449,7 @@ const WIFI_PARAMETERS: readonly CustomParameterDefinition[] = [
   },
   {
     key: 'channelBandwidthMHz', label: 'Channel bandwidth (MHz)', tier: 'observable',
-    specRef: '802.11-2020 Tables 17-5/19-6/21-5; 802.11ax Table 27-5 (40+ MHz not in 2.4 GHz here)',
+    specRef: 'IEEE 802.11-2024 Clauses 17/19/21/27 tone plans (40+ MHz not in 2.4 GHz here)',
     options: (r) => {
       const phy = WIFI_PHYS[r.get('phyType')!]!;
       return r.get('band') === '2.4GHz' ? phy.bandwidths.filter((bw) => bw === '20' || bw === '40') : phy.bandwidths;
@@ -459,13 +463,13 @@ const WIFI_PARAMETERS: readonly CustomParameterDefinition[] = [
   },
   {
     key: 'spatialStreams', label: 'Spatial streams (Nss)', tier: 'approximated',
-    specRef: '802.11-2020 §19.5/§21.5; 802.11ax §27.3',
+    specRef: 'IEEE 802.11-2024 §§19.5/21.5/27.3',
     options: (r) => Array.from({ length: WIFI_PHYS[r.get('phyType')!]!.maxNss }, (_, index) => String(index + 1)),
     resolve: () => '1',
   },
   {
     key: 'mcsIndex', label: 'MCS index', tier: 'approximated',
-    specRef: '802.11-2020 HT/VHT MCS tables (VHT holes incl. 80 MHz MCS9/Nss6); 802.11ax HE-MCS 0-11 (no RU gate on QAM order)',
+    specRef: 'IEEE 802.11-2024 HT/VHT/HE MCS tables (VHT holes incl. 80 MHz MCS9/Nss6; no HE RU gate on QAM order)',
     options: (r) => {
       const phy = WIFI_PHYS[r.get('phyType')!]!;
       if (phy.maxMcs === undefined) return [...WIFI_DSSS_RATES];
@@ -488,7 +492,7 @@ const WIFI_PARAMETERS: readonly CustomParameterDefinition[] = [
   },
   {
     key: 'guardIntervalUs', label: 'Guard interval (µs)', tier: 'approximated',
-    specRef: '802.11-2020 17.3.8.3/19.3.7 (0.8/0.4); 802.11ax 27.3.7 (0.8/1.6/3.2)',
+    specRef: 'IEEE 802.11-2024 §§17.3.8.3/19.3.7/27.3.7',
     options: (r) => {
       const phy = r.get('phyType')!;
       if (phy === '11b-HR-DSSS') return ['n/a'];
@@ -500,13 +504,13 @@ const WIFI_PARAMETERS: readonly CustomParameterDefinition[] = [
   },
   {
     key: 'ruAllocation', label: 'HE RU allocation', tier: 'approximated',
-    specRef: '802.11ax §27.3.2.6 Tables 27-7/27-8 (HE only; every HE-MCS valid on every RU size)',
+    specRef: 'IEEE 802.11-2024 §27.3.2.6 Tables 27-7/27-8 (HE only; every HE-MCS valid on every RU size)',
     options: (r) => (r.get('phyType') === '11ax-HE' ? WIFI_RU_BY_BANDWIDTH[r.get('channelBandwidthMHz')!]! : ['n/a']),
     resolve: (r) => (r.get('phyType') === '11ax-HE' ? 'full-band' : 'n/a'),
   },
   {
     key: 'channelNumber', label: 'Channel number', tier: 'metadata',
-    specRef: '802.11-2020 Annex E channel plans',
+    specRef: 'IEEE 802.11-2024 Annex E channel plans',
     options: (r) => (r.get('band') === '2.4GHz' ? ['1', '6', '11'] : r.get('band') === '5GHz' ? ['36', '52', '100', '149'] : ['37', '69', '117']),
     resolve: (r) => (r.get('band') === '2.4GHz' ? '6' : r.get('band') === '5GHz' ? '36' : '37'),
   },
@@ -576,23 +580,87 @@ export function resolveCustomWaveform(
 // Descriptor projection — resolved lattice -> catalog descriptor
 // ---------------------------------------------------------------------------
 
-const LTE_SOURCE = sourceBasis('3GPP', [{
-  specification: '3GPP TS 36.101 / 36.104 / 36.141 / 36.211 / 36.213',
-  clause: 'Table 5.6-1 (bandwidth-N_RB), §6.1.1 (E-TM), Table 7.1.7.1-1A (MCS)',
-  revision: 'Rel-14 baseline',
-  url: 'https://www.3gpp.org/DynaReport/36-series.htm',
-}]);
-const NR_SOURCE = sourceBasis('3GPP', [{
-  specification: '3GPP TS 38.101-1 / 38.101-2 / 38.104 / 38.141-1 / 38.141-2',
-  clause: 'Table 5.3.2-1 (SCSxBW-N_RB), §4.9.2 (NR-TM)',
-  revision: 'Rel-17 baseline',
-  url: 'https://www.3gpp.org/DynaReport/38-series.htm',
-}]);
+const LTE_SOURCE = sourceBasis('3GPP', [
+  {
+    specification: 'TS 36.104',
+    clause: 'Clauses 5.5 and 5.6: base-station operating bands and transmission bandwidth configurations',
+    revision: '19.2.0',
+    url: 'https://www.3gpp.org/ftp/Specs/archive/36_series/36.104/36104-j20.zip',
+  },
+  {
+    specification: 'TS 36.141',
+    clause: 'Clause 6.1.1: E-UTRA test-model parameter constraints',
+    revision: '19.1.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/136100_136199/136141/19.01.00_60/ts_136141v190100p.pdf',
+  },
+  {
+    specification: 'TS 36.211',
+    clause: 'Clauses 4, 6, and 7.1: frame structure, resource grid, physical channels, and modulation mapping',
+    revision: '19.3.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/136200_136299/136211/19.03.00_60/ts_136211v190300p.pdf',
+  },
+  {
+    specification: 'TS 36.213',
+    clause: 'Table 7.1.7.1-1A: 256QAM-capable MCS table',
+    revision: '19.4.0',
+    url: 'https://www.3gpp.org/ftp/Specs/archive/36_series/36.213/36213-j40.zip',
+  },
+]);
+const NR_SOURCE = sourceBasis('3GPP', [
+  {
+    specification: 'TS 38.101-1',
+    clause: 'Tables 5.3.2-1 and 5.3.5-1: FR1 bandwidth, N_RB, and band constraints',
+    revision: '19.4.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/138100_138199/13810101/19.04.00_60/ts_13810101v190400p.pdf',
+  },
+  {
+    specification: 'TS 38.101-2',
+    clause: 'Tables 5.3.2-1 and 5.3.5-1: FR2 bandwidth, N_RB, and band constraints',
+    revision: '19.4.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/138100_138199/13810102/19.04.00_60/ts_13810102v190400p.pdf',
+  },
+  {
+    specification: 'TS 38.104',
+    clause: 'Clauses 5.2 through 5.4: NR BS band, bandwidth, and raster constraints',
+    revision: '19.5.0',
+    url: 'https://www.3gpp.org/ftp/Specs/archive/38_series/38.104/38104-j50.zip',
+  },
+  {
+    specification: 'TS 38.141-1',
+    clause: 'Clause 4.9.2: FR1 NR test-model constraints',
+    revision: '19.5.0',
+    url: 'https://www.3gpp.org/ftp/Specs/archive/38_series/38.141-1/38141-1-j50.zip',
+  },
+  {
+    specification: 'TS 38.141-2',
+    clause: 'Clause 4.9.2: FR2 NR test-model constraints',
+    revision: '19.5.0',
+    url: 'https://www.3gpp.org/ftp/Specs/archive/38_series/38.141-2/38141-2-j50.zip',
+  },
+  {
+    specification: 'TS 38.211',
+    clause: 'Clauses 4, 5, and 7: numerology, modulation, resource grids, and physical channels',
+    revision: '19.4.0',
+    url: 'https://www.3gpp.org/ftp/Specs/archive/38_series/38.211/38211-j40.zip',
+  },
+  {
+    specification: 'TS 38.213',
+    clause: 'Clause 11.1: slot configuration from TDD-UL-DL-ConfigCommon',
+    revision: '19.3.0',
+    url: 'https://www.etsi.org/deliver/etsi_ts/138200_138299/138213/19.03.00_60/ts_138213v190300p.pdf',
+  },
+  {
+    specification: 'TS 38.214',
+    clause: 'Table 5.1.3.1-1 through -4: PDSCH MCS tables through 1024QAM',
+    revision: '19.4.0',
+    url: 'https://www.3gpp.org/ftp/Specs/archive/38_series/38.214/38214-j40.zip',
+  },
+]);
 const WIFI_SOURCE = sourceBasis('IEEE', [{
-  specification: 'IEEE 802.11-2020; IEEE 802.11ax-2021',
-  clause: 'Tables 17-5 / 19-6 / 21-5 / 27-5 (tone plans), §21.5 (VHT MCS), Clause 27 (HE)',
-  revision: '2020 / ax-2021',
-  url: 'https://standards.ieee.org/ieee/802.11/7028/',
+  specification: 'IEEE 802.11-2024',
+  clause: 'Clauses 16/17/18/19/21/27: HR-DSSS, OFDM/ERP, HT, VHT, and HE parameter constraints',
+  revision: '2024',
+  url: 'https://standards.ieee.org/ieee/802.11/10548/',
 }]);
 
 const CUSTOM_DISCLOSURE_TAIL =
@@ -642,6 +710,7 @@ export function buildCustomWaveformDescriptor(
         duplex: tdd ? 'tdd' : 'fdd', subcarrierSpacingHz: spacingHz, nominalResourceBlocks: resourceBlocks,
       },
       source: LTE_SOURCE,
+      governance: profileGovernanceFor('custom-lte'),
       disclosure: `Custom LTE configuration (Band ${value('operatingBand')}, TDD config ${value('tddConfig')}, CP ${value('cyclicPrefix')}, MCS ${value('mcsIndex')}). TDD envelopes render with the admitted engineering schedule. ${CUSTOM_DISCLOSURE_TAIL}`,
     };
   }
@@ -665,6 +734,7 @@ export function buildCustomWaveformDescriptor(
         duplex: tdd ? 'tdd' : 'fdd', subcarrierSpacingHz: spacingHz, nominalResourceBlocks: resourceBlocks,
       },
       source: NR_SOURCE,
+      governance: profileGovernanceFor('custom-nr'),
       disclosure: `Custom NR configuration (${value('operatingBand')}, TDD periodicity ${value('tddPeriodicityMs')} ms, CP ${value('cyclicPrefix')}, ${value('mcsTable')}). FR2 band centers above the instrument maximum are clamped; TDD envelopes render with the admitted engineering schedule. ${CUSTOM_DISCLOSURE_TAIL}`,
     };
   }
@@ -683,6 +753,7 @@ export function buildCustomWaveformDescriptor(
       recommendedSpanHz: 33_000_000,
       projection: { allocation: 'full', modulation: 'hr-dsss', timing: 'burst' },
       source: WIFI_SOURCE,
+      governance: profileGovernanceFor('custom-wifi'),
       disclosure: `Custom Wi-Fi HR-DSSS configuration (${value('band')}, channel ${value('channelNumber')}, ${value('mcsIndex')}). ${CUSTOM_DISCLOSURE_TAIL}`,
     };
   }
@@ -698,6 +769,7 @@ export function buildCustomWaveformDescriptor(
     recommendedSpanHz: niceSpanHz(occupiedBandwidthHz),
     projection: { allocation: 'full', modulation: phy.modulationToken, timing: 'burst', subcarrierSpacingHz: phy.spacingHz },
     source: WIFI_SOURCE,
+    governance: profileGovernanceFor('custom-wifi'),
     disclosure: `Custom Wi-Fi ${phyKey} configuration (${value('band')}, channel ${value('channelNumber')}, RU ${value('ruAllocation')}). Per-MCS constellation and RU allocation are recorded shaping metadata at this fidelity. ${CUSTOM_DISCLOSURE_TAIL}`,
   };
 }

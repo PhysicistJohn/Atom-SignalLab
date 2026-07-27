@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-27",
+  "result": "pass",
+  "governingOrganization": "IEEE Standards Association / IEEE 802.11 Working Group",
+  "specification": {
+    "documentId": "IEEE 802.11-2024",
+    "revision": "2024",
+    "url": "https://standards.ieee.org/ieee/802.11/10548/"
+  },
+  "qualificationScope": "Content-addressed fixed ideal digital-baseband or complex-chip artifacts at their declared interface. This record does not cover RF EVM, spectral masks, power, frequency accuracy, spurious emissions, receiver behavior, MAC channel access, interoperability, Wi-Fi Alliance certification, or regulatory approval.",
+  "generatorSources": [
+    {
+      "path": "src/wlan-fixed-iq.ts",
+      "sha256": "7f87906985ae078b0e652a181b2eb62ed99448fb188b37666cb78202957da40b"
+    },
+    {
+      "path": "src/wlan-he-fixed-iq.ts",
+      "sha256": "dc7ccacf80619f4d89f7d99a0f55c4626914955ca9d34917469cdb0ab68fe65d"
+    }
+  ],
+  "independentOracleSources": [
+    {
+      "path": "src/wlan-fixed-iq.test.ts",
+      "sha256": "04df9973fa04f58191c05a38ee77b954a2c03b49223b9cb7e00436363641e5d2",
+      "scope": "Independent recovery of every HR-DSSS Barker/CCK chip and octet; direct-DFT recovery of every ERP-OFDM symbol; CRC, scrambling, coding, interleaving, and complete field checks."
+    },
+    {
+      "path": "src/wlan-he-fixed-iq.test.ts",
+      "sha256": "f91cea8713e6747fa24bebc95495271c98d0a83991720c04c312118fcc3ee4cf",
+      "scope": "Independent local O(N^2) direct DFT with an explicit no-production-FFT source assertion, hard demapping, deinterleaving, terminated K=7 Viterbi decoding, descrambling, CRC/FCS, A-MPDU, HE-LTF, RU-grid, trigger, and complete PPDU timing checks for all four HE profiles."
+    },
+    {
+      "path": "src/wlan-fixed-independent-oracle.test.ts",
+      "sha256": "106970868237264ef1aad09269cbe098023c5cd8885d96cd7f0e76e7a0b41598",
+      "scope": "Live pinned gr-ieee802-11 comparison of every ERP-OFDM SIGNAL and DATA scrambling, BCC, and interleaving bit."
+    }
+  ],
+  "upstreamOracle": {
+    "project": "gr-ieee802-11",
+    "repository": "https://github.com/bastibl/gr-ieee802-11.git",
+    "commit": "ad0598e4a874f4b8e1f391a1e0323e80df2b34ff",
+    "harnessSourceSha256": "b325128844d8e2f8046e9d14ad9947ddd03408bd04794c1d4110e5272e4bd8e8",
+    "harnessBinarySha256": "5bab3e33d5b4ec0d71eea1b1126389462edbac43872a097f76405b4d5643ded4",
+    "retainedVectorSha256": "933e0e918284f1918953f65179fca03c20302627dd748e8e24ebe17f7045dfda",
+    "result": "pass"
+  },
+  "artifacts": [
+    {
+      "profileId": "wifi-hr-dsss-11m",
+      "clauses": ["16"],
+      "interface": "11 Mchip/s ideal complex-chip sequence",
+      "sampleRateHz": 11000000,
+      "sampleCount": 2224,
+      "mediaType": "application/vnd.tinysa.complex-f32",
+      "sha256": "e356f1009fd814d667952673ed230320bcd463369bcf2eb219eb69ca2b3595e8",
+      "oracle": "Separately structured exhaustive Barker/CCK sample decoder and complete PLCP/PSDU/CRC recovery",
+      "result": "pass"
+    },
+    {
+      "profileId": "wifi-ofdm-20m",
+      "clauses": ["17", "18"],
+      "interface": "20 Msample/s ideal complex baseband",
+      "sampleRateHz": 20000000,
+      "sampleCount": 1000,
+      "mediaType": "application/vnd.tinysa.complex-f32",
+      "sha256": "c035c7661b7c2b5b1ad6bcfb65dda903f6ef92bc230c0c54b332f974cb92a1c8",
+      "oracle": "Direct-DFT complete-symbol recovery plus pinned live gr-ieee802-11 coding/interleaving oracle",
+      "result": "pass"
+    },
+    {
+      "profileId": "wifi6-he-su",
+      "clauses": ["27"],
+      "interface": "20 Msample/s ideal complex baseband",
+      "sampleRateHz": 20000000,
+      "sampleCount": 10640,
+      "mediaType": "application/vnd.tinysa.complex-f32",
+      "sha256": "640fd2bfe140511d14ac9f9583ceadbe86e904e2759fb154bc5fc1fc002e7453",
+      "oracle": "Complete sample-domain DFT and independent field/data decoder",
+      "result": "pass"
+    },
+    {
+      "profileId": "wifi6-he-er-su",
+      "clauses": ["27"],
+      "interface": "20 Msample/s ideal complex baseband",
+      "sampleRateHz": 20000000,
+      "sampleCount": 6960,
+      "mediaType": "application/vnd.tinysa.complex-f32",
+      "sha256": "9b183de8f31f5002c3d03fbe39bf4d68477e67a69b04e06ba4008e6ffceec74f",
+      "oracle": "Complete sample-domain DFT and independent field/data decoder including ER repetition and QBPSK reversal",
+      "result": "pass"
+    },
+    {
+      "profileId": "wifi6-he-mu",
+      "clauses": ["27"],
+      "interface": "20 Msample/s ideal complex baseband",
+      "sampleRateHz": 20000000,
+      "sampleCount": 7040,
+      "mediaType": "application/vnd.tinysa.complex-f32",
+      "sha256": "5f403d8407c1d02177c59dd03333599c4ebf658af9a936fa790ccd8930b63392",
+      "oracle": "Complete sample-domain DFT and independent two-user HE-SIG-B and data decoder",
+      "result": "pass"
+    },
+    {
+      "profileId": "wifi6-he-tb",
+      "clauses": ["26", "27"],
+      "interface": "20 Msample/s ideal complex baseband",
+      "sampleRateHz": 20000000,
+      "sampleCount": 6880,
+      "mediaType": "application/vnd.tinysa.complex-f32",
+      "sha256": "b465c7a7a56c537b17d7f2e0aa7dd996591d7e5a3b1bcdc2503bb167becdf789",
+      "oracle": "Complete sample-domain DFT and independent trigger/TXVECTOR/field/data decoder",
+      "result": "pass"
+    }
+  ]
+}

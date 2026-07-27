@@ -18,6 +18,7 @@ import {
   CANONIZED_REPLAY_PROFILE_SCENARIOS,
   DEFAULT_REPLAY_CHANNEL,
   requireConformanceValidated,
+  requireDigitallyQualified,
   suggestedAnalyzerRange,
   synthesizeCanonizedKnownSpectrum,
   synthesizeCanonizedKnownEnvelope,
@@ -44,29 +45,42 @@ describe('qualified waveform replay engine', () => {
       const descriptor = waveformDescriptor(profile);
       expect(descriptor).toMatchObject({
         centerHz: 1_840_000_000,
-        occupiedBandwidthHz: 18_000_000,
-        projection: { allocation: 'full', timing: 'frame', duplex: 'fdd', subcarrierSpacingHz: 15_000, nominalResourceBlocks: 100 },
+        occupiedBandwidthHz: 9_000_000,
+        projection: { allocation: 'full', timing: 'frame', duplex: 'fdd', subcarrierSpacingHz: 15_000, nominalResourceBlocks: 50 },
       });
       expect(descriptor.source.references.map((reference) => reference.specification))
-        .toEqual(['TS 36.141', 'TS 36.101', 'TS 36.211']);
+        .toEqual(['TS 36.141', 'TS 36.104', 'TS 36.211', 'TS 36.212']);
+      expect(descriptor.qualification).toBe('independently-verified-digital-baseband');
+      expect(descriptor.assetSha256).toBe(descriptor.governance.digitalQualificationEvidence?.artifact.sha256);
     }
     for (const profile of ['nr-fr1-tm1.1', 'nr-fr1-tm3.1', 'nr-fr1-tm3.1a', 'nr-fr1-tm3.1b'] as const) {
       const descriptor = waveformDescriptor(profile);
       expect(descriptor).toMatchObject({
-        centerHz: 1_840_000_000,
+        centerHz: 1_842_500_000,
         occupiedBandwidthHz: 19_080_000,
         projection: { allocation: 'full', timing: 'frame', duplex: 'fdd', subcarrierSpacingHz: 15_000, nominalResourceBlocks: 106 },
       });
       expect(descriptor.source.references.map((reference) => reference.specification))
-        .toEqual(['TS 38.141-1', 'TS 38.104', 'TS 38.211']);
+        .toEqual(['TS 38.141-1', 'TS 38.104', 'TS 38.211', 'TS 38.214']);
       expect(descriptor.source.references[1]?.clause).toMatch(/5\.2-1.*5\.3\.2-1.*5\.3\.5-1.*5\.4\.2\.3-1.*n3 FDD.*106 RB.*100 kHz channel raster/i);
+      expect(descriptor.qualification).toBe(
+        'independently-verified-digital-baseband',
+      );
+      expect(descriptor.assetSha256).toBe(
+        descriptor.governance.digitalQualificationEvidence?.artifact.sha256,
+      );
     }
-    expect(waveformDescriptor('bluetooth-classic-connected')).toMatchObject({ family: 'bluetooth', qualification: 'standards-derived' });
+    expect(waveformDescriptor('bluetooth-classic-connected')).toMatchObject({
+      family: 'bluetooth',
+      qualification: 'independently-verified-digital-baseband',
+    });
+    expect(waveformDescriptor('bluetooth-le-advertising').qualification)
+      .toBe('independently-verified-digital-baseband');
     expect(waveformDescriptor('bluetooth-le-advertising').disclosure).toMatch(/observable-class equivalence/i);
     expect(waveformDescriptor('lte-band38-tdd-10m').disclosure).toMatch(/only DwPTS is downlink-active/i);
     expect(waveformDescriptor('lte-band38-tdd-10m').source.references[1]?.clause).toMatch(/special-subframe configuration 7/i);
     expect(waveformDescriptor('gsm-normal-burst').source.references.map((reference) => reference.specification))
-      .toEqual(['TS 45.004', 'TS 45.002', 'TS 45.005']);
+      .toEqual(['TS 45.004', 'TS 45.002', 'TS 45.003']);
     expect(waveformDescriptor('cw').disclosure)
       .toMatch(/mathematical line.*per-observation receiver RBW.*2 kHz.*nominal display-support floor.*not the receiver RBW.*rendered spectral width varies/i);
     expect(waveformDescriptor('am').disclosure)
@@ -74,7 +88,7 @@ describe('qualified waveform replay engine', () => {
     expect(waveformDescriptor('fm').disclosure)
       .toMatch(/200 kHz.*Carson.*not exact.*Bessel series.*higher-order energy.*n = ±10.*amplitude threshold.*per-observation receiver RBW.*not bounded/i);
     expect(waveformDescriptor('gsm-900-loaded-bcch').disclosure)
-      .toMatch(/engineering scalar loaded-downlink.*continuous slot occupancy.*synthetic texture.*not a decoded GMSK burst sequence.*not imply every GSM carrier.*protocol likelihood/i);
+      .toMatch(/content-addressed.*TS0.*four fixed GMSK xCCH normal bursts.*TS1 through TS7.*exact TS 45\.002 dummy burst.*not a complete BCCH 51-multiframe.*not calibrated RF.*no protocol.*likelihood/i);
     expect(waveformDescriptor('gsm-normal-burst').source.references.map((reference) => reference.revision))
       .toEqual(['19.0.0', '19.0.0', '19.0.0']);
     for (const [profile, modulationClause, symbolRate, burstClause, rateLabel] of [
@@ -95,16 +109,19 @@ describe('qualified waveform replay engine', () => {
       expect(waveformDescriptor(profile).model).toContain(`${rateLabel} burst`);
     }
     expect(waveformDescriptor('gsm-normal-burst').source.references[2]?.clause)
-      .toMatch(/4\.2\.1.*Annex A.*modulation-spectrum.*occupied-width/i);
+      .toMatch(/fixed xCCH channel coding.*interleaving.*burst mapping/i);
+    expect(waveformDescriptor('gsm-normal-burst').disclosure)
+      .toMatch(/not calibrated RF.*TS 45\.005 conformance evidence/i);
     expect(synthesizedSignalProfileSchema.options.some((profile) =>
       /gsm-(?:qpsk|16qam|32qam)-normal-burst/.test(profile))).toBe(false);
     expect(waveformDescriptor('lte-ntm')).toMatchObject({
       label: 'LTE N-TM',
       projection: { subcarrierSpacingHz: 15_000, nominalResourceBlocks: 1 },
     });
-    expect(waveformDescriptor('lte-ntm').model).toMatch(/180 kHz isolated N-TM component presentation/i);
+    expect(waveformDescriptor('lte-ntm').model)
+      .toMatch(/exact 180 kHz fixed N-TM frame/i);
     expect(waveformDescriptor('lte-ntm').disclosure)
-      .toMatch(/does not claim a standalone, guard-band, or in-band deployment mode, either composite configuration, or conformance/i);
+      .toMatch(/exact cf32le clean cyclic replay.*guard-band\/in-band composite placement.*RF conformance.*product certification.*excluded/i);
     for (const [profile, clause, placement] of [
       ['lte-nbiot-guard-isolated-component', '6.1.5', 'guard-band'],
       ['lte-nbiot-inband-isolated-component', '6.1.6', 'in-band'],
@@ -113,7 +130,8 @@ describe('qualified waveform replay engine', () => {
       expect(descriptor.label).toMatch(/isolated.*NB-IoT component/i);
       expect(descriptor.source.references[0]?.clause).toContain(clause);
       expect(descriptor.source.references[0]?.clause).toContain(`${placement} placement`);
-      expect(descriptor.disclosure).toMatch(/E-TM1\.1 host carrier.*absent.*does not realize or claim the complete/i);
+      expect(descriptor.disclosure)
+        .toMatch(/E-TM1\.1 host.*absent.*complete.*not claimed/i);
       expect(descriptor.projection.subcarrierSpacingHz).toBe(15_000);
     }
     const nrNarrowbandComponent = waveformDescriptor('nr-nbiot-inband-isolated-component');
@@ -124,11 +142,11 @@ describe('qualified waveform replay engine', () => {
     expect(nrNarrowbandComponent.source.references[1]?.clause)
       .toMatch(/5\.4\.2\.1-1.*5\.4\.2\.3-1.*NREF 633334/i);
     expect(nrNarrowbandComponent.source.references[2]?.clause)
-      .toMatch(/6\.1\.3.*6\.1\.4\.5.*QPSK/i);
+      .toMatch(/6\.1\.3.*6\.1\.4\.1 through 6\.1\.4\.5.*NRS.*NPBCH.*NPDCCH.*NPDSCH/i);
     expect(nrNarrowbandComponent.source.references[3]?.clause)
-      .toMatch(/6\.2\.3.*10\.2\.2\.1.*12 subcarriers.*15 kHz/i);
+      .toMatch(/6\.2\.3.*10\.2\.3 through 10\.2\.8.*12 subcarriers.*15 kHz.*NPBCH.*NPDCCH.*NPDSCH/i);
     expect(nrNarrowbandComponent.disclosure)
-      .toMatch(/NR-FR1-TM1\.1 host carrier.*absent.*does not realize or claim the complete.*NR-N-TM/i);
+      .toMatch(/NR-FR1-TM1\.1 host.*absent.*complete.*NR-N-TM composite.*not claimed/i);
     expect(nrNarrowbandComponent.family).toBe('e-utra');
     expect(nrNarrowbandComponent.projection.subcarrierSpacingHz).toBe(15_000);
     expect(synthesizedSignalProfileSchema.options)
@@ -137,38 +155,47 @@ describe('qualified waveform replay engine', () => {
       expect(waveformDescriptor(profile).source.references[0]?.clause).toMatch(/^Clause 27:/);
     }
     expect(waveformDescriptor('wifi6-he-tb').source.references[0]?.clause)
-      .toMatch(/^Clauses 26 and 27:.*channel-wide aggregate of per-STA HE-TB PPDUs/i);
+      .toMatch(/^Clauses 26 and 27:.*Basic Trigger.*HE-TB PPDU/i);
     expect(waveformDescriptor('wifi6-he-tb')).toMatchObject({
-      label: 'Wi-Fi 6 triggered HE TB uplink aggregate',
-      occupiedBandwidthHz: 242 * 78_125,
+      label: 'Wi-Fi 6 HE TB fixed Trigger/PPDU pair',
+      occupiedBandwidthHz: 106 * 78_125,
+      qualification: 'independently-verified-digital-baseband',
     });
-    expect(waveformDescriptor('wifi6-he-tb').model).toMatch(/Triggered HE TB uplink aggregate.*multi-RU/i);
+    expect(waveformDescriptor('wifi6-he-tb').model).toMatch(/one-STA HE TB PPDU.*right 106-tone RU/i);
     for (const [profile, toneCount] of [
       ['wifi6-he-su', 242],
       ['wifi6-he-er-su', 106],
       ['wifi6-he-mu', 242],
-      ['wifi6-he-tb', 242],
+      ['wifi6-he-tb', 106],
     ] as const) {
       const descriptor = waveformDescriptor(profile);
       expect(descriptor.occupiedBandwidthHz).toBe(toneCount * 78_125);
       expect(descriptor.disclosure)
-        .toMatch(/78\.125 kHz.*SignalLab engineering occupied-tone span projection, not normative measured or regulatory occupied bandwidth/i);
+        .toMatch(/Content-addressed complete fixed.*78\.125 kHz.*not measured or regulatory occupied bandwidth/i);
+      expect(descriptor.qualification).toBe('independently-verified-digital-baseband');
+      expect(descriptor.assetSha256).toMatch(/^[a-f0-9]{64}$/);
     }
-    for (const [profile, width, physicalRate] of [
-      ['wifi-hr-dsss-11m', '22 MHz', '11 Mchip/s'],
-      ['wifi-ofdm-20m', '16.6 MHz', '312.5 kHz SCS'],
+    for (const [profile, width, exactScope] of [
+      ['wifi-hr-dsss-11m', '22 MHz', '11 Mchip/s ideal complex-chip interface'],
+      ['wifi-ofdm-20m', '16.6 MHz', '6 Mb/s ERP-OFDM ACK PPDU'],
     ] as const) {
       const descriptor = waveformDescriptor(profile);
-      expect(descriptor.model).toMatch(/seeded CSMA-like schedule.*support projection/i);
+      expect(descriptor.model).toContain(exactScope);
       expect(descriptor.disclosure)
         .toMatch(/seeded CSMA-like.*not IEEE 802\.11 MAC behavior or protocol likelihood/i);
       expect(descriptor.disclosure).toContain(width);
-      expect(descriptor.disclosure).toContain(physicalRate);
-      expect(descriptor.disclosure).toMatch(/not normative measured or regulatory occupied bandwidth/i);
+      expect(descriptor.disclosure).toMatch(/exact clean complex-I\/Q lane.*content-addressed complete/i);
+      expect(descriptor.qualification).toBe('independently-verified-digital-baseband');
+      expect(descriptor.assetSha256).toMatch(/^[a-f0-9]{64}$/);
     }
+    expect(waveformDescriptor('bluetooth-classic-connected')).toMatchObject({
+      label: 'Bluetooth BR DH1 fixed packet vector',
+      projection: { allocation: 'narrowband', modulation: 'br-gfsk', timing: 'classic-slots' },
+    });
     expect(waveformDescriptor('bluetooth-classic-connected').disclosure)
-      .toMatch(/uniform seeded pseudorandom sequence over 79 channel centers.*two-active-slot\/one-idle-slot.*not the Bluetooth hop-selection kernel.*79 MHz.*aggregate edge-to-edge support.*79 modeled 1 MHz channels.*78 MHz first-to-last center spacing plus one channel width.*not instantaneous occupied bandwidth/i);
-    expect(waveformDescriptor('nr-n78-tdd-100m').disclosure).toMatch(/engineering schedule.*seven complete downlink slots/i);
+      .toMatch(/exact complex-I\/Q lane.*Basic Rate DH1 packet.*LAP 0x000000.*UAP 0x47.*CLK6-1 0x3f.*HEC 0x06.*CRC octets 37 6c.*whitening.*rate-1\/3 header repetition.*625 us.*RF channel 8.*80 Msamples\/s.*BT=0\.5.*separately structured digital oracle.*does not synthesize EDR.*not Bluetooth SIG RF-PHY or product qualification.*scalar analyzer renderer.*79-center observable projection.*79 MHz aggregate field.*not this packet's instantaneous occupied bandwidth/i);
+    expect(waveformDescriptor('nr-n78-tdd-100m').disclosure)
+      .toMatch(/NR-FR1-TM1\.1.*prescribed 5 ms TDD pattern.*seven complete downlink slots.*six downlink and four uplink symbols.*two complete uplink slots/i);
     expect(waveformDescriptor('nr-n78-tdd-100m')).toMatchObject({
       centerHz: NR_N78_30_KHZ_RASTER_CENTER_HZ,
     });
@@ -177,12 +204,20 @@ describe('qualified waveform replay engine', () => {
     expect(waveformDescriptor('nr-n78-tdd-100m').disclosure)
       .toMatch(/3500010000 Hz.*30 kHz-raster NREF 633334/i);
     expect(waveformDescriptor('nr-n78-tdd-100m').source.references.map((reference) => reference.specification))
-      .toEqual(['TS 38.104', 'TS 38.211', 'TS 38.331', 'TS 38.213']);
+      .toEqual(['TS 38.104', 'TS 38.141-1', 'TS 38.211', 'TS 38.214', 'TS 38.331', 'TS 38.213']);
+    expect(waveformDescriptor('bluetooth-le-advertising')).toMatchObject({
+      label: 'Bluetooth LE 1M ADV_NONCONN_IND fixed packet vector',
+      projection: { allocation: 'narrowband', modulation: 'ble-1m', timing: 'advertising-events' },
+    });
     expect(waveformDescriptor('bluetooth-le-advertising').disclosure)
-      .toMatch(/sequence is standards-consistent.*engineering choices, not universal Bluetooth traffic/i);
-    expect(waveformDescriptor('bluetooth-le-advertising').disclosure)
-      .toMatch(/configured subsets, early event closure.*extended advertising differ.*80 MHz.*aggregate primary-advertising-channel support span, not instantaneous occupied bandwidth/i);
+      .toMatch(/exact complex-I\/Q lane.*Core 6\.3.*LE 1M.*ADV_NONCONN_IND.*AdvA C1:A2:A3:A4:A5:A6.*AdvData 01 02 03.*0x8E89BED6.*CRCInit 0x555555.*channel 38.*152 us.*80 Msamples\/s.*BT=0\.5.*separately structured digital oracle.*No unverified event recurrence.*not Bluetooth SIG RF-PHY or product qualification.*scalar analyzer renderer.*80 MHz aggregate field.*not this packet's instantaneous occupied bandwidth/i);
     expect(() => requireConformanceValidated('lte-etm1.1')).toThrow(/not installed/i);
+    expect(requireDigitallyQualified('lte-etm1.1').assetSha256).toBe(
+      waveformDescriptor('lte-etm1.1').governance.digitalQualificationEvidence?.artifact.sha256,
+    );
+    expect(requireDigitallyQualified('lte-etm3.1b').assetSha256).toBe(
+      waveformDescriptor('lte-etm3.1b').governance.digitalQualificationEvidence?.artifact.sha256,
+    );
     expect(synthesizedSignalProfileSchema.options).not.toEqual(expect.arrayContaining([
       'lte-etm1.2', 'lte-etm2', 'lte-etm2a', 'lte-etm2b',
       'lte-setm2-1', 'lte-setm2a-1', 'lte-setm2-2', 'lte-setm2a-2',
@@ -227,7 +262,9 @@ describe('qualified waveform replay engine', () => {
         occupiedBandwidthHz: declared.occupiedBandwidthHz,
         recommendedSpanHz: declared.recommendedSpanHz,
       });
-      expect(descriptor.source).toEqual(canonicalClassificationScenario(scenarioId).source);
+      expect(descriptor.source.organization)
+        .toBe(canonicalClassificationScenario(scenarioId).source.organization);
+      expect(descriptor.source.references.length).toBeGreaterThan(0);
       const range = suggestedAnalyzerRange(descriptor);
       const points = 450;
       const sweepIndex = 17;
@@ -396,7 +433,11 @@ describe('qualified waveform replay engine', () => {
     ] as const) {
       const descriptor = waveformDescriptor(profile);
       expect(descriptor.projection).toMatchObject({ allocation: 'full', timing: 'frame', duplex: 'fdd' });
-      expect(descriptor.disclosure).toMatch(/nominal RB-grid span.*not.*channel bandwidth.*99%-power.*regulatory occupied bandwidth/i);
+      if (profile.startsWith('lte-')) {
+        expect(descriptor.disclosure).toMatch(/content-addressed.*digital.*9 MHz.*50 × 12 × 15 kHz RB-grid span/i);
+      } else {
+        expect(descriptor.disclosure).toMatch(/nominal RB-grid span.*not.*channel bandwidth.*99%-power.*regulatory occupied bandwidth/i);
+      }
       const range = suggestedAnalyzerRange(descriptor);
       const spectrum = synthesizeSpectrum({ profile, ...range, points: 450, sweepIndex: 3, channel: DEFAULT_REPLAY_CHANNEL });
       expect(spectrum.filter((value) => value > -75).length, profile).toBeGreaterThan(150);

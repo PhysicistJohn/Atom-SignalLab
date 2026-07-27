@@ -295,9 +295,15 @@ export const complexIqMeasurementSchema = measurementCorrelationBaseSchema.exten
   samplesBase64: canonicalBase64Schema,
   samplesSha256: sha256Schema,
   timingQualification: z.literal('simulation-exact'),
-  qualification: z.enum(['analytic-complex-baseband', 'standards-derived-complex-baseband']),
-  representation: z.literal('normalized-complex-envelope'),
-  normalization: z.literal('unit-peak'),
+  qualification: z.enum([
+    'analytic-complex-baseband',
+    'standards-derived-complex-baseband',
+    'reference-generated-digital-baseband',
+    'independently-verified-digital-baseband',
+    'receiver-impaired-complex-baseband',
+  ]),
+  representation: z.enum(['normalized-complex-envelope', 'source-preserved-complex-envelope']),
+  normalization: z.enum(['unit-peak', 'none', 'peak-to-0.98']),
   receiverImpairment: receiverImpairmentPresetSchema,
   channelApplication: z.enum(['not-applied', 'receiver-impairment-preset']),
 }).strict().superRefine((measurement, context) => {
@@ -306,6 +312,27 @@ export const complexIqMeasurementSchema = measurementCorrelationBaseSchema.exten
       code: 'custom',
       path: ['channelApplication'],
       message: 'Clean I/Q must declare not-applied; every non-clean receiver preset must declare receiver-impairment-preset',
+    });
+  }
+  const digitallyBound = measurement.qualification === 'reference-generated-digital-baseband'
+    || measurement.qualification === 'independently-verified-digital-baseband';
+  if (digitallyBound && (
+    measurement.receiverImpairment !== 'clean'
+    || measurement.representation !== 'source-preserved-complex-envelope'
+    || measurement.normalization !== 'none'
+  )) {
+    context.addIssue({
+      code: 'custom',
+      path: ['qualification'],
+      message: 'A content-bound digital-baseband qualification requires clean, source-preserved, unnormalized bytes',
+    });
+  }
+  if ((measurement.qualification === 'receiver-impaired-complex-baseband')
+    !== (measurement.receiverImpairment !== 'clean')) {
+    context.addIssue({
+      code: 'custom',
+      path: ['qualification'],
+      message: 'Every receiver-impaired result must be explicitly downgraded, and a clean result cannot use the impaired qualification',
     });
   }
   if (measurement.bandwidthHz > measurement.sampleRateHz) {
@@ -573,12 +600,12 @@ export const measurementBridgeContractDocumentSchema = z.object({
     detectedPowerTuning: z.literal('required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune'),
     complexIqEncoding: z.literal('canonical-base64-of-interleaved-cf32le-with-exact-byte-geometry-and-sha256'),
     complexIqCentering: z.literal('requested-center-hz-is-the-complex-envelope-reference-and-profile-components-may-have-baseband-offsets'),
-    complexIqBandwidth: z.literal('independent-safe-integer-hz-no-greater-than-sample-rate-two-sided-minus-3db-span-of-bounded-first-order-real-coefficient-low-pass-initialized-from-first-sample'),
-    complexIqUndersampling: z.literal('wideband-standards-engineering-profiles-may-be-deterministically-aliased-below-their-catalogued-occupied-support'),
+    complexIqBandwidth: z.literal('profile-dependent-safe-integer-hz-no-greater-than-sample-rate-analytic-and-builder-paths-use-the-disclosed-low-pass-while-content-bound-paths-require-exact-native-bandwidth-without-filtering'),
+    complexIqUndersampling: z.literal('only-operator-builder-engineering-profiles-may-be-deterministically-aliased-fixed-content-bound-profiles-reject-nonnative-sample-rate'),
     complexIqChannel: z.literal('selected-seeded-receiver-impairment-preset-is-applied-to-complex-iq-and-declared-on-every-result'),
-    complexIqAvailability: z.literal('all-closed-catalog-profiles-with-standards-labelled-results-explicitly-non-conformance'),
+    complexIqAvailability: z.literal('all-42-closed-catalog-profiles-with-31-fixed-content-bound-3-operator-builders-and-8-mathematical-references'),
     scalarMeasurementQualification: z.literal('synthetic-visual-projection-not-a-conformance-vector'),
-    complexIqMeasurementQualification: z.literal('profile-dependent-analytic-laboratory-or-standards-derived-engineering-not-a-conformance-vector'),
+    complexIqMeasurementQualification: z.literal('profile-dependent-analytic-laboratory-standards-derived-engineering-or-independently-verified-declared-digital-scope-never-rf-or-broad-conformance'),
   }).strict(),
   identityHashes: z.object({
     contractSha256: z.literal('sha256-of-the-exact-loaded-contract-json-bytes'),

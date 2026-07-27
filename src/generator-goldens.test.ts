@@ -9,6 +9,10 @@ import {
   waveformDescriptor,
 } from './waveforms.js';
 import { synthesizeAnalyticComplexIq } from './complex-iq.js';
+import {
+  fixedDigitalProfileBinding,
+  isFixedDigitalProfile,
+} from './fixed-digital-profile-binding.js';
 import type { SynthesizedSignalProfile } from './contracts.js';
 
 /**
@@ -40,18 +44,18 @@ interface GeneratorGoldenPins {
 const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, GeneratorGoldenPins>>> = Object.freeze({
   cw: {
     spectrumSha256: 'eb7d92060f7213cdee880b4046aa8224c626a8281ddcadb1022b7fd29e128862',
-    zeroSpanSha256: '4e85a60109eb1844373e88fb2ee03cdbaeea12974fb1ce32b5ef56f43552e143',
+    zeroSpanSha256: '70673dfaddd4788d1f6cd4e00f9dfa6b95e4f5f3e9e220fbfd884cb47ea3af77',
     complexIqSha256: '209f1f991e3ff657ad20a247216dc24762843b2a54090e73a83cfc918ccea017',
   },
   'gsm-900-loaded-bcch': {
     spectrumSha256: 'ca9e2d69999471908b12f0619c232eb95c4ffe2c9f81d77ac59c4cc0b442ea19',
-    zeroSpanSha256: 'ad110436e2e3402c9e5dde1961cb1c8c43e25d8c5113df570a328db8dcb1ceb8',
-    complexIqSha256: '22b5a53028be9cae96af019db515799fb80d0502e20c1815e9c9919cec1de829',
+    zeroSpanSha256: '097f17defa475e7136f44aeb20edbc37612f8e1d680b25a7c3088c41351b4928',
+    complexIqSha256: '28f468648385ca060e940cb1b234f23db8fe79109556155b37a9bc2355110192',
   },
   'lte-band3-fdd-20m': {
     spectrumSha256: 'c9e2c14dc9ee568eeba85199b67967ac49e5e59ee5aa4224e9fc5c7853294ef6',
     zeroSpanSha256: '063cef3e4c6755959b645b4e18faac4cd0782ef6ba1e59ae41c96c3a9c3fc3d0',
-    complexIqSha256: 'd3c2c4617561f4497dba85e9e1840ba47b14b3eb6e0883b3be223e5c842ffb4a',
+    complexIqSha256: 'e8039e2d4d8649f2d29a6366cf566201aa324647882792db147d6e9123ff2cb3',
   },
   'nr-n3-fdd-20m': {
     spectrumSha256: '0aa3e098448177355ec29553bd21446026dffddfb60ca0c18a361ac181f713c0',
@@ -59,17 +63,17 @@ const GENERATOR_GOLDEN_PINS: Readonly<Partial<Record<SynthesizedSignalProfile, G
     // scenarios share the 1_840_000_000 Hz center and the continuous-ofdm
     // envelope model, so their tuned detected-power replays coincide.
     zeroSpanSha256: '063cef3e4c6755959b645b4e18faac4cd0782ef6ba1e59ae41c96c3a9c3fc3d0',
-    complexIqSha256: '1fec6b6ed14f751e01c5607db638a8de6536ff930dd2e77162375c910629bebc',
+    complexIqSha256: '8c367577df9fe00c7c46545dfb41f896c966d79016473318f431f202c1149655',
   },
   'wifi-hr-dsss-11m': {
-    spectrumSha256: '2a47f3bf1ef2a00e5ef91e8765d5caa1cdc3d19720d04d8b072c32c8f16dfd44',
+    spectrumSha256: 'c69de34a8b355398a55290603d5e223a26c197ffdf79562c7690e94d9657bd9b',
     zeroSpanSha256: '3a491f87c663cb3a0355b2bf3aaa1efdf42900078465675af0ed6eb72ae799b8',
-    complexIqSha256: '3d3bd686dedb22905771c3c72544a7a9ee90bf221607a4f53b63ac52ad31cf40',
+    complexIqSha256: 'bf0bdb1aecf407fbc3510b05b619e92e60b7662c659ae3b5f5f2b6afdafc28e9',
   },
   'bluetooth-classic-connected': {
     spectrumSha256: '38a04ece5ece52ac059f7351af6d24790ca5cd07818b8c7d9d5111cd39b561e5',
     zeroSpanSha256: '35ff37373c0e73e961c92af63269fc68fdf7077d4241c66c79fa7989d3fb4a90',
-    complexIqSha256: 'cedb05af41c170e8c471a50d134f8b9c84c5551cfee8954478f6780dab7c0481',
+    complexIqSha256: '7547e5fe977335c5c3598bdd1d9cc4e908f07fb15117d7efaaad008bbe57202c',
   },
   'ref-qpsk': {
     spectrumSha256: 'b408419824c4c1885346d0885c33c1e0d959926f789e012ee2139b1930f53cc3',
@@ -146,10 +150,13 @@ describe('S1 generator determinism goldens', () => {
   });
 
   it.each(GOLDEN_PROFILES)('%s analytic complex I/Q is bit-frozen', (profile) => {
+    const exactGeometry = isFixedDigitalProfile(profile)
+      ? fixedDigitalProfileBinding(profile)
+      : { sampleRateHz: IQ_SAMPLE_RATE_HZ, bandwidthHz: IQ_BANDWIDTH_HZ };
     const iqBytes = synthesizeAnalyticComplexIq({
       profile,
-      sampleRateHz: IQ_SAMPLE_RATE_HZ,
-      bandwidthHz: IQ_BANDWIDTH_HZ,
+      sampleRateHz: exactGeometry.sampleRateHz,
+      bandwidthHz: exactGeometry.bandwidthHz,
       sampleCount: IQ_SAMPLE_COUNT,
     });
     expect(iqBytes.byteLength).toBe(IQ_SAMPLE_COUNT * 8);

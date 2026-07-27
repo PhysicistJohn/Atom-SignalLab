@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "reportId": "signallab-lte-fixed-independent-oracles-2026-07-27",
+  "generatedAt": "2026-07-27T17:30:30.000Z",
+  "result": "pass",
+  "governingBody": {
+    "organization": "3GPP",
+    "technicalGroup": "TSG RAN",
+    "specifications": [
+      "3GPP TS 36.141 V19.1.0",
+      "3GPP TS 36.211 V19.3.0",
+      "3GPP TS 36.213 V19.3.0"
+    ]
+  },
+  "claimScope": {
+    "kind": "content-bound-independent-fixed-digital-baseband",
+    "statement": "Every complex resource element and every complex OFDM sample in each recorded fixed artifact was compared with a freshly executed, source-pinned srsRAN_4G oracle. The guard-band and in-band records qualify only the isolated N-TM component and do not qualify the omitted E-TM 1.1 host, placement, or relative power.",
+    "standardsComplianceClaimed": false,
+    "rfConformanceClaimed": false,
+    "productCertificationClaimed": false
+  },
+  "subject": {
+    "band3ReferenceSource": {
+      "path": "src/lte-band3-fdd-20m-reference.ts",
+      "sha256": "fc999e4d21ffa6a0ff68e62d049dde4d99bc61866b37fbd4501510be9407e1b2"
+    },
+    "band3CatalogAdapterSource": {
+      "path": "src/lte-band3-fdd-20m-catalog-iq.ts",
+      "sha256": "0ed42ebe57b543707d053797e325eeadc587e53826437491afd4ad8a39a9fa68"
+    },
+    "band38ReferenceSource": {
+      "path": "src/lte-band38-tdd-10m-reference.ts",
+      "sha256": "803fec31cf3af0aad55493d4d9371bf7d55edb0581be4f442154badb9dbeb59a"
+    },
+    "band38CatalogAdapterSource": {
+      "path": "src/lte-band38-tdd-10m-catalog-iq.ts",
+      "sha256": "1b429cf3fa26de0f87f1e22c65c22073e8506583bc85bc11f53819ca8d0fd58d"
+    },
+    "ntmReferenceSource": {
+      "path": "src/lte-ntm-reference.ts",
+      "sha256": "a3ce6d8371ae9e1d8da222278b0b45a4afaf8a5865143767b8e63b6dcf4c9bdd"
+    },
+    "ntmCatalogAdapterSource": {
+      "path": "src/lte-ntm-catalog-iq.ts",
+      "sha256": "b5ccb613a2a669743518abd4a4009ab9b5280faf08a8b2dcf07f57eba7fc2de6"
+    },
+    "dependencyLock": {
+      "path": "package-lock.json",
+      "sha256": "5dd71450021febce4acbb9a835a3cadea659e5b4ee088217b9b697bf3f0a5fa6"
+    }
+  },
+  "independentOracle": {
+    "implementation": "srsRAN_4G",
+    "repository": "https://github.com/srsran/srsRAN_4G.git",
+    "commit": "6bcbd9e5bf8686aa7085202cd847c5ddd64a9c16",
+    "localBuildPatchSha256": "284e1453cc0ea4fed616a7a88e5fa65d706de698a6c0395ec575772d663d1173",
+    "band3": {
+      "testSource": {
+        "path": "src/lte-band3-fdd-20m-independent-oracle.test.ts",
+        "sha256": "4218f92f372f8149a20e02440f67c1aaae586328d099356d14890a2d9b6513c8"
+      },
+      "harnessSourceSha256": "c80313cea61b8d4432c1ce68a27f6c79375d32a8520ce1555ed374ed6373dfb0",
+      "harnessBinarySha256": "f69305c796d5bac4795ca54675473a6eedec62e5ebf10a8dec276e08e9b3e8f4",
+      "retainedGridCf32leSha256": "1feea11787d421391396089ae1992cd83c039fee949f0b7b005c0e78f315d889",
+      "retainedTimeCf32leSha256": "314a099611e6359eb50bcb47d024288d054f35dcd33f351614862e36fc14daa2"
+    },
+    "band38": {
+      "testSource": {
+        "path": "src/lte-band38-tdd-10m-independent-oracle.test.ts",
+        "sha256": "ae8315e9e13459ba4a4b13a7fcc78c4bca816c94846615a3b10c32136575d67a"
+      },
+      "harnessSourceSha256": "1b7eb1d6a59710880a814cbe888eebdb331985915dd84efce80cbab679bb844b",
+      "harnessBinarySha256": "7dea3b0932ee6478f4085ee87ccb8ecab29c9526fe43acbb05457b5e03695cf5",
+      "retainedGridCf32leSha256": "308c00b58ec439225d3902408023678690bc764fe7b8fd0cbc4660decc58e9a4",
+      "retainedTimeCf32leSha256": "38375ad04779a4f85594bd427c6e1fecfd7a2f0e0f67623d97698cb0bd5c76f4"
+    },
+    "ntm": {
+      "testSource": {
+        "path": "src/lte-ntm-independent-oracle.test.ts",
+        "sha256": "d387392ab1890ea6114e85b7e404f5dcf4b82ac293dd10750696573cb1ecc9dd"
+      },
+      "harnessSourceSha256": "c4fb2e35682ca34966d6c3384d1a62ed2885f386d3cbbc424e51e6f91aa4a46e",
+      "harnessBinarySha256": "128250f8141a296623138981e7bad5b74adb418a71bdd31e86d7e4bec4018821",
+      "standaloneAndGuardGridCf32leSha256": "63dd4441b25a9bfe6be76f6791d3eab7786f1dd498dd87602cfcf32925777020",
+      "standaloneAndGuardTimeCf32leSha256": "6fb9ce034186fbd73f9093d0156109def42b71b0ef64051235d0bf164b2f41d4",
+      "inbandGridCf32leSha256": "f0359f8e77a702b9a7f6e91e683881d1bbfcf4b9f7f76b8006a5109b3342f63c",
+      "inbandTimeCf32leSha256": "c8bcd88d2e5575c4c3ec132e82c5ee3485b80ea7bfff9c781b31bee8c1209901"
+    }
+  },
+  "profiles": [
+    {
+      "profileId": "lte-band3-fdd-20m",
+      "classification": "E-TM1.1 fixed digital test-model candidate",
+      "normativeClauses": [
+        "TS 36.141 6.1.1.1",
+        "TS 36.141 Table 6.1.1.1-1",
+        "TS 36.141 6.1.2",
+        "TS 36.211 clauses 6.2-6.10"
+      ],
+      "fixedBinding": {
+        "operatingBand": 3,
+        "duplex": "FDD",
+        "downlinkCenterHz": 1840000000,
+        "channelBandwidthHz": 20000000,
+        "resourceBlockCount": 100,
+        "physicalCellId": 1,
+        "sampleRateHz": 30720000,
+        "frameComplexSampleCount": 307200
+      },
+      "resourceElementsCompared": 168000,
+      "timeSamplesCompared": 307200,
+      "acceptanceBounds": {
+        "ordinaryGridComponent": 0.000001,
+        "pssGridComponent": 0.00023,
+        "timeComponent": 0.000002
+      },
+      "subjectGridCf64leSha256": "85b51eff674bb9812f5189f09e0f35fadb4751f91f74e8ab57c2b3e029a121c5",
+      "subjectTimeCf64leSha256": "6bd14a12dc6d4fe3e4fc3cdb4b1ee07fc554c8cc2e642eb0f2f5167991028541",
+      "subjectCatalogCf32leSha256": "685b5f3808e0792c1803d3c398358d7e308291db6b3769d5efd8dc3e17713d0b"
+    },
+    {
+      "profileId": "lte-band38-tdd-10m",
+      "classification": "TS 36.211-valid downlink physical-input fixture, not a TS 36.141 E-TM",
+      "normativeClauses": [
+        "TS 36.211 4.2 Tables 4.2-1 and 4.2-2",
+        "TS 36.211 clauses 6.2-6.12",
+        "TS 36.213 6.9 Table 6.9-1"
+      ],
+      "fixedBinding": {
+        "operatingBand": 38,
+        "duplex": "TDD",
+        "downlinkCenterHz": 2595000000,
+        "channelBandwidthHz": 10000000,
+        "resourceBlockCount": 50,
+        "physicalCellId": 1,
+        "ulDlConfiguration": 0,
+        "specialSubframeConfiguration": 7,
+        "sampleRateHz": 15360000,
+        "frameComplexSampleCount": 153600
+      },
+      "resourceElementsCompared": 84000,
+      "timeSamplesCompared": 153600,
+      "acceptanceBounds": {
+        "ordinaryGridComponent": 0.000001,
+        "pssGridComponent": 0.00023,
+        "timeComponent": 0.000002
+      },
+      "subjectGridCf64leSha256": "d3b9953d87987d209c65081efdb6acca211e5c06af42a50021fad09f1888718c",
+      "subjectTimeCf64leSha256": "c7a28fa76fb489f4ff57516a1941058bdce9273bcdaa56eaa816d01d663957a2",
+      "subjectCatalogCf32leSha256": "bf022e7a3f45b42fd05a801c686ea7247aae04db9d439d907e349a20d4a218e0"
+    },
+    {
+      "profileId": "lte-ntm",
+      "classification": "TS 36.141 N-TM standalone fixed digital test-model candidate",
+      "normativeClauses": [
+        "TS 36.141 6.1.3",
+        "TS 36.141 6.1.4",
+        "TS 36.211 10.2.3-10.2.8"
+      ],
+      "resourceElementsCompared": 1680,
+      "timeSamplesCompared": 19200,
+      "maximumObservedGridComponentError": 0.0017912023359442641,
+      "maximumObservedTimeComponentError": 0.000044807632708128084,
+      "acceptanceBounds": {
+        "ordinaryGridComponent": 0.000001,
+        "npssGridComponent": 0.00002,
+        "nsssGridComponent": 0.0018,
+        "timeComponent": 0.000045
+      },
+      "subjectGridCf64leSha256": "53d00ddff5eb67c3de5581232af49cb0d674e7430f67c2064ab0c6fb779cf7ef",
+      "subjectTimeCf64leSha256": "aa48d18506ef4330c7230ece9c3b644455ff0eb60d92389e1cecb11bfc3b6b7f",
+      "subjectCatalogCf32leSha256": "5cb11d59c16e0241a68948783aef0384c329f2b73f1f20336d38a7e08fb72a9d"
+    },
+    {
+      "profileId": "lte-nbiot-guard-isolated-component",
+      "classification": "TS 36.141 6.1.5 isolated N-TM component candidate; host E-TM 1.1, placement, and relative power omitted",
+      "normativeClauses": [
+        "TS 36.141 6.1.3-6.1.5",
+        "TS 36.211 10.2.3-10.2.8"
+      ],
+      "resourceElementsCompared": 1680,
+      "timeSamplesCompared": 19200,
+      "maximumObservedGridComponentError": 0.0017912023359442641,
+      "maximumObservedTimeComponentError": 0.000044807632708128084,
+      "acceptanceBounds": {
+        "ordinaryGridComponent": 0.000001,
+        "npssGridComponent": 0.00002,
+        "nsssGridComponent": 0.0018,
+        "timeComponent": 0.000045
+      },
+      "subjectGridCf64leSha256": "53d00ddff5eb67c3de5581232af49cb0d674e7430f67c2064ab0c6fb779cf7ef",
+      "subjectTimeCf64leSha256": "aa48d18506ef4330c7230ece9c3b644455ff0eb60d92389e1cecb11bfc3b6b7f",
+      "subjectCatalogCf32leSha256": "5cb11d59c16e0241a68948783aef0384c329f2b73f1f20336d38a7e08fb72a9d"
+    },
+    {
+      "profileId": "lte-nbiot-inband-isolated-component",
+      "classification": "TS 36.141 6.1.6 isolated N-TM component candidate; host E-TM 1.1, placement, and relative power omitted",
+      "normativeClauses": [
+        "TS 36.141 6.1.3-6.1.4",
+        "TS 36.141 6.1.6",
+        "TS 36.211 10.2.3-10.2.8"
+      ],
+      "resourceElementsCompared": 1680,
+      "timeSamplesCompared": 19200,
+      "maximumObservedGridComponentError": 0.0017912023359442641,
+      "maximumObservedTimeComponentError": 0.000044807632708128084,
+      "acceptanceBounds": {
+        "ordinaryGridComponent": 0.000001,
+        "npssGridComponent": 0.00002,
+        "nsssGridComponent": 0.0018,
+        "timeComponent": 0.000045
+      },
+      "subjectGridCf64leSha256": "a74bd00f7b68e319df6e8e0f04415e99ec6802aaf4ae8a5d36ca7af5c6e2d773",
+      "subjectTimeCf64leSha256": "87927c1676dcca1ca8bf2dbca0dd0d25d706ac4f92172f64823a1586943f2a9e",
+      "subjectCatalogCf32leSha256": "cf307a838902a1283757ff0f90b7d879e37c2e96331de86f8c8e07ccbff9ba0f"
+    }
+  ],
+  "excludedClaims": [
+    "No conducted or radiated RF conformance was tested.",
+    "No EVM, ACLR, occupied bandwidth, emissions, power, placement, measurement uncertainty, or timing-alignment verdict was produced.",
+    "The two isolated NB-IoT component artifacts do not include the composite E-TM 1.1 host required for a full TS 36.141 6.1.5 or 6.1.6 waveform.",
+    "No 3GPP product certification, regulatory approval, or interoperability certification is claimed.",
+    "This evidence applies only to the exact content hashes and fixed bindings recorded in this report."
+  ]
+}

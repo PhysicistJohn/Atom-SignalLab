@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import {
@@ -20,7 +21,12 @@ import {
   selectProfileRequestSchema,
   type MeasurementBridgeRequest,
 } from './measurement-contract.js';
-import { SYNTHESIZED_SIGNAL_PROFILES } from './contracts.js';
+import {
+  SYNTHESIZED_SIGNAL_PROFILES,
+  type SynthesizedSignalProfile,
+} from './contracts.js';
+import { synthesizeAnalyticComplexIq } from './complex-iq.js';
+import { FIXED_DIGITAL_PROFILE_BINDINGS } from './fixed-digital-profile-binding.js';
 import { AtomizerMeasurementService, MeasurementServiceError } from './measurement-service.js';
 
 const HASH_A = 'a'.repeat(64);
@@ -44,13 +50,13 @@ describe('Atomizer high-level measurement source contract', () => {
     ]);
     expect(document.claims).toEqual(MEASUREMENT_BRIDGE_CLAIMS);
     expect(document.semantics.detectedPowerTuning).toBe('required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune');
-    expect(document.semantics.complexIqAvailability).toBe('all-closed-catalog-profiles-with-standards-labelled-results-explicitly-non-conformance');
+    expect(document.semantics.complexIqAvailability).toBe('all-42-closed-catalog-profiles-with-31-fixed-content-bound-3-operator-builders-and-8-mathematical-references');
     expect(document.semantics.complexIqCentering).toBe('requested-center-hz-is-the-complex-envelope-reference-and-profile-components-may-have-baseband-offsets');
-    expect(document.semantics.complexIqBandwidth).toBe('independent-safe-integer-hz-no-greater-than-sample-rate-two-sided-minus-3db-span-of-bounded-first-order-real-coefficient-low-pass-initialized-from-first-sample');
-    expect(document.semantics.complexIqUndersampling).toBe('wideband-standards-engineering-profiles-may-be-deterministically-aliased-below-their-catalogued-occupied-support');
+    expect(document.semantics.complexIqBandwidth).toBe('profile-dependent-safe-integer-hz-no-greater-than-sample-rate-analytic-and-builder-paths-use-the-disclosed-low-pass-while-content-bound-paths-require-exact-native-bandwidth-without-filtering');
+    expect(document.semantics.complexIqUndersampling).toBe('only-operator-builder-engineering-profiles-may-be-deterministically-aliased-fixed-content-bound-profiles-reject-nonnative-sample-rate');
     expect(document.semantics.complexIqChannel).toBe('selected-seeded-receiver-impairment-preset-is-applied-to-complex-iq-and-declared-on-every-result');
     expect(document.semantics.scalarMeasurementQualification).toBe('synthetic-visual-projection-not-a-conformance-vector');
-    expect(document.semantics.complexIqMeasurementQualification).toBe('profile-dependent-analytic-laboratory-or-standards-derived-engineering-not-a-conformance-vector');
+    expect(document.semantics.complexIqMeasurementQualification).toBe('profile-dependent-analytic-laboratory-standards-derived-engineering-or-independently-verified-declared-digital-scope-never-rf-or-broad-conformance');
     expect(() => measurementBridgeContractDocumentSchema.parse({ ...document, undeclared: true })).toThrow();
     expect(() => measurementBridgeContractDocumentSchema.parse({
       ...document,
@@ -279,6 +285,9 @@ describe('Atomizer high-level measurement source contract', () => {
     const impaired = impairedService.acquireIq(request);
 
     expect(impaired).toMatchObject({
+      qualification: 'receiver-impaired-complex-baseband',
+      representation: 'normalized-complex-envelope',
+      normalization: 'peak-to-0.98',
       receiverImpairment: 'composite',
       channelApplication: 'receiver-impairment-preset',
     });
@@ -311,30 +320,42 @@ describe('Atomizer high-level measurement source contract', () => {
     expect(Buffer.byteLength(JSON.stringify(first), 'utf8')).toBeLessThan(1_048_576);
   });
 
-  it('generates explicitly standards-derived I/Q for every non-laboratory family', () => {
+  it('reports the exact clean qualification boundary and rejects relabeling for all 31 fixed standards-linked profiles', () => {
     const service = deterministicService();
-    const representatives = [
-      'gsm-8psk-normal-burst',
-      'lte-etm1.1',
-      'nr-fr1-tm1.1',
-      'wifi6-he-su',
-      'bluetooth-le-advertising',
-    ] as const;
-    const hashes = new Set<string>();
-    for (const profile of representatives) {
+    const bindings = Object.entries(FIXED_DIGITAL_PROFILE_BINDINGS);
+    expect(bindings).toHaveLength(31);
+    for (const [profile, binding] of bindings) {
       service.selectProfile({ profile });
-      const iq = service.acquireIq({
-        centerHz: service.status().waveform.centerHz,
-        sampleRateHz: 122_880_000,
-        bandwidthHz: 100_000_000,
-        sampleCount: 2_048,
+      const request = {
+        centerHz: binding.centerHz,
+        sampleRateHz: binding.sampleRateHz,
+        bandwidthHz: binding.bandwidthHz,
+        sampleCount: 1_024,
         sampleFormat: 'cf32le',
+      } as const;
+      const iq = service.acquireIq(request);
+      expect(iq).toMatchObject({
+        centerHz: binding.centerHz,
+        sampleRateHz: binding.sampleRateHz,
+        bandwidthHz: binding.bandwidthHz,
+        qualification: 'independently-verified-digital-baseband',
+        representation: 'source-preserved-complex-envelope',
+        normalization: 'none',
       });
-      expect(iq.qualification).toBe('standards-derived-complex-baseband');
-      expect(iq.byteLength).toBe(2_048 * COMPLEX_IQ_BYTES_PER_SAMPLE);
-      hashes.add(iq.samplesSha256);
+      expect(iq.byteLength).toBe(1_024 * COMPLEX_IQ_BYTES_PER_SAMPLE);
+      expect(() => service.acquireIq({
+        ...request,
+        centerHz: binding.centerHz + 1,
+      })).toThrow(/requires center .*relabel/i);
+      expect(() => service.acquireIq({
+        ...request,
+        sampleRateHz: binding.sampleRateHz + 1,
+      })).toThrow(/requires .*samples\/s/i);
+      expect(() => service.acquireIq({
+        ...request,
+        bandwidthHz: binding.bandwidthHz - 1,
+      })).toThrow(/requires .*bandwidth/i);
     }
-    expect(hashes.size).toBe(representatives.length);
 
     service.selectProfile({ profile: 'cw' });
     expect(service.acquireIq({
@@ -357,6 +378,209 @@ describe('Atomizer high-level measurement source contract', () => {
       sampleCount: 2_048,
       sampleFormat: 'cf32le',
     })).toMatchObject({ qualification: 'analytic-complex-baseband' });
+  });
+
+  it('returns the direct source bytes and hashes for all 31 fixed bindings, including both one-shot bounds and replays', () => {
+    const bindings = Object.entries(FIXED_DIGITAL_PROFILE_BINDINGS);
+    expect(bindings).toHaveLength(31);
+    for (const [profile, binding] of bindings) {
+      const service = deterministicService();
+      service.selectProfile({ profile });
+      const captureSamples = 'captureSamples' in binding
+        ? binding.captureSamples
+        : undefined;
+      const sampleCount = Math.min(1_024, captureSamples ?? 1_024);
+      const request = {
+        centerHz: binding.centerHz,
+        sampleRateHz: binding.sampleRateHz,
+        bandwidthHz: binding.bandwidthHz,
+        sampleCount,
+        sampleFormat: 'cf32le' as const,
+      };
+      const direct = synthesizeAnalyticComplexIq({
+        profile: profile as SynthesizedSignalProfile,
+        sampleRateHz: binding.sampleRateHz,
+        bandwidthHz: binding.bandwidthHz,
+        sampleCount,
+        startSampleIndex: 0,
+      });
+      const directBytes = Buffer.from(
+        direct.buffer,
+        direct.byteOffset,
+        direct.byteLength,
+      );
+      const expectedSha256 = createHash('sha256')
+        .update(directBytes)
+        .digest('hex');
+      const first = service.acquireIq(request);
+      expect(Buffer.from(first.samplesBase64, 'base64'), profile)
+        .toEqual(directBytes);
+      expect(first.samplesSha256, profile).toBe(expectedSha256);
+
+      if (binding.replay === 'one-shot') {
+        if (captureSamples === undefined) {
+          throw new Error(`${profile} one-shot binding has no capture bound`);
+        }
+        const second = service.acquireIq(request);
+        expect(second.samplesBase64, profile).toBe(first.samplesBase64);
+        expect(second.samplesSha256, profile).toBe(expectedSha256);
+        expect(() => service.acquireIq({
+          ...request,
+          sampleCount: captureSamples + 1,
+        })).toThrow(/one-shot capture contains only/i);
+        const third = service.acquireIq(request);
+        expect(third.sequence, profile).toBe(second.sequence + 1);
+        expect(third.samplesBase64, profile).toBe(first.samplesBase64);
+      }
+    }
+  });
+
+  it('uses a cumulative I/Q cursor independent of scalar sequences and resets it on configuration change', () => {
+    const service = deterministicService();
+    service.selectProfile({ profile: 'fm' });
+    const request1024 = {
+      centerHz: 98_000_000,
+      sampleRateHz: 2_000_000,
+      bandwidthHz: 100_000,
+      sampleCount: 1_024,
+      sampleFormat: 'cf32le' as const,
+    };
+    service.acquireIq(request1024);
+    service.acquireDetectedPower({
+      centerFrequencyHz: 98_000_000,
+      points: 8,
+      samplePeriodSeconds: 0.001,
+    });
+    const request256 = { ...request1024, sampleCount: 256 };
+    const continued = service.acquireIq(request256);
+    const expectedContinued = synthesizeAnalyticComplexIq({
+      profile: 'fm',
+      sampleRateHz: request256.sampleRateHz,
+      bandwidthHz: request256.bandwidthHz,
+      sampleCount: request256.sampleCount,
+      startSampleIndex: 1_024,
+    });
+    expect(Buffer.from(continued.samplesBase64, 'base64')).toEqual(Buffer.from(
+      expectedContinued.buffer,
+      expectedContinued.byteOffset,
+      expectedContinued.byteLength,
+    ));
+
+    service.selectProfile({ profile: 'fm' });
+    const reset = service.acquireIq(request256);
+    const expectedReset = synthesizeAnalyticComplexIq({
+      profile: 'fm',
+      sampleRateHz: request256.sampleRateHz,
+      bandwidthHz: request256.bandwidthHz,
+      sampleCount: request256.sampleCount,
+      startSampleIndex: 0,
+    });
+    expect(Buffer.from(reset.samplesBase64, 'base64')).toEqual(Buffer.from(
+      expectedReset.buffer,
+      expectedReset.byteOffset,
+      expectedReset.byteLength,
+    ));
+  });
+
+  it('rejects invalid fixed-artifact geometry without consuming a measurement sequence', () => {
+    const service = deterministicService();
+    const lteBinding = FIXED_DIGITAL_PROFILE_BINDINGS['lte-etm1.1'];
+    service.selectProfile({ profile: 'lte-etm1.1' });
+    const lteRequest = {
+      centerHz: lteBinding.centerHz,
+      sampleRateHz: lteBinding.sampleRateHz,
+      bandwidthHz: lteBinding.bandwidthHz,
+      sampleCount: 1_024,
+      sampleFormat: 'cf32le' as const,
+    };
+    const first = service.acquireIq(lteRequest);
+    expect(() => service.acquireIq({
+      ...lteRequest,
+      centerHz: lteBinding.centerHz + 1,
+    })).toThrow(/requires center .*relabel/i);
+    expect(() => service.acquireIq({
+      ...lteRequest,
+      sampleRateHz: lteBinding.sampleRateHz + 1,
+    })).toThrow(/requires .*samples\/s/i);
+    expect(() => service.acquireIq({
+      ...lteRequest,
+      bandwidthHz: lteBinding.bandwidthHz - 1,
+    })).toThrow(/requires .*bandwidth/i);
+    const second = service.acquireIq(lteRequest);
+    expect(second.sequence).toBe(first.sequence + 1);
+
+    const bluetoothBinding = FIXED_DIGITAL_PROFILE_BINDINGS['bluetooth-classic-connected'];
+    service.selectProfile({ profile: 'bluetooth-classic-connected' });
+    const bluetoothRequest = {
+      centerHz: bluetoothBinding.centerHz,
+      sampleRateHz: bluetoothBinding.sampleRateHz,
+      bandwidthHz: bluetoothBinding.bandwidthHz,
+      sampleCount: 1_024,
+      sampleFormat: 'cf32le' as const,
+    };
+    expect(() => service.acquireIq({
+      ...bluetoothRequest,
+      sampleCount: bluetoothBinding.captureSamples + 1,
+    })).toThrow(/one-shot capture contains only/i);
+    const third = service.acquireIq(bluetoothRequest);
+    expect(third.sequence).toBe(second.sequence + 1);
+  });
+
+  it('preserves independently verified exact LTE and NR test-model bytes and fails closed on transforms', () => {
+    const service = deterministicService();
+    const profiles = [
+      ['lte-etm1.1', 1_840_000_000, 15_360_000, 10_000_000],
+      ['lte-etm3.1', 1_840_000_000, 15_360_000, 10_000_000],
+      ['lte-etm3.1a', 1_840_000_000, 15_360_000, 10_000_000],
+      ['lte-etm3.1b', 1_840_000_000, 15_360_000, 10_000_000],
+      ['nr-fr1-tm1.1', 1_842_500_000, 30_720_000, 20_000_000],
+      ['nr-fr1-tm3.1', 1_842_500_000, 30_720_000, 20_000_000],
+      ['nr-fr1-tm3.1a', 1_842_500_000, 30_720_000, 20_000_000],
+      ['nr-fr1-tm3.1b', 1_842_500_000, 30_720_000, 20_000_000],
+    ] as const;
+    for (const [profile, centerHz, sampleRateHz, bandwidthHz] of profiles) {
+      service.selectProfile({ profile });
+      const request = {
+        centerHz,
+        sampleRateHz,
+        bandwidthHz,
+        sampleCount: 4_096,
+        sampleFormat: 'cf32le' as const,
+      };
+      expect(service.acquireIq(request)).toMatchObject({
+        qualification: 'independently-verified-digital-baseband',
+        representation: 'source-preserved-complex-envelope',
+        normalization: 'none',
+        receiverImpairment: 'clean',
+        channelApplication: 'not-applied',
+      });
+      expect(() => service.acquireIq({ ...request, sampleRateHz: sampleRateHz * 2 }))
+        .toThrow(/requires .*samples\/s/i);
+      expect(() => service.acquireIq({ ...request, bandwidthHz: bandwidthHz - 1_000_000 }))
+        .toThrow(/requires .*bandwidth/i);
+    }
+
+    service.selectProfile({ profile: 'lte-etm1.1' });
+    service.configureChannel({
+      channel: {
+        model: 'awgn',
+        noiseFloorDbm: -108,
+        seed: 407,
+        fadingRateHz: 2,
+        receiverImpairment: 'awgn',
+      },
+    });
+    expect(service.acquireIq({
+      centerHz: 1_840_000_000,
+      sampleRateHz: 15_360_000,
+      bandwidthHz: 10_000_000,
+      sampleCount: 4_096,
+      sampleFormat: 'cf32le',
+    })).toMatchObject({
+      qualification: 'receiver-impaired-complex-baseband',
+      representation: 'normalized-complex-envelope',
+      normalization: 'peak-to-0.98',
+    });
   });
 
   it('uses and publishes the exact admitted detected-power sample period', () => {
@@ -397,6 +621,7 @@ describe('Atomizer high-level measurement source contract', () => {
       profile: 'fm' as const,
       channel: { model: 'rayleigh' as const, noiseFloorDbm: -120, seed: 19, fadingRateHz: 4 },
       sequence: 10_000,
+      iqSampleCursor: 12_345,
     };
     const service = new AtomizerMeasurementService(
       { contractSha256: HASH_A, generatorSha256: HASH_B },
@@ -421,6 +646,26 @@ describe('Atomizer high-level measurement source contract', () => {
         configurationRevision: continuation.configurationRevision,
         sequence: 10_001,
       });
+    const continuedIq = service.acquireIq({
+      centerHz: 100_000_000,
+      sampleRateHz: 2_000_000,
+      bandwidthHz: 100_000,
+      sampleCount: 64,
+      sampleFormat: 'cf32le',
+    });
+    const expectedIq = synthesizeAnalyticComplexIq({
+      profile: 'fm',
+      sampleRateHz: 2_000_000,
+      bandwidthHz: 100_000,
+      sampleCount: 64,
+      startSampleIndex: continuation.iqSampleCursor,
+    });
+    expect(continuedIq.sequence).toBe(10_002);
+    expect(Buffer.from(continuedIq.samplesBase64, 'base64')).toEqual(Buffer.from(
+      expectedIq.buffer,
+      expectedIq.byteOffset,
+      expectedIq.byteLength,
+    ));
   });
 });
 
