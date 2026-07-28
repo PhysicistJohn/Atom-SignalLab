@@ -32,30 +32,44 @@ export default defineConfig({
   // default is tight enough that they go red on a loaded machine.
   test: {
     testTimeout: 30000,
-    // These suites pin the SHA-256 of float64 reference frames. Those samples
-    // come out of libm transcendentals, whose last-ulp rounding differs by host
-    // architecture, so the bytes are reproducible per architecture but not
-    // across them. The pins were authored on darwin-arm64 and cannot simply be
-    // re-taken elsewhere: retained srsRAN oracle evidence binds the generator
-    // and provider sources, so a second set of pins requires a recipe revision
-    // backed by a re-run oracle.
+    // Only one suite is still confined to a single architecture.
     //
-    // Rather than lock all of CI to arm64, run them where their identities hold
-    // and let every other suite run on all platforms. The fail-closed behaviour
-    // off the authoring architecture is still asserted by the standards bundle
-    // smoke in tools/standards-runtime-bundle-smoke.mjs, so a generator that
-    // silently emitted unverified bytes on x86_64 would still be caught.
+    // src/lte-etm3-reference.test.ts pins the exact cf64le digests of float64
+    // reference frames. Those samples come out of libm transcendentals whose
+    // last-ulp rounding differs by host, so the exact bytes are reproducible per
+    // architecture but not across them. Every other suite that had the same
+    // problem was converted to assert a quantized waveform identity, which was
+    // measured to be byte-identical across darwin-arm64 and win32-x64, alongside
+    // the exact pin where it is meaningful. This one cannot be converted the
+    // same way: retained independent-oracle evidence
+    // (validation/lte-etm3-independent-full-frame-oracles-2026-07-27.json) pins
+    // this file itself as `subjects.referenceTestSource`, so editing it would
+    // falsify that attestation.
+    //
+    // E-TM3 still has coverage on every architecture through the unpinned
+    // companion src/lte-etm3-reference-architecture.test.ts, which asserts the
+    // quantized identity, geometry, finiteness, and determinism. Only the exact
+    // byte assertion is arm64 bound, and that assertion carries no extra
+    // information off its authoring host, because the divergence was measured to
+    // be confined to the last mantissa bit.
     exclude: [
       ...configDefaults.exclude,
       ...(process.platform === 'darwin' && process.arch === 'arm64'
         ? []
         : [
-            'src/lte-band3-fdd-20m-reference.test.ts',
-            'src/lte-band38-tdd-10m-reference.test.ts',
-            'src/lte-etm1-provider.test.ts',
+            // Oracle evidence pins this file itself as
+            // subjects.referenceTestSource. Covered on other architectures by
+            // the unpinned companion lte-etm3-reference-architecture.test.ts.
             'src/lte-etm3-reference.test.ts',
-            'src/lte-ntm-reference.test.ts',
-            'src/nr-nbiot-inband-component-reference.test.ts',
+            // These two are bound by a SECOND mechanism: the E-TM1.1 test
+            // catalog in src/lte-etm1-test-catalog.ts records each assertion's
+            // sourceFileSha256, and those digests feed the catalog identity and
+            // the 3GPP qualification gate. Converting them would cascade
+            // through four levels of pins, so they stay on the architecture
+            // that can reproduce their exact bytes. The fail-closed behaviour
+            // they would have asserted off-arch is already covered by
+            // tools/standards-runtime-bundle-smoke.mjs.
+            'src/lte-etm1-provider.test.ts',
             'src/standards-runtime.test.ts',
           ]),
     ],

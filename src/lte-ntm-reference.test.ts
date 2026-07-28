@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  EXACT_FLOAT_PINS_REPRODUCIBLE_HERE,
+  IDENTITY_QUANTIZATION_DECIMALS,
+  quantizedComplexSeries,
+} from './architecture-identity.js';
+import {
   LTE_NTM_ACTIVE_SUBCARRIERS,
   LTE_NTM_FFT_SIZE,
   LTE_NTM_FRAME_SAMPLES,
@@ -8,7 +13,41 @@ import {
   LTE_NTM_REFERENCE_IDENTITIES,
   LTE_NTM_SAMPLE_RATE_HZ,
   generateLteNtmReferenceFrame,
+  type LteNtmProfile,
 } from './lte-ntm-reference.js';
+
+/**
+ * Quantized companions to LTE_NTM_REFERENCE_IDENTITIES. The exact cf64le pins in
+ * the generator module bind the last mantissa bit of libm output and so are only
+ * reproducible on the architecture that authored them. These digests hash the
+ * same series rounded to IDENTITY_QUANTIZATION_DECIMALS decimals, which is far
+ * coarser than last-ulp yet far finer than any real change to the waveform, so
+ * they are asserted on every architecture.
+ */
+const LTE_NTM_QUANTIZED_REFERENCE_IDENTITIES: Readonly<
+  Record<LteNtmProfile, { gridSha256: string; timeSha256: string }>
+> = Object.freeze({
+  'lte-ntm': Object.freeze({
+    gridSha256:
+      'c18c5d94c8327f90d3c8f131c26fff625bdf67858404d507fa12549fc4509157',
+    timeSha256:
+      '0480fb3bf17cb2b6aca5b920256e14ce7e01304e90be7faf733158a8558cb3e6',
+  }),
+  // Identical to 'lte-ntm' by construction: the guard-isolated component carries
+  // the same component bytes, as the byte-equality test above asserts directly.
+  'lte-nbiot-guard-isolated-component': Object.freeze({
+    gridSha256:
+      'c18c5d94c8327f90d3c8f131c26fff625bdf67858404d507fa12549fc4509157',
+    timeSha256:
+      '0480fb3bf17cb2b6aca5b920256e14ce7e01304e90be7faf733158a8558cb3e6',
+  }),
+  'lte-nbiot-inband-isolated-component': Object.freeze({
+    gridSha256:
+      '4e41fe14af74f44df1f8a0a3de75a20dff3af5739424b7d21a5960fc1bf24368',
+    timeSha256:
+      '5d7f4f0885c74deb9d9cb0b60ef5e15450e1b3deb08d212a20f03f9c7a8da8f8',
+  }),
+});
 
 function identity(real: Float64Array, imaginary: Float64Array): string {
   const bytes = new Uint8Array(real.length * 16);
@@ -18,6 +57,12 @@ function identity(real: Float64Array, imaginary: Float64Array): string {
     view.setFloat64(index * 16 + 8, imaginary[index]!, true);
   }
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function quantizedIdentity(real: Float64Array, imaginary: Float64Array): string {
+  return createHash('sha256')
+    .update(quantizedComplexSeries(real, imaginary, IDENTITY_QUANTIZATION_DECIMALS))
+    .digest('hex');
 }
 
 describe('fixed LTE NB-IoT N-TM digital references', () => {
@@ -64,13 +109,26 @@ describe('fixed LTE NB-IoT N-TM digital references', () => {
 
   it.each(LTE_NTM_PROFILES)('%s exposes stable full-grid/full-frame identities', (profile) => {
     const frame = generateLteNtmReferenceFrame(profile);
-    const identities = {
-      gridCf64leSha256: identity(frame.grid.real, frame.grid.imaginary),
-      timeCf64leSha256: identity(
+
+    // Asserted everywhere: a generator that changed the waveform moves these.
+    expect({
+      gridSha256: quantizedIdentity(frame.grid.real, frame.grid.imaginary),
+      timeSha256: quantizedIdentity(
         frame.timeDomain.real,
         frame.timeDomain.imaginary,
       ),
-    };
-    expect(identities).toEqual(LTE_NTM_REFERENCE_IDENTITIES[profile]);
+    }).toEqual(LTE_NTM_QUANTIZED_REFERENCE_IDENTITIES[profile]);
+
+    // Asserted only on the architecture the exact cf64le pins were authored on.
+    if (EXACT_FLOAT_PINS_REPRODUCIBLE_HERE) {
+      const identities = {
+        gridCf64leSha256: identity(frame.grid.real, frame.grid.imaginary),
+        timeCf64leSha256: identity(
+          frame.timeDomain.real,
+          frame.timeDomain.imaginary,
+        ),
+      };
+      expect(identities).toEqual(LTE_NTM_REFERENCE_IDENTITIES[profile]);
+    }
   });
 });
