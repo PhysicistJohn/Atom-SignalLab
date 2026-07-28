@@ -56,4 +56,12 @@ jobs:
         working-directory: Atom-DSP
         run: npm ci && npm run build
       - run: npm ci && npm run check
+      - name: Report standards artifact divergence across architectures
+        # Diagnostic only, never fails the build. Seven suites are pinned to the
+        # architecture that authored their float64 identities; this records how
+        # large that divergence actually is on each runner, so the limitation is
+        # a measured number rather than an assumption and a future provider
+        # recipe revision has something concrete to reason from.
+        continue-on-error: true
+        run: npx tsx tools/standards-arch-divergence.mjs
       - run: npm run audit
