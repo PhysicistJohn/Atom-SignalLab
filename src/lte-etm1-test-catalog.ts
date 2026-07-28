@@ -12,7 +12,7 @@ import {
 export const LTE_ETM1_1_CATALOG_ID = 'lte-etm1-1-release19-clause-tests';
 export const LTE_ETM1_1_CATALOG_REVISION = '1.3.0';
 export const LTE_ETM1_1_CATALOG_SHA256 =
-  '90445a00cee8e5ab753c2cf4a3ce7ff18b146424cdec4cf121de3e9c6c693e3c';
+  '830a2f03829a36b9dc249d64b50d821e6931d262115bccb529cb8db30db33072';
 const PRESET_ID = 'lte-etm-1-1-10mhz-fdd';
 const PRESET_REVISION = '2.0.0';
 const GENERATOR_PROVIDER_ID = 'signallab';
@@ -634,7 +634,7 @@ export const LTE_ETM1_1_TEST_SOURCE_SHA256 = Object.freeze({
   'src/lte-etm1-reference.test.ts':
     'bb923358cab98cff42736847d7b1ddb179dfe1a24403fc65fa8ba9a9081c2d11',
   'src/lte-etm1-provider.test.ts':
-    '0589ce98750101b4a79f479ded09d4044910d668693087973a5eb032d0a25973',
+    'bf6d9745383be9543cdb7093df004375e38dcfacbc1ee5e4cf8a386bb75d4f3f',
   'src/lte-etm1-independent-oracle.test.ts':
     '8683e2564871bab61669f4e23f8935710a7e01940856ea775ec03eb61193a0a8',
 } as const);
@@ -921,11 +921,11 @@ export const LTE_ETM1_1_ASSERTION_SHA256_PINS: Readonly<Record<string, string>> 
   'lte.etm1.reference.epre-and-dc':
     '78de85339cf8959a579dcfc70bbfcb2e69d5e096efbd9b9517ec26993f02c7b7',
   'lte.etm1.provider.profile-binding':
-    '14cbd49b3801c52933d5133cab481f077a286ce3452f29e0a1f740ef673a835e',
+    '1bf8d0fe146d21f3c9858cb4e5ea6b2d1116fe29408ef0d59dd7ea48d19d7dde',
   'lte.etm1.provider.exact-cf64le':
-    '13632343caa58a91ca4c7d503b528bf5d42fd69b9e4eb596dadba5be64ec4e43',
+    'ee59310aea8617ac0b112fe5bd84f44af99543b67848caf982ac349a3b29033a',
   'lte.etm1.provider.content-admission':
-    'd5a921b44d9f136083f33569b330d07da0f61a9cfb7be7ef1535381f573502ef',
+    '0c939ae4ca45008e2f10185245c5eee06738c0ec2d062933ffe597793b994617',
   'lte.etm1.oracle.full-frame':
     'c2eafe8b525e90fd9cfecb0cad6f6f3efaa3add2c63bff37de38face4c6ef6c0',
 });

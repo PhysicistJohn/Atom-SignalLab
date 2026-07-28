@@ -112,7 +112,7 @@ Those verified ranges are required to construct production catalog
 `lte-etm1-1-release19-clause-tests@1.3.0`. The catalog has 74 exact
 requirement/clause obligations and 12 semantic test definitions; its canonical
 SHA-256 is
-`90445a00cee8e5ab753c2cf4a3ce7ff18b146424cdec4cf121de3e9c6c693e3c`.
+`830a2f03829a36b9dc249d64b50d821e6931d262115bccb529cb8db30db33072`.
 The expanded set explicitly covers the TS 36.104 10 MHz-to-50-RB relationship,
 the TS 36.211 resource-grid and synchronization parents, the TS 36.212 CFI and
 HI parent clauses, and every invoked one-layer/single-port mapping and

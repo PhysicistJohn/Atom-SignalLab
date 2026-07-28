@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  EXACT_FLOAT_PINS_REPRODUCIBLE_HERE,
+  quantizedComplexSeries,
+} from './architecture-identity.js';
+import {
   canonicalJsonString,
   standardsArtifactConfigurationSha256,
   standardsArtifactManifestSha256,
@@ -24,6 +28,51 @@ import { generateLteEtm11ReferenceFrame } from './lte-etm1-reference.js';
 import { LTE_ETM_1_1_10_MHZ_FDD_PRESET } from './standards-waveform.js';
 
 const EXPECTED_BYTE_LENGTH = 153_600 * 2 * 8;
+
+/**
+ * Architecture-tolerant companion to LTE_ETM1_1_REFERENCE_CF64LE_SHA256.
+ *
+ * The exact cf64le digest pins the last mantissa bit of libm transcendentals,
+ * so it only reproduces on the architecture that authored it. This digest
+ * hashes the same time-domain series rounded to nine decimals, which is far
+ * coarser than the cross-architecture last-ulp difference and far finer than
+ * any real change to the waveform, so it holds on every host. Measured on
+ * darwin-arm64.
+ */
+const LTE_ETM1_1_REFERENCE_QUANTIZED_SHA256 =
+  'e838d0c000828124d458b9e5ef502e19e278cecd29b0c31ac6f2de893775fa83';
+
+function sha256Text(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/**
+ * Asserted on every architecture, including the hosts where the exact byte pin
+ * cannot be reproduced: the generator that feeds the provider still renders the
+ * same waveform.
+ */
+function expectQuantizedReferenceIdentity(): void {
+  const timeDomain = generateLteEtm11ReferenceFrame().timeDomain;
+  expect(sha256Text(quantizedComplexSeries(timeDomain.real, timeDomain.imaginary)))
+    .toBe(LTE_ETM1_1_REFERENCE_QUANTIZED_SHA256);
+}
+
+/**
+ * Off the authoring architecture the fixed provider fails closed rather than
+ * emitting bytes it cannot vouch for. The rejection is raised where the payload
+ * digest is checked, and its message names the provider recipe revision that
+ * would be required, either directly or as the cause of the runtime wrapper.
+ */
+async function expectFailsClosedOffAuthoringArchitecture(
+  work: Promise<unknown>,
+): Promise<void> {
+  await expect(work).rejects.toSatisfy((error: unknown) => (
+    error instanceof Error
+    && /provider recipe revision/.test(
+      error.cause instanceof Error ? error.cause.message : error.message,
+    )
+  ));
+}
 
 async function candidateBytes(candidate: StandardsArtifactBundleCandidate): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
@@ -122,6 +171,11 @@ describe('fixed LTE E-TM1.1 standards artifact provider', () => {
   it('encodes one port as deterministic little-endian interleaved Float64 IQ', async () => {
     const provider = new LteEtm11ReferenceArtifactProvider();
     const request = createLteEtm11ReferenceGenerationRequest();
+    expectQuantizedReferenceIdentity();
+    if (!EXACT_FLOAT_PINS_REPRODUCIBLE_HERE) {
+      await expectFailsClosedOffAuthoringArchitecture(provider.generate(request));
+      return;
+    }
     const first = await provider.generate(request);
     const second = await provider.generate(request);
     const firstBytes = await candidateBytes(first);
@@ -194,6 +248,14 @@ describe('fixed LTE E-TM1.1 standards artifact provider', () => {
 
   it('admits and replays the exact content-addressed artifact with no transformations', async () => {
     const request = createLteEtm11ReferenceGenerationRequest();
+    expectQuantizedReferenceIdentity();
+    if (!EXACT_FLOAT_PINS_REPRODUCIBLE_HERE) {
+      await expectFailsClosedOffAuthoringArchitecture(generateAndAdmitStandardsArtifact(
+        LTE_ETM1_1_REFERENCE_ARTIFACT_PROVIDER,
+        request,
+      ));
+      return;
+    }
     const admitted = await generateAndAdmitStandardsArtifact(
       LTE_ETM1_1_REFERENCE_ARTIFACT_PROVIDER,
       request,
@@ -246,6 +308,16 @@ describe('fixed LTE E-TM1.1 standards artifact provider', () => {
 
   it('accepts only a correct optional artifact pin and rejects all other pins', async () => {
     const provider = new LteEtm11ReferenceArtifactProvider();
+    expectQuantizedReferenceIdentity();
+    if (!EXACT_FLOAT_PINS_REPRODUCIBLE_HERE) {
+      // Without reproducible bytes there is no content digest to pin against,
+      // so the pinned-request path is unreachable and the provider fails closed
+      // before any pin is ever compared.
+      await expectFailsClosedOffAuthoringArchitecture(
+        provider.generate(createLteEtm11ReferenceGenerationRequest()),
+      );
+      return;
+    }
     const candidate = await provider.generate(createLteEtm11ReferenceGenerationRequest());
     const contentSha256 = (
       candidate.manifest as { artifact: { contentSha256: string } }

@@ -57,20 +57,23 @@ export default defineConfig({
       ...(process.platform === 'darwin' && process.arch === 'arm64'
         ? []
         : [
+            // The last remaining architecture-gated suite.
+            //
             // Oracle evidence pins this file itself as
-            // subjects.referenceTestSource. Covered on other architectures by
-            // the unpinned companion lte-etm3-reference-architecture.test.ts.
+            // subjects.referenceTestSource in
+            // validation/lte-etm3-independent-full-frame-oracles-2026-07-27.json.
+            // Editing it and re-pointing that hash would make an audit record
+            // describe a file no oracle run ever saw, so the file stays exactly
+            // as attested and simply does not run where its exact float64 pins
+            // cannot reproduce.
+            //
+            // E-TM3 is still covered on every architecture by the unpinned
+            // companion src/lte-etm3-reference-architecture.test.ts, which
+            // asserts the quantized waveform identity, geometry, finiteness,
+            // and determinism. Only the exact-byte assertion is arm64 bound,
+            // and that assertion carries no extra information off its authoring
+            // host: the divergence was measured to be the last mantissa bit.
             'src/lte-etm3-reference.test.ts',
-            // These two are bound by a SECOND mechanism: the E-TM1.1 test
-            // catalog in src/lte-etm1-test-catalog.ts records each assertion's
-            // sourceFileSha256, and those digests feed the catalog identity and
-            // the 3GPP qualification gate. Converting them would cascade
-            // through four levels of pins, so they stay on the architecture
-            // that can reproduce their exact bytes. The fail-closed behaviour
-            // they would have asserted off-arch is already covered by
-            // tools/standards-runtime-bundle-smoke.mjs.
-            'src/lte-etm1-provider.test.ts',
-            'src/standards-runtime.test.ts',
           ]),
     ],
   },
