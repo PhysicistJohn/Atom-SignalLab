@@ -11,6 +11,24 @@ import {
   LTE_BAND38_TDD_10M_SAMPLE_RATE_HZ,
   generateLteBand38Tdd10mReferenceFrame,
 } from './lte-band38-tdd-10m-reference.js';
+import {
+  EXACT_FLOAT_PINS_REPRODUCIBLE_HERE,
+  quantizedComplexSeries,
+} from './architecture-identity.js';
+
+/**
+ * Architecture-tolerant companions to LTE_BAND38_TDD_10M_REFERENCE_IDENTITIES.
+ *
+ * The exact cf64le digests pin the last mantissa bit of libm transcendentals, so
+ * they only reproduce on the architecture that authored them. These digests hash
+ * the same two series rounded to nine decimals, which is far coarser than the
+ * cross-architecture last-ulp difference and far finer than any real change to
+ * the waveform, so they hold on every host. Measured on darwin-arm64.
+ */
+const LTE_BAND38_TDD_10M_QUANTIZED_IDENTITIES = Object.freeze({
+  gridQuantizedSha256: '7696149b60dbbee5581571c960fc6325019208030bc30bb6ba2550770d0d0ad3',
+  timeQuantizedSha256: '69df62c41a848649b2bef2daf094982832b8972a7e4dd0097f01c49b7755bcf9',
+});
 
 function encodeCf64le(real: Float64Array, imaginary: Float64Array): Uint8Array {
   expect(imaginary).toHaveLength(real.length);
@@ -25,6 +43,10 @@ function encodeCf64le(real: Float64Array, imaginary: Float64Array): Uint8Array {
 
 function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function sha256Text(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
 describe('fixed LTE Band-38 10 MHz TDD digital reference', () => {
@@ -107,10 +129,30 @@ describe('fixed LTE Band-38 10 MHz TDD digital reference', () => {
     const secondTime = encodeCf64le(second.timeDomain.real, second.timeDomain.imaginary);
     expect(secondGrid).toEqual(firstGrid);
     expect(secondTime).toEqual(firstTime);
-    const identities = {
-      gridCf64leSha256: sha256(firstGrid),
-      timeCf64leSha256: sha256(firstTime),
+    if (EXACT_FLOAT_PINS_REPRODUCIBLE_HERE) {
+      const identities = {
+        gridCf64leSha256: sha256(firstGrid),
+        timeCf64leSha256: sha256(firstTime),
+      };
+      expect(identities).toEqual(LTE_BAND38_TDD_10M_REFERENCE_IDENTITIES);
+    }
+    // Asserted on every architecture: same two series, rounded to a decimal grid
+    // coarser than the cross-architecture last-ulp difference.
+    const quantizedIdentities = {
+      gridQuantizedSha256: sha256Text(
+        quantizedComplexSeries(first.grid.real, first.grid.imaginary),
+      ),
+      timeQuantizedSha256: sha256Text(
+        quantizedComplexSeries(first.timeDomain.real, first.timeDomain.imaginary),
+      ),
     };
-    expect(identities).toEqual(LTE_BAND38_TDD_10M_REFERENCE_IDENTITIES);
+    expect(quantizedIdentities).toEqual(LTE_BAND38_TDD_10M_QUANTIZED_IDENTITIES);
+    // The second frame reproduces the quantized identity too, so determinism is
+    // still checked at the identity level and not only byte-for-byte.
+    expect(sha256Text(quantizedComplexSeries(second.grid.real, second.grid.imaginary)))
+      .toBe(quantizedIdentities.gridQuantizedSha256);
+    expect(
+      sha256Text(quantizedComplexSeries(second.timeDomain.real, second.timeDomain.imaginary)),
+    ).toBe(quantizedIdentities.timeQuantizedSha256);
   });
 });

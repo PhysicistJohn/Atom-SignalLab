@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { sha256HexOfBytes } from './platform-bytes.js';
 import {
+  EXACT_FLOAT_PINS_REPRODUCIBLE_HERE,
+  IDENTITY_QUANTIZATION_DECIMALS,
+  quantizedComplexSeries,
+} from './architecture-identity.js';
+import {
   LTE_NTM_REFERENCE_IDENTITIES,
   generateLteNtmReferenceFrame,
 } from './lte-ntm-reference.js';
@@ -9,6 +14,30 @@ import {
   NR_NBIOT_INBAND_COMPONENT_REFERENCE_IDENTITIES,
   generateNrNbiotInbandComponentReferenceFrame,
 } from './nr-nbiot-inband-component-reference.js';
+
+/**
+ * Quantized companion to NR_NBIOT_INBAND_COMPONENT_REFERENCE_IDENTITIES. The
+ * exact cf64le pins bind the last mantissa bit of libm output and so are only
+ * reproducible on the architecture that authored them. These digests hash the
+ * same series rounded to IDENTITY_QUANTIZATION_DECIMALS decimals, far coarser
+ * than last-ulp yet far finer than any real change to the waveform, so they are
+ * asserted on every architecture.
+ */
+const NR_NBIOT_INBAND_COMPONENT_QUANTIZED_REFERENCE_IDENTITIES = Object.freeze({
+  gridSha256:
+    '4e41fe14af74f44df1f8a0a3de75a20dff3af5739424b7d21a5960fc1bf24368',
+  timeSha256:
+    '5d7f4f0885c74deb9d9cb0b60ef5e15450e1b3deb08d212a20f03f9c7a8da8f8',
+});
+
+function quantizedIdentity(
+  real: Float64Array,
+  imaginary: Float64Array,
+): string {
+  return sha256HexOfBytes(
+    quantizedComplexSeries(real, imaginary, IDENTITY_QUANTIZATION_DECIMALS),
+  );
+}
 
 describe('fixed NR-N-TM imported NB-IoT in-band component', () => {
   it('binds the exact imported Release 19 component and keeps the composite boundary explicit', () => {
@@ -74,20 +103,32 @@ describe('fixed NR-N-TM imported NB-IoT in-band component', () => {
     expect(bound.timeDomain.imaginary).toEqual(
       inherited.timeDomain.imaginary,
     );
-    expect(
-      sha256HexOfBytes(encodeCf64le(
-        bound.grid.real,
-        bound.grid.imaginary,
-      )),
-    ).toBe(NR_NBIOT_INBAND_COMPONENT_REFERENCE_IDENTITIES.gridCf64leSha256);
-    expect(
-      sha256HexOfBytes(encodeCf64le(
+    // Asserted everywhere: a generator that changed the waveform moves these.
+    expect({
+      gridSha256: quantizedIdentity(bound.grid.real, bound.grid.imaginary),
+      timeSha256: quantizedIdentity(
         bound.timeDomain.real,
         bound.timeDomain.imaginary,
-      )),
-    ).toBe(
-      NR_NBIOT_INBAND_COMPONENT_REFERENCE_IDENTITIES.timeCf64leSha256,
-    );
+      ),
+    }).toEqual(NR_NBIOT_INBAND_COMPONENT_QUANTIZED_REFERENCE_IDENTITIES);
+
+    // Asserted only on the architecture the exact cf64le pins were authored on.
+    if (EXACT_FLOAT_PINS_REPRODUCIBLE_HERE) {
+      expect(
+        sha256HexOfBytes(encodeCf64le(
+          bound.grid.real,
+          bound.grid.imaginary,
+        )),
+      ).toBe(NR_NBIOT_INBAND_COMPONENT_REFERENCE_IDENTITIES.gridCf64leSha256);
+      expect(
+        sha256HexOfBytes(encodeCf64le(
+          bound.timeDomain.real,
+          bound.timeDomain.imaginary,
+        )),
+      ).toBe(
+        NR_NBIOT_INBAND_COMPONENT_REFERENCE_IDENTITIES.timeCf64leSha256,
+      );
+    }
     expect(NR_NBIOT_INBAND_COMPONENT_REFERENCE_IDENTITIES).toEqual(
       LTE_NTM_REFERENCE_IDENTITIES[
         'lte-nbiot-inband-isolated-component'
