@@ -1,4 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import {
+  firstActiveClassicSlotSample,
+  firstLeEventStartSample,
+  isBluetoothLongDwellProfile,
+} from './bluetooth-long-dwell-iq.js';
 import { createHash } from 'node:crypto';
 import {
   ANALYTIC_COMPLEX_IQ_PROFILES,
@@ -16,6 +21,8 @@ import {
 import {
   fixedDigitalProfileBinding,
   isFixedDigitalProfile,
+  isUnboundedCompositionProfile,
+  unboundedCompositionProfileBinding,
 } from './fixed-digital-profile-binding.js';
 import { isReferenceComplexIqProfile } from './reference-iq.js';
 
@@ -25,8 +32,11 @@ describe('analytic complex-I/Q synthesis', () => {
   it('evolves every non-constant profile across successive capture coordinates', { timeout: 30_000 }, () => {
     for (const profile of ANALYTIC_COMPLEX_IQ_PROFILES) {
       const geometry = profileGeometry(profile, 4_096);
-      const first = synthesizeAnalyticComplexIq({ ...geometry, profile });
-      const advanced = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: geometry.sampleCount });
+      // Long-dwell timelines are mostly silence; anchor at a coordinate that
+      // is guaranteed to contain content so "evolution" measures the signal.
+      const base = longDwellActiveBase(profile);
+      const first = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: base });
+      const advanced = synthesizeAnalyticComplexIq({ ...geometry, profile, startSampleIndex: base + geometry.sampleCount });
       // A later coordinate is a later moment of the same signal. CW is the
       // one physically constant envelope and stays bit-frozen.
       if (profile === 'cw') expect(advanced).toEqual(first);
@@ -169,7 +179,9 @@ describe('analytic complex-I/Q synthesis', () => {
         profile,
         ...profileGeometry(profile, 1_024),
         sampleCount: 1_024,
-        ...(isContentBoundProfile(profile) ? { startSampleIndex: 0 } : {}),
+        ...(isContentBoundProfile(profile) || isBluetoothLongDwellProfile(profile)
+          ? { startSampleIndex: longDwellActiveBase(profile) }
+          : {}),
       };
       const first = synthesizeAnalyticComplexIq(input);
       const second = synthesizeAnalyticComplexIq(input);
@@ -277,12 +289,30 @@ function isContentBoundProfile(profile: AnalyticComplexIqProfile): boolean {
   return isFixedDigitalProfile(profile);
 }
 
+function longDwellActiveBase(profile: AnalyticComplexIqProfile): number {
+  if (profile === 'bluetooth-classic-connected-longdwell') {
+    return firstActiveClassicSlotSample();
+  }
+  if (profile === 'bluetooth-le-advertising-longdwell') {
+    return firstLeEventStartSample();
+  }
+  return 0;
+}
+
 function profileGeometry(
   profile: AnalyticComplexIqProfile,
   sampleCount: number,
 ): { sampleRateHz: number; bandwidthHz: number; sampleCount: number } {
   if (isFixedDigitalProfile(profile)) {
     const binding = fixedDigitalProfileBinding(profile);
+    return {
+      sampleRateHz: binding.nativeSampleRateHz,
+      bandwidthHz: binding.signalBandwidthHz,
+      sampleCount,
+    };
+  }
+  if (isUnboundedCompositionProfile(profile)) {
+    const binding = unboundedCompositionProfileBinding(profile);
     return {
       sampleRateHz: binding.nativeSampleRateHz,
       bandwidthHz: binding.signalBandwidthHz,

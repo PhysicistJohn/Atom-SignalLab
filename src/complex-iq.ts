@@ -2,6 +2,10 @@ import {
   writeUnitBoundedCf32le,
 } from '@atomos/dsp';
 import {
+  isBluetoothLongDwellProfile,
+  synthesizeBluetoothLongDwellIq,
+} from './bluetooth-long-dwell-iq.js';
+import {
   SYNTHESIZED_SIGNAL_PROFILES,
   synthesizedSignalProfileSchema,
   type SynthesizedSignalProfile,
@@ -246,6 +250,15 @@ export function synthesizeAnalyticComplexIq(input: AnalyticComplexIqSynthesisInp
   }
   if (isWlanFixedProfileId(profile)) {
     return synthesizeWlanFixedCatalogIq({
+      profile,
+      sampleRateHz: input.sampleRateHz,
+      bandwidthHz: input.bandwidthHz,
+      sampleCount: input.sampleCount,
+      startSampleIndex,
+    });
+  }
+  if (isBluetoothLongDwellProfile(profile)) {
+    return synthesizeBluetoothLongDwellIq({
       profile,
       sampleRateHz: input.sampleRateHz,
       bandwidthHz: input.bandwidthHz,

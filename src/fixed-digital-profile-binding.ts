@@ -19,8 +19,9 @@ export interface FixedDigitalProfileBinding {
   readonly signalBandwidthHz: number;
   /** Carrier position inside the immutable native complex-envelope artifact. */
   readonly nativeCarrierOffsetHz: number;
-  /** Cyclic frame/PPDU replay or a single bounded packet capture. */
-  readonly replay: 'cyclic' | 'one-shot';
+  /** Cyclic frame/PPDU replay, a single bounded packet capture, or an
+   * unbounded aperiodic composition timeline (long-dwell). */
+  readonly replay: 'cyclic' | 'one-shot' | 'unbounded';
   /** Exact native artifact period, required for cyclic modular replay. */
   readonly nativePeriodSamples?: number;
   /** Exclusive sample bound for a one-shot capture. */
@@ -233,4 +234,44 @@ for (const [profile, inferredBinding] of Object.entries(FIXED_DIGITAL_PROFILE_BI
     || rfReferenceCenterHz > MAX_MEASUREMENT_FREQUENCY_HZ) {
     throw new Error(`${profile} canonical RF reference center is outside the admitted range`);
   }
+}
+
+
+/**
+ * Unbounded composition profiles: native-rate synthesis with NO content bound
+ * and NO content-addressed artifact -- deliberately outside the 31-profile
+ * fixed registry, whose invariant is "content-bound qualified artifact".
+ */
+export const UNBOUNDED_COMPOSITION_PROFILE_BINDINGS = Object.freeze({
+  'bluetooth-classic-connected-longdwell': Object.freeze({
+    // The content spans the whole 79 MHz hop set, so the reference centre IS
+    // the span centre and no single carrier offset exists.
+    profileReferenceCenterHz: 2_441_000_000,
+    nativeSampleRateHz: 80_000_000,
+    signalBandwidthHz: 79_000_000,
+    nativeCarrierOffsetHz: 0,
+    replay: 'unbounded',
+  } satisfies FixedDigitalProfileBinding),
+  'bluetooth-le-advertising-longdwell': Object.freeze({
+    profileReferenceCenterHz: 2_441_000_000,
+    nativeSampleRateHz: 80_000_000,
+    signalBandwidthHz: 79_000_000,
+    nativeCarrierOffsetHz: 0,
+    replay: 'unbounded',
+  } satisfies FixedDigitalProfileBinding),
+} as const);
+
+export type UnboundedCompositionProfile =
+  keyof typeof UNBOUNDED_COMPOSITION_PROFILE_BINDINGS;
+
+export function isUnboundedCompositionProfile(
+  profile: SynthesizedSignalProfile,
+): profile is UnboundedCompositionProfile {
+  return Object.hasOwn(UNBOUNDED_COMPOSITION_PROFILE_BINDINGS, profile);
+}
+
+export function unboundedCompositionProfileBinding(
+  profile: UnboundedCompositionProfile,
+): FixedDigitalProfileBinding {
+  return UNBOUNDED_COMPOSITION_PROFILE_BINDINGS[profile];
 }

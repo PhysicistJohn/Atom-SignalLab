@@ -15,7 +15,7 @@ import {
 } from './bluetooth-fixed-catalog-iq.js';
 
 export const BLUETOOTH_FIXED_ORACLE_REPORT_SHA256 =
-  'f44813b259f8cc52e39fe63cd635918a2a01e5bba257343b54b6ca53084633e2' as const;
+  'bdf32b159891a033f7d3609f53667d000444f3ddc5c4bbaf058fdede947f6d87' as const;
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 const sourceSchema = z.object({

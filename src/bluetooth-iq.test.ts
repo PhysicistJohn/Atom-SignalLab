@@ -53,8 +53,18 @@ describe('Bluetooth fixed digital vectors and analytic GFSK projection', () => {
     const catalogued = waveformCatalog
       .filter(({ family }) => family === 'bluetooth')
       .map(({ id }) => id);
-    expect(BLUETOOTH_ANALYTIC_IQ_PROFILES).toEqual(catalogued);
-    expect(Object.keys(BLUETOOTH_ANALYTIC_IQ_MODELS)).toEqual(catalogued);
+    const fixedCatalogued = catalogued.filter(
+      (id) => !id.endsWith('-longdwell'),
+    );
+    const longDwellCatalogued = catalogued.filter(
+      (id) => id.endsWith('-longdwell'),
+    );
+    expect(BLUETOOTH_ANALYTIC_IQ_PROFILES).toEqual(fixedCatalogued);
+    expect(Object.keys(BLUETOOTH_ANALYTIC_IQ_MODELS)).toEqual(fixedCatalogued);
+    expect(longDwellCatalogued).toEqual([
+      'bluetooth-classic-connected-longdwell',
+      'bluetooth-le-advertising-longdwell',
+    ]);
     expect(BLUETOOTH_ANALYTIC_IQ_FORMAT).toBe('interleaved-f32-iq');
     expect(BLUETOOTH_ANALYTIC_IQ_QUALIFICATION).toBe('standards-derived-engineering-projection');
     expect(BLUETOOTH_ANALYTIC_IQ_DISCLOSURE).toMatch(/packet fields, HEC\/CRC, whitening.*header FEC.*Core 6\.3 sample data/i);

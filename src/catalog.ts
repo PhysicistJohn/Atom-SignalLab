@@ -209,6 +209,22 @@ const canonizedBluetoothDescriptors: WaveformDescriptor[] = [
     assetSha256:
       BLUETOOTH_FIXED_CATALOG_CF32LE_SHA256['bluetooth-le-advertising'],
   }),
+  makeDescriptor({
+    id: 'bluetooth-classic-connected-longdwell', label: 'Bluetooth BR long-dwell hopping composition', family: 'bluetooth',
+    model: 'Engineering composition · qualified one-slot DH1 baseband on a 625 us slot clock · keyed-hash slot utilization and 79-channel placement · unbounded timeline, pure function of absolute sample index', centerHz: 2_441_000_000,
+    occupiedBandwidthHz: 79_000_000, recommendedSpanHz: 84_000_000,
+    projection: { allocation: 'frequency-hopping', modulation: 'br-gfsk', timing: 'classic-slots' },
+    source: BLUETOOTH_BR_DH1_FIXED_VECTOR_SOURCE,
+    disclosure: `${bluetoothClassicEngineeringDisclosure} The long-dwell variant replays that qualified slot content across an unbounded slot-clocked timeline with keyed-hash utilization, channel placement, and per-burst phase; the Core 6.3 hop-SELECTION kernel is not implemented, so channel statistics rather than the selection algorithm are represented. No fixed content-addressed artifact exists because the timeline is unbounded; determinism and stitch exactness are covered by src/bluetooth-long-dwell-iq.test.ts.`,
+  }),
+  makeDescriptor({
+    id: 'bluetooth-le-advertising-longdwell', label: 'Bluetooth LE long-dwell advertising composition', family: 'bluetooth',
+    model: 'Engineering composition · qualified ADV_NONCONN_IND baseband on channels 37/38/39 per event · 30 ms event grid with keyed-hash advDelay in [0, 10 ms) · unbounded timeline, pure function of absolute sample index', centerHz: 2_441_000_000,
+    occupiedBandwidthHz: 80_000_000, recommendedSpanHz: 84_000_000,
+    projection: { allocation: 'advertising-channels', modulation: 'ble-1m', timing: 'advertising-events' },
+    source: BLUETOOTH_LE_ADV_NONCONN_IND_FIXED_VECTOR_SOURCE,
+    disclosure: `${bleEngineeringDisclosure} The long-dwell variant transmits that qualified packet on the three primary advertising channels per event over an unbounded event grid with keyed-hash advDelay; payload bits repeat the qualified vector rather than re-randomizing per event. No fixed content-addressed artifact exists because the timeline is unbounded; determinism and stitch exactness are covered by src/bluetooth-long-dwell-iq.test.ts.`,
+  }),
 ];
 
 const gsmDefinitions = [

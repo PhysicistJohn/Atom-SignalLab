@@ -112,6 +112,11 @@ export const CANONIZED_REPLAY_PROFILE_SCENARIOS: Readonly<Partial<Record<Synthes
   'wifi-ofdm-20m': 'wifi-ofdm-20m',
   'bluetooth-classic-connected': 'bluetooth-classic-connected',
   'bluetooth-le-advertising': 'bluetooth-le-advertising',
+  // Long-dwell compositions share their parents' observable projection: the
+  // scalar analyzer picture of a hopping span / advertising channels does not
+  // change because the underlying I/Q timeline became unbounded.
+  'bluetooth-classic-connected-longdwell': 'bluetooth-classic-connected',
+  'bluetooth-le-advertising-longdwell': 'bluetooth-le-advertising',
 });
 
 const CANONIZED_REPLAY_SNR_DB = 32;

@@ -17,6 +17,8 @@ import {
 import {
   fixedDigitalProfileBinding,
   isFixedDigitalProfile,
+  isUnboundedCompositionProfile,
+  unboundedCompositionProfileBinding,
   type FixedDigitalProfileBinding,
 } from './fixed-digital-profile-binding.js';
 import {
@@ -304,7 +306,9 @@ export class AtomizerMeasurementService {
     );
     const fixedBinding = isFixedDigitalProfile(this.#profile)
       ? fixedDigitalProfileBinding(this.#profile)
-      : undefined;
+      : isUnboundedCompositionProfile(this.#profile)
+        ? unboundedCompositionProfileBinding(this.#profile)
+        : undefined;
     const oneShotReplay = fixedBinding?.replay === 'one-shot';
     if (oneShotReplay && !oneShotOutputFits(
       fixedBinding.captureSamples!,
@@ -659,19 +663,21 @@ export class AtomizerMeasurementService {
       channelApplication: receiverImpairment === 'clean' ? 'not-applied' : 'receiver-impairment-preset',
       canonicalArtifactSha256: fixedBinding === undefined
         ? null
-        : descriptor.assetSha256!,
+        : descriptor.assetSha256 ?? null,
       transformReceipt: {
         receiptVersion: 1,
         sourceArtifactSha256: fixedBinding === undefined
           ? null
-          : descriptor.assetSha256!,
+          : descriptor.assetSha256 ?? null,
         sourceStartSample,
         sourceSampleCount: sourceSamples.byteLength / 8,
         sourceBoundaryPolicy: fixedBinding === undefined
           ? 'continuous-session-origin-zero-extended'
           : fixedBinding.replay === 'cyclic'
             ? 'cyclic-modular'
-            : 'one-shot-zero-extended',
+            : fixedBinding.replay === 'unbounded'
+              ? 'unbounded-direct'
+              : 'one-shot-zero-extended',
         sourcePeriodSamples: fixedBinding?.replay === 'cyclic'
           ? fixedBinding.nativePeriodSamples!
           : null,
@@ -882,6 +888,23 @@ function synthesizeFixedNativeWindow(
         bandwidthHz: binding.signalBandwidthHz,
         sampleCount: chunkSamples,
         startSampleIndex: wrappedStart,
+      });
+      output.set(chunk, generated * 8);
+      generated += chunkSamples;
+    }
+    return output;
+  }
+
+  if (binding.replay === 'unbounded') {
+    let generated = 0;
+    while (generated < sourceSampleCount) {
+      const chunkSamples = Math.min(65_536, sourceSampleCount - generated);
+      const chunk = synthesizeAnalyticComplexIq({
+        profile,
+        sampleRateHz: binding.nativeSampleRateHz,
+        bandwidthHz: binding.signalBandwidthHz,
+        sampleCount: chunkSamples,
+        startSampleIndex: sourceStartSample + generated,
       });
       output.set(chunk, generated * 8);
       generated += chunkSamples;

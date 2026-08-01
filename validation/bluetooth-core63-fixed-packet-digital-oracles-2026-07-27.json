@@ -29,7 +29,7 @@
   "tests": {
     "publishedSampleVectorTest": {
       "path": "src/bluetooth-iq.test.ts",
-      "sha256": "31144e64bb087ccb47554b449ecaf3581f386bd0e0e6f4632e472bc9fe88dd86",
+      "sha256": "146b533dfc83457a3aa678b33b83a93ae68f31c79dc86f3027a6d0c026a77f76",
       "role": "Independent constants from the Bluetooth Core sample-data chapters verify packet fields, HEC, CRC, whitening, header FEC, access code/address, and complete transmission order."
     },
     "independentGfskOracleTest": {
@@ -58,7 +58,7 @@
       "captureComplexSamples": 50000,
       "activeComplexSamplesCompared": 15200,
       "catalogCf32leSha256": "ee2975f261478a52e95e454423e5d4f36ff175a515befd34d6370bea980fe158",
-      "maximumComponentTolerance": 0.00002,
+      "maximumComponentTolerance": 2e-05,
       "modulationRequirements": {
         "modulationIndexMinimum": 0.28,
         "modulationIndexMaximum": 0.35,
@@ -85,7 +85,7 @@
       "captureComplexSamples": 12160,
       "activeComplexSamplesCompared": 12160,
       "catalogCf32leSha256": "2e139351a0deefe58a17eeff9146e720eaac5f674474c465778dce859be64f11",
-      "maximumComponentTolerance": 0.00002,
+      "maximumComponentTolerance": 2e-05,
       "modulationRequirements": {
         "modulationIndexMinimum": 0.45,
         "modulationIndexMaximum": 0.55,

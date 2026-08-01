@@ -31,7 +31,7 @@ describe('Auto-v4 integrated-excess validation corpus', () => {
     expect(autoTargetSelectionValidationCases).toHaveLength(4);
     expect(new Set(autoTargetSelectionValidationCases.map((fixture) => fixture.id)).size).toBe(4);
 
-    expect(waveformCatalog).toHaveLength(42);
+    expect(waveformCatalog).toHaveLength(44);
     const humanCatalogIds = new Set<string>(waveformCatalog.map((descriptor) => descriptor.id));
     const classifierScenarioIds = new Set<string>(
       canonicalClassificationScenarios.map((scenario) => scenario.id),

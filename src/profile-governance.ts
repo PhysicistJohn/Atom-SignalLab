@@ -872,7 +872,7 @@ const registry = {
     'bluetooth-classic-connected',
     [BLUETOOTH_BR_PHY, BLUETOOTH_BR_BASEBAND, BLUETOOTH_BR_SAMPLE_DATA],
     'ee2975f261478a52e95e454423e5d4f36ff175a515befd34d6370bea980fe158',
-    'f44813b259f8cc52e39fe63cd635918a2a01e5bba257343b54b6ca53084633e2',
+    'bdf32b159891a033f7d3609f53667d000444f3ddc5c4bbaf058fdede947f6d87',
     'validation/bluetooth-core63-fixed-packet-digital-oracles-2026-07-27.json',
     'Separately structured Bluetooth Core sample and ideal-GFSK test oracle',
     'Complete fixed packet-vector and every-active-sample digital comparison',
@@ -887,7 +887,7 @@ const registry = {
     'bluetooth-le-advertising',
     [BLUETOOTH_LE_PHY, BLUETOOTH_LE_LINK, BLUETOOTH_LE_SAMPLE_DATA],
     '2e139351a0deefe58a17eeff9146e720eaac5f674474c465778dce859be64f11',
-    'f44813b259f8cc52e39fe63cd635918a2a01e5bba257343b54b6ca53084633e2',
+    'bdf32b159891a033f7d3609f53667d000444f3ddc5c4bbaf058fdede947f6d87',
     'validation/bluetooth-core63-fixed-packet-digital-oracles-2026-07-27.json',
     'Separately structured Bluetooth Core sample and ideal-GFSK test oracle',
     'Complete fixed packet-vector and every-active-sample digital comparison',
@@ -897,6 +897,31 @@ const registry = {
       'src/bluetooth-fixed-oracle-evidence.test.ts',
     ],
     'The exact one-event LE 1M ADV_NONCONN_IND packet capture at 80 Msamples/s is internally independently verified against published Core sample data and a separately structured ideal BT=0.5 GFSK oracle. Bluetooth SIG RF-PHY, interoperability, and product qualification are excluded.',
+  ),
+
+  'bluetooth-classic-connected-longdwell': fixed(
+    'bluetooth-classic-connected-longdwell',
+    [BLUETOOTH_BR_PHY, BLUETOOTH_BR_BASEBAND],
+    'src/bluetooth-long-dwell-iq.test.ts',
+    'A long-dwell engineering composition: the digitally qualified one-slot BR '
+    + 'DH1 baseband replayed on a 625 us slot clock with keyed-hash slot '
+    + 'utilization and 79-channel placement. The hop-selection kernel of '
+    + 'Core 6.3 is NOT implemented; channel statistics, not the selection '
+    + 'algorithm, are represented. Tests cover composition determinism, '
+    + 'stitch exactness, slot timing, and channel spread.',
+    'standards-derived-engineering-profile',
+  ),
+  'bluetooth-le-advertising-longdwell': fixed(
+    'bluetooth-le-advertising-longdwell',
+    [BLUETOOTH_LE_PHY, BLUETOOTH_LE_LINK],
+    'src/bluetooth-long-dwell-iq.test.ts',
+    'A long-dwell engineering composition: the digitally qualified '
+    + 'ADV_NONCONN_IND baseband transmitted on channels 37/38/39 per '
+    + 'advertising event, on a 30 ms event grid with keyed-hash advDelay in '
+    + '[0, 10 ms). Payload bits repeat the qualified vector. Tests cover '
+    + 'composition determinism, stitch exactness, event spacing, and true '
+    + 'channel offsets.',
+    'standards-derived-engineering-profile',
   ),
 
   'ref-qpsk': mathematical('ref-qpsk', 'src/reference-iq.test.ts'),

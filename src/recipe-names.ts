@@ -36,6 +36,8 @@ export const WAVEFORM_RECIPE_NAMES = {
   'wifi6-he-tb': 'Wi-Fi 6 (802.11ax) — triggered multi-user uplink',
   'bluetooth-classic-connected': 'Bluetooth BR DH1 fixed packet (channel 8)',
   'bluetooth-le-advertising': 'Bluetooth LE 1M ADV_NONCONN_IND fixed packet (channel 38)',
+  'bluetooth-classic-connected-longdwell': 'Bluetooth Classic hopping (long capture)',
+  'bluetooth-le-advertising-longdwell': 'BLE advertising beacons (long capture)',
   'ref-qpsk': 'RRC QPSK analytic lab reference',
   'ref-8psk': 'RRC 8-PSK analytic lab reference',
   'ref-16qam': 'RRC 16-QAM analytic lab reference',

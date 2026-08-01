@@ -133,7 +133,7 @@ export const iqProfileTransportSchema = z.object({
    * the complete native signal support. Null for rate-flexible generators.
    */
   nativeMinimumCaptureBandwidthHz: z.number().safe().int().positive().nullable(),
-  replay: z.enum(['continuous', 'cyclic', 'one-shot']),
+  replay: z.enum(['continuous', 'cyclic', 'one-shot', 'unbounded']),
   /** Native-domain period used for modular FIR support and exact replay. */
   nativePeriodSamples: z.number().safe().int().positive().optional(),
   /** Native-domain limit. Output limits are derived from the rate ratio. */

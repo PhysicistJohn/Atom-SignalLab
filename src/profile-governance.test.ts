@@ -47,6 +47,8 @@ const EXPECTED_GOVERNING_ORGANIZATIONS = {
   'wifi6-he-tb': ['IEEE'],
   'bluetooth-classic-connected': ['Bluetooth SIG'],
   'bluetooth-le-advertising': ['Bluetooth SIG'],
+  'bluetooth-classic-connected-longdwell': ['Bluetooth SIG'],
+  'bluetooth-le-advertising-longdwell': ['Bluetooth SIG'],
   'ref-qpsk': ['TinySA SignalLab'],
   'ref-8psk': ['TinySA SignalLab'],
   'ref-16qam': ['TinySA SignalLab'],
@@ -390,6 +392,22 @@ const EXPECTED_NORMATIVE_REFERENCE_KEYS = {
     ),
     referenceKey('Bluetooth Core 6.3, Vol 6, Part C', '6.3', '4.1', '4.2.1'),
   ],
+  'bluetooth-classic-connected-longdwell': [
+    referenceKey('Bluetooth Core 6.3, Vol 2, Part A', '6.3', '2', '3.1.1'),
+    referenceKey('Bluetooth Core 6.3, Vol 2, Part B', '6.3', '6.1-6.6', '7.1-7.4'),
+  ],
+  'bluetooth-le-advertising-longdwell': [
+    referenceKey('Bluetooth Core 6.3, Vol 6, Part A', '6.3', '2', '3'),
+    referenceKey(
+      'Bluetooth Core 6.3, Vol 6, Part B',
+      '6.3',
+      '2.1',
+      '2.3.1',
+      '3.1',
+      '3.2',
+      '4.4.2',
+    ),
+  ],
   'ref-qpsk': noReferences,
   'ref-8psk': noReferences,
   'ref-16qam': noReferences,
@@ -485,10 +503,10 @@ const EXPECTED_EVIDENCE_REPORT_PATHS = {
 >;
 
 describe('operator-profile governance registry', () => {
-  it('maps all 42 operator profiles exactly once and threads the mapping through every descriptor', () => {
-    expect(SYNTHESIZED_SIGNAL_PROFILES).toHaveLength(42);
+  it('maps all 44 operator profiles exactly once and threads the mapping through every descriptor', () => {
+    expect(SYNTHESIZED_SIGNAL_PROFILES).toHaveLength(44);
     expect(Object.keys(PROFILE_GOVERNANCE_BY_ID).sort()).toEqual([...SYNTHESIZED_SIGNAL_PROFILES].sort());
-    expect(waveformCatalog).toHaveLength(42);
+    expect(waveformCatalog).toHaveLength(44);
 
     for (const profileId of SYNTHESIZED_SIGNAL_PROFILES) {
       const governance = PROFILE_GOVERNANCE_BY_ID[profileId];
@@ -499,7 +517,7 @@ describe('operator-profile governance registry', () => {
     }
   });
 
-  it('freezes the governing organization for each of the 42 profiles', () => {
+  it('freezes the governing organization for each of the 44 profiles', () => {
     expect(Object.keys(EXPECTED_GOVERNING_ORGANIZATIONS).sort())
       .toEqual([...SYNTHESIZED_SIGNAL_PROFILES].sort());
     for (const profileId of SYNTHESIZED_SIGNAL_PROFILES) {
@@ -530,7 +548,7 @@ describe('operator-profile governance registry', () => {
   it('classifies complete profiles, engineering observables, component fixtures, builders, and mathematical references without broad compliance or RF claims', () => {
     const entries = Object.values(PROFILE_GOVERNANCE_BY_ID);
     expect(entries.filter(({ signalKind }) => signalKind === 'normative-fixed-profile')).toHaveLength(22);
-    expect(entries.filter(({ signalKind }) => signalKind === 'standards-derived-engineering-profile')).toHaveLength(0);
+    expect(entries.filter(({ signalKind }) => signalKind === 'standards-derived-engineering-profile')).toHaveLength(2);
     expect(entries.filter(({ signalKind }) => signalKind === 'standards-component-fixture')).toHaveLength(9);
     expect(entries.filter(({ signalKind }) => signalKind === 'operator-defined-builder')).toHaveLength(3);
     expect(entries.filter(({ signalKind }) => signalKind === 'mathematical-lab-reference')).toHaveLength(8);

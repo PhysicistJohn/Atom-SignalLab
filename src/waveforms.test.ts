@@ -31,8 +31,8 @@ import {
 describe('qualified waveform replay engine', () => {
   it('publishes a closed catalog with source clauses and refuses unvalidated conformance claims', () => {
     expect(waveformCatalog.map((entry) => entry.id)).toEqual(synthesizedSignalProfileSchema.options);
-    expect(waveformCatalog).toHaveLength(42);
-    expect(countFamilies(waveformCatalog)).toEqual({ tone: 1, analog: 2, reference: 5, geran: 7, 'e-utra': 11, nr: 7, wlan: 7, bluetooth: 2 });
+    expect(waveformCatalog).toHaveLength(44);
+    expect(countFamilies(waveformCatalog)).toEqual({ tone: 1, analog: 2, reference: 5, geran: 7, 'e-utra': 11, nr: 7, wlan: 7, bluetooth: 4 });
     for (const descriptor of waveformCatalog) {
       expect(descriptor.source.references.every((reference) => /^https:\/\//.test(reference.url))).toBe(true);
       expect(descriptor.recommendedSpanHz).toBeGreaterThanOrEqual(descriptor.occupiedBandwidthHz);
@@ -393,7 +393,13 @@ describe('qualified waveform replay engine', () => {
     for (const [profile, scenarioId] of Object.entries(CANONIZED_REPLAY_PROFILE_SCENARIOS)) {
       if (!scenarioId) continue;
       const descriptor = waveformDescriptor(profile as keyof typeof CANONIZED_REPLAY_PROFILE_SCENARIOS);
-      const tuneFrequencyHz = profile === 'bluetooth-le-advertising' ? 2_426_000_000 : descriptor.centerHz;
+      // LE content lives on the primary advertising channels, not at the span
+      // centre: tune both LE profiles at channel 38 (2426 MHz), which every
+      // advertising event transmits.
+      const tuneFrequencyHz = profile === 'bluetooth-le-advertising'
+        || profile === 'bluetooth-le-advertising-longdwell'
+        ? 2_426_000_000
+        : descriptor.centerHz;
       const input = {
         profile: descriptor.id,
         points: 1_024,

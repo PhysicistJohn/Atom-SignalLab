@@ -33,7 +33,7 @@ import {
   synthesizeAnalyticComplexIq,
 } from './complex-iq.js';
 import { resetCustomWaveformSelections } from './custom-waveform.js';
-import { FIXED_DIGITAL_PROFILE_BINDINGS } from './fixed-digital-profile-binding.js';
+import { FIXED_DIGITAL_PROFILE_BINDINGS, UNBOUNDED_COMPOSITION_PROFILE_BINDINGS } from './fixed-digital-profile-binding.js';
 import { AtomizerMeasurementService, MeasurementServiceError } from './measurement-service.js';
 import {
   resampleCf32leWindowedSinc,
@@ -220,7 +220,7 @@ describe('Atomizer high-level measurement source contract', () => {
       claims: MEASUREMENT_BRIDGE_CLAIMS,
     });
     expect(initial.identity.catalogSha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(initial.profiles).toHaveLength(42);
+    expect(initial.profiles).toHaveLength(44);
     expect(initial.capabilities).toEqual(MEASUREMENT_CAPABILITIES);
     expect(initial.capabilities.find(({ kind }) => kind === 'detected-power-timeseries')).toEqual({
       kind: 'detected-power-timeseries',
@@ -638,7 +638,8 @@ describe('Atomizer high-level measurement source contract', () => {
     timeout: 30_000,
   }, () => {
     const continuousProfiles = SYNTHESIZED_SIGNAL_PROFILES.filter(
-      (profile) => !Object.hasOwn(FIXED_DIGITAL_PROFILE_BINDINGS, profile),
+      (profile) => !Object.hasOwn(FIXED_DIGITAL_PROFILE_BINDINGS, profile)
+        && !Object.hasOwn(UNBOUNDED_COMPOSITION_PROFILE_BINDINGS, profile),
     );
     expect(continuousProfiles).toHaveLength(11);
     for (const profile of continuousProfiles) {
