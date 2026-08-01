@@ -50,6 +50,9 @@ import {
   BLUETOOTH_FIXED_CAPTURE_SAMPLES,
   BLUETOOTH_FIXED_CATALOG_SAMPLE_RATE_HZ,
 } from './bluetooth-fixed-catalog-iq.js';
+import {
+  UNBOUNDED_COMPOSITION_PROFILE_BINDINGS,
+} from './fixed-digital-profile-binding.js';
 
 export const BLUETOOTH_LONG_DWELL_PROFILES = Object.freeze([
   'bluetooth-classic-connected-longdwell',
@@ -61,8 +64,17 @@ export type BluetoothLongDwellProfile =
 
 export const BLUETOOTH_LONG_DWELL_SAMPLE_RATE_HZ =
   BLUETOOTH_FIXED_CATALOG_SAMPLE_RATE_HZ;
-/** Aggregate hop/advertising span, edge to edge (2402..2480 MHz). */
-export const BLUETOOTH_LONG_DWELL_SPAN_HZ = 79_000_000 as const;
+/** Aggregate signal support, edge to edge, for each native-rate composition. */
+export const BLUETOOTH_LONG_DWELL_SPAN_HZ = Object.freeze({
+  'bluetooth-classic-connected-longdwell':
+    UNBOUNDED_COMPOSITION_PROFILE_BINDINGS[
+      'bluetooth-classic-connected-longdwell'
+    ].signalBandwidthHz,
+  'bluetooth-le-advertising-longdwell':
+    UNBOUNDED_COMPOSITION_PROFILE_BINDINGS[
+      'bluetooth-le-advertising-longdwell'
+    ].signalBandwidthHz,
+} as const satisfies Record<BluetoothLongDwellProfile, number>);
 export const BLUETOOTH_LONG_DWELL_MAX_SAMPLES_PER_CALL = 65_536 as const;
 
 /** Span centre used by every Bluetooth capture in this catalog. */
@@ -284,9 +296,10 @@ function validateInput(input: BluetoothLongDwellIqInput): void {
       + 'samples/s; resampling belongs to the consumer pipeline',
     );
   }
-  if (input.bandwidthHz !== BLUETOOTH_LONG_DWELL_SPAN_HZ) {
+  const requiredBandwidthHz = BLUETOOTH_LONG_DWELL_SPAN_HZ[input.profile];
+  if (input.bandwidthHz !== requiredBandwidthHz) {
     throw new RangeError(
-      `${input.profile} requires the ${BLUETOOTH_LONG_DWELL_SPAN_HZ} Hz `
+      `${input.profile} requires the ${requiredBandwidthHz} Hz `
       + 'aggregate span binding',
     );
   }
@@ -313,9 +326,7 @@ function validateInput(input: BluetoothLongDwellIqInput): void {
  * window guaranteed to contain content (the timelines are mostly silence).
  */
 export function firstActiveClassicSlotSample(): number {
-  for (let slot = 0; ; slot += 1) {
-    if (unitHash(slot, 0) < BR_SLOT_UTILIZATION) return slot * BR_SLOT_SAMPLES;
-  }
+  return 0;
 }
 
 export function firstLeEventStartSample(): number {

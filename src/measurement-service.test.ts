@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   COMPLEX_IQ_BYTES_PER_SAMPLE,
   DEFAULT_WAVEFORM_CATALOG_SHA256,
+  IQ_PROFILE_TRANSPORTS,
   MAX_COMPLEX_IQ_BANDWIDTH_HZ,
   MAX_COMPLEX_IQ_SAMPLE_RATE_HZ,
   MAX_COMPLEX_IQ_SAMPLES,
@@ -43,6 +44,20 @@ import { waveformDescriptor } from './waveforms.js';
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
+const HISTORICAL_MEASUREMENT_V2_SHA256 =
+  '8eb83264089bc27bde813860e470213f65dfdfc935a834cb7d77f196bf0d2ccc';
+const ACTIVE_MEASUREMENT_V3_SHA256 =
+  'd09509e13e82ff2bd14e4acaaff13aa59f2c2ba7af230a0209bdee5a7fad4c6e';
+const UNBOUNDED_LONG_DWELL_CASES = Object.freeze([
+  {
+    profile: 'bluetooth-classic-connected-longdwell',
+    signalBandwidthHz: 79_000_000,
+  },
+  {
+    profile: 'bluetooth-le-advertising-longdwell',
+    signalBandwidthHz: 80_000_000,
+  },
+] as const);
 
 // Custom builder selections are still module-global (see custom-waveform.ts),
 // so a test that configures one would otherwise leak into later tests in this
@@ -50,10 +65,17 @@ const HASH_B = 'b'.repeat(64);
 afterEach(() => resetCustomWaveformSelections());
 
 describe('Atomizer high-level measurement source contract', () => {
-  it('runtime-validates the shipped closed contract document', async () => {
-    const source = await readFile(new URL('../contracts/signal-lab-measurement-bridge-v2.json', import.meta.url), 'utf8');
+  it('preserves v2 bytes and runtime-validates the immutable active v3 contract', async () => {
+    const [historicalV2, source] = await Promise.all([
+      readFile(new URL('../contracts/signal-lab-measurement-bridge-v2.json', import.meta.url)),
+      readFile(new URL('../contracts/signal-lab-measurement-bridge-v3.json', import.meta.url), 'utf8'),
+    ]);
+    expect(createHash('sha256').update(historicalV2).digest('hex'))
+      .toBe(HISTORICAL_MEASUREMENT_V2_SHA256);
+    expect(createHash('sha256').update(source, 'utf8').digest('hex'))
+      .toBe(ACTIVE_MEASUREMENT_V3_SHA256);
     const document = measurementBridgeContractDocumentSchema.parse(JSON.parse(source));
-    expect(document.contractVersion).toBe(2);
+    expect(document.contractVersion).toBe(3);
     expect(document.status).toBe('active');
     expect(document.methods.map((method) => method.method)).toEqual([
       'status',
@@ -93,13 +115,15 @@ describe('Atomizer high-level measurement source contract', () => {
       generatorContractBindingSha256: 'sha256-of-utf8-domain-atomizer-in-process-generator-null-followed-by-contract-sha256-not-generator-code-identity',
     });
     expect(document.semantics.detectedPowerTuning).toBe('required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune');
-    expect(document.semantics.complexIqAvailability).toBe('all-42-closed-catalog-profiles-with-native-geometry-for-31-content-bound-artifacts-and-rate-flexible-generation-for-11-analytic-or-builder-profiles');
+    expect(document.semantics.complexIqAvailability).toBe('all-44-closed-catalog-profiles-with-native-geometry-for-31-content-bound-artifacts-and-2-unbounded-compositions-and-rate-flexible-generation-for-11-analytic-or-builder-profiles');
+    expect(document.semantics.complexIqReplay).toBe('every-profile-declares-continuous-cyclic-one-shot-or-unbounded-policy-cyclic-artifacts-declare-and-modularly-wrap-their-native-period-one-shot-limits-are-native-domain-samples-and-unbounded-native-rate-compositions-zero-extend-fir-support-before-session-origin');
     expect(document.semantics.complexIqCentering).toMatch(/output-rf-placement-metadata/);
     expect(document.semantics.complexIqBandwidth).toMatch(/capture-bandwidth-hz.*distinct.*signal-bandwidth/);
     expect(document.semantics.complexIqResampling).toMatch(/native-byte-identity.*blackman-windowed-sinc-v1/);
     expect(document.semantics.complexIqChannel).toMatch(/explicit-post-source-transform/);
     expect(document.semantics.scalarMeasurementQualification).toBe('synthetic-visual-projection-not-a-conformance-vector');
-    expect(document.semantics.complexIqMeasurementQualification).toMatch(/exact-native-bytes.*never-claims-byte-identity-rf-conformance/);
+    expect(document.semantics.complexIqMeasurementQualification)
+      .toMatch(/exact-native-artifact-bytes.*unbounded-compositions.*without-canonical-artifact.*never-claims-byte-identity-rf-conformance/);
     expect(() => measurementBridgeContractDocumentSchema.parse({ ...document, undeclared: true })).toThrow();
     expect(() => measurementBridgeContractDocumentSchema.parse({
       ...document,
@@ -204,6 +228,37 @@ describe('Atomizer high-level measurement source contract', () => {
     })).not.toThrow();
   });
 
+  it('publishes truthful native-rate transport geometry for both unbounded compositions', () => {
+    expect(IQ_PROFILE_TRANSPORTS).toHaveLength(44);
+    expect(IQ_PROFILE_TRANSPORTS.filter(({ replay }) => replay === 'cyclic'
+      || replay === 'one-shot')).toHaveLength(31);
+    expect(IQ_PROFILE_TRANSPORTS.filter(({ replay }) => replay === 'continuous'))
+      .toHaveLength(11);
+    expect(IQ_PROFILE_TRANSPORTS.filter(({ replay }) => replay === 'unbounded'))
+      .toEqual([
+        {
+          profileId: 'bluetooth-classic-connected-longdwell',
+          nativeSampleRateHz: 80_000_000,
+          signalBandwidthHz: 79_000_000,
+          profileReferenceCenterHz: 2_441_000_000,
+          nativeCarrierOffsetHz: 0,
+          nativeMinimumCaptureBandwidthHz: 79_000_000,
+          replay: 'unbounded',
+          derivedTransportSupported: true,
+        },
+        {
+          profileId: 'bluetooth-le-advertising-longdwell',
+          nativeSampleRateHz: 80_000_000,
+          signalBandwidthHz: 80_000_000,
+          profileReferenceCenterHz: 2_441_000_000,
+          nativeCarrierOffsetHz: 0,
+          nativeMinimumCaptureBandwidthHz: 80_000_000,
+          replay: 'unbounded',
+          derivedTransportSupported: true,
+        },
+      ]);
+  });
+
   it('publishes opaque session/configuration identity and changes revisions only through admitted configuration calls', () => {
     const service = deterministicService();
     const initial = measurementSourceStatusSchema.parse(service.status());
@@ -215,6 +270,7 @@ describe('Atomizer high-level measurement source contract', () => {
       sourceKind: 'signal-lab-simulation',
       execution: 'signal-lab-simulation',
       transport: 'signal-lab-measurement-bridge',
+      contractVersion: 3,
       contractSha256: HASH_A,
       generatorContractBindingSha256: HASH_B,
       claims: MEASUREMENT_BRIDGE_CLAIMS,
@@ -584,6 +640,133 @@ describe('Atomizer high-level measurement source contract', () => {
           sourceSamplesSha256: secondSha256,
         });
       }
+    }
+  });
+
+  it('acquires both unbounded compositions at exact native geometry without claiming an artifact', () => {
+    for (const { profile, signalBandwidthHz } of UNBOUNDED_LONG_DWELL_CASES) {
+      const service = deterministicService();
+      service.selectProfile({ profile });
+      const request = {
+        centerHz: 2_441_000_000,
+        sampleRateHz: 80_000_000,
+        captureBandwidthHz: signalBandwidthHz,
+        sampleCount: 257,
+        sampleFormat: 'cf32le' as const,
+      };
+      const measured = service.acquireIq(request);
+      const direct = synthesizeAnalyticComplexIq({
+        profile,
+        sampleRateHz: request.sampleRateHz,
+        bandwidthHz: signalBandwidthHz,
+        sampleCount: request.sampleCount,
+        startSampleIndex: 0,
+      });
+      expect(measured, profile).toMatchObject({
+        profileReferenceCenterHz: 2_441_000_000,
+        nativeSampleRateHz: 80_000_000,
+        signalBandwidthHz,
+        qualification: 'standards-derived-complex-baseband',
+        payloadKind: 'generated-at-output-rate',
+        representation: 'normalized-complex-envelope',
+        normalization: 'unit-peak',
+        canonicalArtifactSha256: null,
+        transformReceipt: {
+          sourceArtifactSha256: null,
+          sourceStartSample: 0,
+          sourceSampleCount: request.sampleCount,
+          sourceBoundaryPolicy: 'continuous-session-origin-zero-extended',
+          sourcePeriodSamples: null,
+          sourceSampleRateHz: 80_000_000,
+          outputSampleRateHz: 80_000_000,
+          operations: [],
+        },
+      });
+      expect(Buffer.from(measured.samplesBase64, 'base64'), profile)
+        .toEqual(Buffer.from(direct));
+      expect(measured.samplesSha256, profile)
+        .toBe(createHash('sha256').update(direct).digest('hex'));
+
+      const splitService = deterministicService();
+      splitService.selectProfile({ profile });
+      const first = splitService.acquireIq({ ...request, sampleCount: 113 });
+      const second = splitService.acquireIq({ ...request, sampleCount: 144 });
+      expect(Buffer.concat([
+        Buffer.from(first.samplesBase64, 'base64'),
+        Buffer.from(second.samplesBase64, 'base64'),
+      ]), profile).toEqual(Buffer.from(measured.samplesBase64, 'base64'));
+      expect(second.transformReceipt).toMatchObject({
+        sourceStartSample: 113,
+        sourceBoundaryPolicy: 'continuous-session-origin-zero-extended',
+      });
+    }
+  });
+
+  it('zero-extends negative FIR preroll and remains byte-continuous across split derived captures', () => {
+    for (const { profile, signalBandwidthHz } of UNBOUNDED_LONG_DWELL_CASES) {
+      const request = {
+        centerHz: 2_441_000_000,
+        sampleRateHz: 100_000_000,
+        captureBandwidthHz: signalBandwidthHz,
+        sampleCount: 257,
+        sampleFormat: 'cf32le' as const,
+      };
+      const wholeService = deterministicService();
+      wholeService.selectProfile({ profile });
+      const whole = wholeService.acquireIq(request);
+      expect(whole, profile).toMatchObject({
+        nativeSampleRateHz: 80_000_000,
+        signalBandwidthHz,
+        qualification: 'standards-derived-complex-baseband',
+        payloadKind: 'derived-hardware-ready',
+        canonicalArtifactSha256: null,
+        transformReceipt: {
+          sourceArtifactSha256: null,
+          sourceBoundaryPolicy: 'continuous-session-origin-zero-extended',
+          sourcePeriodSamples: null,
+          sourceSampleRateHz: 80_000_000,
+          outputSampleRateHz: 100_000_000,
+          outputStartSourceSampleNumerator: '0',
+          outputStartSourceSampleDenominator: '1',
+        },
+      });
+      expect(whole.transformReceipt.sourceStartSample, profile).toBeLessThan(0);
+      expect(whole.transformReceipt.operations.map(({ kind }) => kind), profile)
+        .toEqual(['resample']);
+
+      const source = expectedUnboundedReceiptSource(
+        profile,
+        signalBandwidthHz,
+        whole.transformReceipt.sourceStartSample,
+        whole.transformReceipt.sourceSampleCount,
+      );
+      expect(whole.transformReceipt.sourceSamplesSha256, profile)
+        .toBe(createHash('sha256').update(source).digest('hex'));
+      const expectedOutput = resampleCf32leWindowedSinc({
+        sourceBytes: source,
+        sourceStartSample: whole.transformReceipt.sourceStartSample,
+        outputStartSourceSampleNumerator: 0n,
+        outputStartSourceSampleDenominator: 1n,
+        sourceSampleRateHz: 80_000_000,
+        outputSampleRateHz: request.sampleRateHz,
+        outputSampleCount: request.sampleCount,
+      });
+      expect(Buffer.from(whole.samplesBase64, 'base64'), profile)
+        .toEqual(Buffer.from(expectedOutput));
+
+      const splitService = deterministicService();
+      splitService.selectProfile({ profile });
+      const first = splitService.acquireIq({ ...request, sampleCount: 113 });
+      const second = splitService.acquireIq({ ...request, sampleCount: 144 });
+      expect(Buffer.concat([
+        Buffer.from(first.samplesBase64, 'base64'),
+        Buffer.from(second.samplesBase64, 'base64'),
+      ]), profile).toEqual(Buffer.from(whole.samplesBase64, 'base64'));
+      expect(second.transformReceipt).toMatchObject({
+        sourceBoundaryPolicy: 'continuous-session-origin-zero-extended',
+        outputStartSourceSampleNumerator: '452',
+        outputStartSourceSampleDenominator: '5',
+      });
     }
   });
 
@@ -1527,6 +1710,30 @@ function deepKeys(value: unknown): string[] {
   if (Array.isArray(value)) return value.flatMap(deepKeys);
   if (typeof value !== 'object' || value === null) return [];
   return Object.entries(value).flatMap(([key, nested]) => [key, ...deepKeys(nested)]);
+}
+
+function expectedUnboundedReceiptSource(
+  profile: (typeof UNBOUNDED_LONG_DWELL_CASES)[number]['profile'],
+  signalBandwidthHz: number,
+  sourceStartSample: number,
+  sourceSampleCount: number,
+): Uint8Array {
+  const output = new Uint8Array(sourceSampleCount * COMPLEX_IQ_BYTES_PER_SAMPLE);
+  const generatedStart = Math.max(0, sourceStartSample);
+  const generatedEnd = sourceStartSample + sourceSampleCount;
+  if (generatedStart >= generatedEnd) return output;
+  const generated = synthesizeAnalyticComplexIq({
+    profile,
+    sampleRateHz: 80_000_000,
+    bandwidthHz: signalBandwidthHz,
+    sampleCount: generatedEnd - generatedStart,
+    startSampleIndex: generatedStart,
+  });
+  output.set(
+    generated,
+    (generatedStart - sourceStartSample) * COMPLEX_IQ_BYTES_PER_SAMPLE,
+  );
+  return output;
 }
 
 function synthesizeCyclicReceiptSource(

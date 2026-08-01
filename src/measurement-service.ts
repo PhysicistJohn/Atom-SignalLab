@@ -19,7 +19,7 @@ import {
   isFixedDigitalProfile,
   isUnboundedCompositionProfile,
   unboundedCompositionProfileBinding,
-  type FixedDigitalProfileBinding,
+  type NativeRateProfileBinding,
 } from './fixed-digital-profile-binding.js';
 import {
   applyReceiverImpairmentsToCf32le,
@@ -304,25 +304,25 @@ export class AtomizerMeasurementService {
       request.sampleCount,
       request.sampleRateHz,
     );
-    const fixedBinding = isFixedDigitalProfile(this.#profile)
+    const nativeBinding = isFixedDigitalProfile(this.#profile)
       ? fixedDigitalProfileBinding(this.#profile)
       : isUnboundedCompositionProfile(this.#profile)
         ? unboundedCompositionProfileBinding(this.#profile)
         : undefined;
-    const oneShotReplay = fixedBinding?.replay === 'one-shot';
+    const oneShotReplay = nativeBinding?.replay === 'one-shot';
     if (oneShotReplay && !oneShotOutputFits(
-      fixedBinding.captureSamples!,
-      fixedBinding.nativeSampleRateHz,
+      nativeBinding.captureSamples,
+      nativeBinding.nativeSampleRateHz,
       request.sampleCount,
       request.sampleRateHz,
     )) {
       const maximumOutputSamples = Math.floor(
-        fixedBinding.captureSamples! * request.sampleRateHz
-        / fixedBinding.nativeSampleRateHz,
+        nativeBinding.captureSamples * request.sampleRateHz
+        / nativeBinding.nativeSampleRateHz,
       );
       throw new RangeError(
         `${this.#profile} one-shot artifact contains `
-        + `${fixedBinding.captureSamples} native samples, permitting at most `
+        + `${nativeBinding.captureSamples} native samples, permitting at most `
         + `${maximumOutputSamples} output samples at ${request.sampleRateHz} samples/s`,
       );
     }
@@ -331,14 +331,14 @@ export class AtomizerMeasurementService {
     const receiverImpairment = this.#channel.receiverImpairment;
     const generatorBasis = complexIqGeneratorBasis(this.#profile);
     const descriptor = this.#liveDescriptor(this.#profile);
-    const profileReferenceCenterHz = fixedBinding?.profileReferenceCenterHz
+    const profileReferenceCenterHz = nativeBinding?.profileReferenceCenterHz
       ?? descriptor.centerHz;
-    const nativeSampleRateHz = fixedBinding?.nativeSampleRateHz
+    const nativeSampleRateHz = nativeBinding?.nativeSampleRateHz
       ?? request.sampleRateHz;
-    const signalBandwidthHz = fixedBinding?.signalBandwidthHz
+    const signalBandwidthHz = nativeBinding?.signalBandwidthHz
       ?? descriptor.occupiedBandwidthHz;
     const minimumLosslessDerivedRateHz = Math.ceil(signalBandwidthHz / 0.95);
-    if (fixedBinding === undefined && request.sampleRateHz < signalBandwidthHz) {
+    if (nativeBinding === undefined && request.sampleRateHz < signalBandwidthHz) {
       throw new RangeError(
         `${this.#profile} output sample rate must be at least its declared `
         + `${signalBandwidthHz} Hz signal bandwidth`,
@@ -367,7 +367,7 @@ export class AtomizerMeasurementService {
       BigInt(nativeCursor.coordinateDenominator);
     const integerNativePhase = nativeCursor.integerPosition !== undefined;
     const nativeRfTuneCenterHz = request.centerHz
-      - (fixedBinding?.nativeCarrierOffsetHz ?? 0);
+      - (nativeBinding?.nativeCarrierOffsetHz ?? 0);
     const nativeRfTuneCenterAdmitted =
       nativeRfTuneCenterHz >= MIN_MEASUREMENT_FREQUENCY_HZ
       && nativeRfTuneCenterHz <= MAX_MEASUREMENT_FREQUENCY_HZ;
@@ -378,17 +378,17 @@ export class AtomizerMeasurementService {
     // translates the carrier to DC and records a frequency-translate receipt.
     // Zero-offset artifacts reduce to the signal-bandwidth floor already
     // enforced above, so this only constrains offset profiles (Bluetooth).
-    const nativeMinimumCaptureBandwidthHz = fixedBinding === undefined
+    const nativeMinimumCaptureBandwidthHz = nativeBinding === undefined
       ? signalBandwidthHz
-      : 2 * Math.abs(fixedBinding.nativeCarrierOffsetHz) + signalBandwidthHz;
+      : 2 * Math.abs(nativeBinding.nativeCarrierOffsetHz) + signalBandwidthHz;
     const nativeOffsetSpanCaptured =
       request.captureBandwidthHz >= nativeMinimumCaptureBandwidthHz;
-    const exactNative = fixedBinding !== undefined
+    const exactNative = nativeBinding !== undefined
       && request.sampleRateHz === nativeSampleRateHz
       && integerNativePhase
       && nativeRfTuneCenterAdmitted
       && nativeOffsetSpanCaptured;
-    if (fixedBinding !== undefined
+    if (nativeBinding !== undefined
       && !exactNative
       && request.sampleRateHz < nativeSampleRateHz
       && request.sampleRateHz < minimumLosslessDerivedRateHz) {
@@ -434,7 +434,7 @@ export class AtomizerMeasurementService {
         }
     > = [];
 
-    if (fixedBinding === undefined) {
+    if (nativeBinding === undefined) {
       if (integerNativePhase) {
         sourceStartSample = nativeCursor.integerPosition!;
         sourceSamples = synthesizeFlexibleNativeWindow(
@@ -484,9 +484,9 @@ export class AtomizerMeasurementService {
       }
     } else if (exactNative) {
       sourceStartSample = nativeCursor.integerPosition!;
-      sourceSamples = synthesizeFixedNativeWindow(
+      sourceSamples = synthesizeNativeRateWindow(
         this.#profile,
-        fixedBinding,
+        nativeBinding,
         sourceStartSample,
         request.sampleCount,
       );
@@ -508,26 +508,26 @@ export class AtomizerMeasurementService {
       const sourceSampleCount = support === undefined
         ? request.sampleCount
         : support.sourceEndSample - support.sourceStartSample + 1;
-      sourceSamples = synthesizeFixedNativeWindow(
+      sourceSamples = synthesizeNativeRateWindow(
         this.#profile,
-        fixedBinding,
+        nativeBinding,
         sourceStartSample,
         sourceSampleCount,
       );
-      const resamplerSource = fixedBinding.nativeCarrierOffsetHz === 0
+      const resamplerSource = nativeBinding.nativeCarrierOffsetHz === 0
         ? sourceSamples
         : translateCf32leCarrier({
             sourceBytes: sourceSamples,
             sourceStartSample,
             sampleRateHz: nativeSampleRateHz,
-            sourceCarrierOffsetHz: fixedBinding.nativeCarrierOffsetHz,
+            sourceCarrierOffsetHz: nativeBinding.nativeCarrierOffsetHz,
             outputCarrierOffsetHz: 0,
           });
-      if (fixedBinding.nativeCarrierOffsetHz !== 0) {
+      if (nativeBinding.nativeCarrierOffsetHz !== 0) {
         operations.push({
           kind: 'frequency-translate',
           algorithm: 'complex-rotator-v1',
-          sourceCarrierOffsetHz: fixedBinding.nativeCarrierOffsetHz,
+          sourceCarrierOffsetHz: nativeBinding.nativeCarrierOffsetHz,
           outputCarrierOffsetHz: 0,
         });
       }
@@ -590,11 +590,12 @@ export class AtomizerMeasurementService {
     );
     const sourceSamplesSha256 = sha256HexOfBytes(sourceBytes);
     const samplesSha256 = sha256HexOfBytes(samplesBytes);
-    const outputCarrierOffsetHz = fixedBinding === undefined
+    const outputCarrierOffsetHz = nativeBinding === undefined
       ? 0
       : exactNative
-        ? fixedBinding.nativeCarrierOffsetHz
+        ? nativeBinding.nativeCarrierOffsetHz
         : 0;
+    const canonicalArtifactSha256 = descriptor.assetSha256 ?? null;
     const cleanContentBound = receiverImpairment === 'clean'
       && generatorBasis === 'content-bound-digital-baseband'
       && exactNative;
@@ -619,13 +620,13 @@ export class AtomizerMeasurementService {
       kind: 'complex-iq',
       centerHz: request.centerHz,
       profileReferenceCenterHz,
-      rfReferenceCenterHz: fixedBinding === undefined
+      rfReferenceCenterHz: nativeBinding === undefined
         ? profileReferenceCenterHz
-        : profileReferenceCenterHz - fixedBinding.nativeCarrierOffsetHz,
+        : profileReferenceCenterHz - nativeBinding.nativeCarrierOffsetHz,
       rfPlacement: request.centerHz === profileReferenceCenterHz
         ? 'profile-reference'
         : 'operator-translated',
-      nativeCarrierOffsetHz: fixedBinding?.nativeCarrierOffsetHz ?? 0,
+      nativeCarrierOffsetHz: nativeBinding?.nativeCarrierOffsetHz ?? 0,
       outputCarrierOffsetHz,
       rfTuneCenterHz: request.centerHz - outputCarrierOffsetHz,
       sampleRateHz: request.sampleRateHz,
@@ -644,7 +645,8 @@ export class AtomizerMeasurementService {
       qualification,
       payloadKind: receiverImpairment !== 'clean'
         ? 'receiver-impaired-derived'
-        : fixedBinding === undefined
+        : nativeBinding === undefined
+          || (nativeBinding.replay === 'unbounded' && exactNative)
           ? 'generated-at-output-rate'
           : exactNative
             ? 'native-canonical'
@@ -661,31 +663,26 @@ export class AtomizerMeasurementService {
           : 'peak-to-0.98',
       receiverImpairment,
       channelApplication: receiverImpairment === 'clean' ? 'not-applied' : 'receiver-impairment-preset',
-      canonicalArtifactSha256: fixedBinding === undefined
-        ? null
-        : descriptor.assetSha256 ?? null,
+      canonicalArtifactSha256,
       transformReceipt: {
         receiptVersion: 1,
-        sourceArtifactSha256: fixedBinding === undefined
-          ? null
-          : descriptor.assetSha256 ?? null,
+        sourceArtifactSha256: canonicalArtifactSha256,
         sourceStartSample,
         sourceSampleCount: sourceSamples.byteLength / 8,
-        sourceBoundaryPolicy: fixedBinding === undefined
+        sourceBoundaryPolicy: nativeBinding === undefined
+          || nativeBinding.replay === 'unbounded'
           ? 'continuous-session-origin-zero-extended'
-          : fixedBinding.replay === 'cyclic'
+          : nativeBinding.replay === 'cyclic'
             ? 'cyclic-modular'
-            : fixedBinding.replay === 'unbounded'
-              ? 'unbounded-direct'
-              : 'one-shot-zero-extended',
-        sourcePeriodSamples: fixedBinding?.replay === 'cyclic'
-          ? fixedBinding.nativePeriodSamples!
+            : 'one-shot-zero-extended',
+        sourcePeriodSamples: nativeBinding?.replay === 'cyclic'
+          ? nativeBinding.nativePeriodSamples
           : null,
         outputStartSourceSampleNumerator: nativeCursor.coordinateNumerator,
         outputStartSourceSampleDenominator: nativeCursor.coordinateDenominator,
         sourceSampleRateHz: nativeSampleRateHz,
         outputSampleRateHz: request.sampleRateHz,
-        sourceCarrierOffsetHz: fixedBinding?.nativeCarrierOffsetHz ?? 0,
+        sourceCarrierOffsetHz: nativeBinding?.nativeCarrierOffsetHz ?? 0,
         outputCarrierOffsetHz,
         outputSampleCount: request.sampleCount,
         sourceSamplesSha256,
@@ -849,9 +846,9 @@ function sha256Hex(value: string): string {
 
 const MAX_DERIVED_SOURCE_SUPPORT_SAMPLES = 8_388_608;
 
-function synthesizeFixedNativeWindow(
+function synthesizeNativeRateWindow(
   profile: SynthesizedSignalProfile,
-  binding: FixedDigitalProfileBinding,
+  binding: NativeRateProfileBinding,
   sourceStartSample: number,
   sourceSampleCount: number,
 ): Uint8Array {
@@ -870,7 +867,7 @@ function synthesizeFixedNativeWindow(
   }
   const output = new Uint8Array(sourceSampleCount * 8);
   if (binding.replay === 'cyclic') {
-    const periodSamples = binding.nativePeriodSamples!;
+    const periodSamples = binding.nativePeriodSamples;
     let generated = 0;
     while (generated < sourceSampleCount) {
       const wrappedStart = positiveModulo(
@@ -896,17 +893,21 @@ function synthesizeFixedNativeWindow(
   }
 
   if (binding.replay === 'unbounded') {
-    let generated = 0;
-    while (generated < sourceSampleCount) {
-      const chunkSamples = Math.min(65_536, sourceSampleCount - generated);
+    // The session timeline begins at native sample zero. A derived first
+    // capture needs negative FIR preroll, which is explicit zero extension;
+    // positive time remains an unbounded generated timeline.
+    let generated = Math.max(0, sourceStartSample);
+    const availableEnd = sourceStartSample + sourceSampleCount;
+    while (generated < availableEnd) {
+      const chunkSamples = Math.min(65_536, availableEnd - generated);
       const chunk = synthesizeAnalyticComplexIq({
         profile,
         sampleRateHz: binding.nativeSampleRateHz,
         bandwidthHz: binding.signalBandwidthHz,
         sampleCount: chunkSamples,
-        startSampleIndex: sourceStartSample + generated,
+        startSampleIndex: generated,
       });
-      output.set(chunk, generated * 8);
+      output.set(chunk, (generated - sourceStartSample) * 8);
       generated += chunkSamples;
     }
     return output;
@@ -914,7 +915,7 @@ function synthesizeFixedNativeWindow(
 
   const availableStart = Math.max(0, sourceStartSample);
   const availableEnd = Math.min(
-    binding.captureSamples!,
+    binding.captureSamples,
     sourceStartSample + sourceSampleCount,
   );
   let generated = availableStart;
