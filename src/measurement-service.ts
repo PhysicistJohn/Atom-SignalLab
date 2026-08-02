@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { bytesToBase64, sha256HexOfBytes } from './platform-bytes.js';
+import { applyChannelToCf32le } from './channel-application.js';
 import {
   MAX_MEASUREMENT_FREQUENCY_HZ,
   MIN_MEASUREMENT_FREQUENCY_HZ,
@@ -564,13 +565,30 @@ export class AtomizerMeasurementService {
       }
     }
 
+    // The propagation channel is the medium, so it runs on the transmit
+    // source and before the receiver's own front-end preset. Only the
+    // closed-form analytic stimuli take it: the standards-linked catalog
+    // members are content-addressed digital baseband whose bytes are bound by
+    // SHA-256, and a channel applied to those would break that binding.
+    const channelApplied = generatorBasis === 'analytic-laboratory';
+    const channelSamples = channelApplied
+      ? applyChannelToCf32le(
+          cleanSamples,
+          this.#channel,
+          request.sampleRateHz,
+          sourceStartSample,
+        )
+      : cleanSamples;
+    // NOTE: `channelApplication` and the operations union are both pinned by
+    // the v3 bridge contract, so the channel is not yet disclosed in the
+    // receipt. Surfacing it needs a contract version bump on both sides.
     const impairmentSeed = (
       this.#channel.seed ^ Math.imul(sequence, 0x9e37_79b1)
     ) >>> 0;
     const samples = receiverImpairment === 'clean'
-      ? cleanSamples
+      ? channelSamples
       : applyReceiverImpairmentsToCf32le(
-          cleanSamples,
+          channelSamples,
           receiverImpairmentsForPreset(receiverImpairment, request.sampleRateHz),
           impairmentSeed,
         );

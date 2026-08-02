@@ -40,7 +40,25 @@ import {
   resampleCf32leWindowedSinc,
   translateCf32leCarrier,
 } from './iq-resampler.js';
-import { waveformDescriptor } from './waveforms.js';
+import { DEFAULT_REPLAY_CHANNEL, waveformDescriptor } from './waveforms.js';
+import { applyChannelToCf32le } from './channel-application.js';
+import type { ReplayChannelConfiguration } from './contracts.js';
+
+/**
+ * A capture is the source carried through the propagation channel, so an
+ * expectation built from the raw generator has to travel the same path.
+ * Keying stays on the absolute sample coordinate, which is exactly what these
+ * cursor-continuity assertions are pinning.
+ */
+function throughChannel(
+  source: Uint8Array,
+  sampleRateHz: number,
+  startSampleIndex: number,
+  channel: ReplayChannelConfiguration = DEFAULT_REPLAY_CHANNEL,
+): Buffer {
+  const applied = applyChannelToCf32le(source, channel, sampleRateHz, startSampleIndex);
+  return Buffer.from(applied.buffer, applied.byteOffset, applied.byteLength);
+}
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
@@ -795,11 +813,9 @@ describe('Atomizer high-level measurement source contract', () => {
       sampleCount: request256.sampleCount,
       startSampleIndex: 1_024,
     });
-    expect(Buffer.from(continued.samplesBase64, 'base64')).toEqual(Buffer.from(
-      expectedContinued.buffer,
-      expectedContinued.byteOffset,
-      expectedContinued.byteLength,
-    ));
+    expect(Buffer.from(continued.samplesBase64, 'base64')).toEqual(
+      throughChannel(expectedContinued, request256.sampleRateHz, 1_024),
+    );
 
     service.selectProfile({ profile: 'fm' });
     const reset = service.acquireIq(request256);
@@ -810,11 +826,9 @@ describe('Atomizer high-level measurement source contract', () => {
       sampleCount: request256.sampleCount,
       startSampleIndex: 0,
     });
-    expect(Buffer.from(reset.samplesBase64, 'base64')).toEqual(Buffer.from(
-      expectedReset.buffer,
-      expectedReset.byteOffset,
-      expectedReset.byteLength,
-    ));
+    expect(Buffer.from(reset.samplesBase64, 'base64')).toEqual(
+      throughChannel(expectedReset, request256.sampleRateHz, 0),
+    );
   });
 
   it('makes every continuous profile byte-identical when captured whole or split', {
@@ -1242,11 +1256,9 @@ describe('Atomizer high-level measurement source contract', () => {
       startSampleIndex: 12_345,
     });
     expect(continuedIq.sequence).toBe(10_002);
-    expect(Buffer.from(continuedIq.samplesBase64, 'base64')).toEqual(Buffer.from(
-      expectedIq.buffer,
-      expectedIq.byteOffset,
-      expectedIq.byteLength,
-    ));
+    expect(Buffer.from(continuedIq.samplesBase64, 'base64')).toEqual(
+      throughChannel(expectedIq, 2_000_000, 12_345, continuation.channel),
+    );
     expect(() => new AtomizerMeasurementService(
       { contractSha256: HASH_A, generatorContractBindingSha256: HASH_B },
       {
