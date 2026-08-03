@@ -24,6 +24,19 @@ import type { ReplayChannelConfiguration } from './contracts.js';
  * and a split capture concatenates to the same bytes as the whole -- the same
  * contract the source generators hold themselves to.
  */
+/**
+ * Transform size the processing-gain compensation is referenced to, matching
+ * the bound the Atomizer host-derived spectrum uses.
+ *
+ * Deliberately a constant rather than a function of the capture length. Noise
+ * scaled from the sample count would make a split capture differ from the
+ * whole, breaking the byte-identity contract this generator holds. A capture
+ * shorter than this reference analyses on a smaller transform and so displays
+ * its floor slightly high; captures at or above it -- every live acquisition
+ * path -- land on the configured value.
+ */
+const REFERENCE_ANALYSIS_TRANSFORM_SIZE = 4_096;
+
 export function applyChannelToCf32le(
   bytes: Uint8Array,
   channel: ReplayChannelConfiguration,
@@ -47,7 +60,18 @@ export function applyChannelToCf32le(
   const source = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const output = new Uint8Array(bytes.byteLength);
   const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
-  const deviation = noiseStandardDeviation({ noiseFloorDbm: channel.noiseFloorDbm });
+  // `noiseFloorDbm` is the level an analyzer should *display*, which is how
+  // the scalar-sweep generator already reads it -- it adds the value straight
+  // into the per-point floor it emits. Complex I/Q has no analysis geometry of
+  // its own, so honour the same meaning by pre-compensating the processing
+  // gain a periodogram applies: for white noise of total power P spread over
+  // an N-point transform, each bin lands at P/N. Injecting P = floor + 10
+  // log10(N) therefore makes the displayed bin read the configured floor.
+  // Without this the two paths disagree by ~36 dB on the same number.
+  const deviation = noiseStandardDeviation({
+    noiseFloorDbm: channel.noiseFloorDbm
+      + 10 * Math.log10(REFERENCE_ANALYSIS_TRANSFORM_SIZE),
+  });
   // `rayleigh` selects flat (frequency-flat) fading across the capture
   // bandwidth, with `fadingRateHz` as the maximum Doppler shift. Tapped
   // delay-line multipath lives in @atomos/dsp and needs source access at
