@@ -3,6 +3,7 @@ import {
   BLUETOOTH_LONG_DWELL_MAX_SAMPLES_PER_CALL,
   BLUETOOTH_LONG_DWELL_SAMPLE_RATE_HZ,
   BLUETOOTH_LONG_DWELL_SPAN_HZ,
+  firstActiveClassicSlotSample,
   isBluetoothLongDwellProfile,
   synthesizeBluetoothLongDwellIq,
   type BluetoothLongDwellProfile,
@@ -10,7 +11,6 @@ import {
 import { synthesizeAnalyticComplexIq } from './complex-iq.js';
 
 const FS = BLUETOOTH_LONG_DWELL_SAMPLE_RATE_HZ;
-const SPAN = BLUETOOTH_LONG_DWELL_SPAN_HZ;
 const BR_SLOT = 50_000;
 const LE_PERIOD = 2_400_000;
 
@@ -22,7 +22,7 @@ function synth(
   const bytes = synthesizeBluetoothLongDwellIq({
     profile,
     sampleRateHz: FS,
-    bandwidthHz: SPAN,
+    bandwidthHz: BLUETOOTH_LONG_DWELL_SPAN_HZ[profile],
     sampleCount,
     startSampleIndex,
   });
@@ -68,6 +68,14 @@ describe('bluetooth long-dwell synthesis', () => {
     expect(isBluetoothLongDwellProfile('bluetooth-classic-connected-longdwell')).toBe(true);
     expect(isBluetoothLongDwellProfile('bluetooth-le-advertising-longdwell')).toBe(true);
     expect(isBluetoothLongDwellProfile('bluetooth-classic-connected')).toBe(false);
+  });
+
+  it('keeps Classic and LE aggregate signal spans distinct', () => {
+    expect(BLUETOOTH_LONG_DWELL_SPAN_HZ).toEqual({
+      'bluetooth-classic-connected-longdwell': 79_000_000,
+      'bluetooth-le-advertising-longdwell': 80_000_000,
+    });
+    expect(firstActiveClassicSlotSample()).toBe(0);
   });
 
   it('is deterministic call-to-call', () => {
@@ -212,14 +220,20 @@ describe('bluetooth long-dwell synthesis', () => {
     const bytes = synthesizeAnalyticComplexIq({
       profile: 'bluetooth-classic-connected-longdwell',
       sampleRateHz: FS,
-      bandwidthHz: SPAN,
+      bandwidthHz:
+        BLUETOOTH_LONG_DWELL_SPAN_HZ[
+          'bluetooth-classic-connected-longdwell'
+        ],
       sampleCount: 4_096,
       startSampleIndex: 0,
     });
     const direct = synthesizeBluetoothLongDwellIq({
       profile: 'bluetooth-classic-connected-longdwell',
       sampleRateHz: FS,
-      bandwidthHz: SPAN,
+      bandwidthHz:
+        BLUETOOTH_LONG_DWELL_SPAN_HZ[
+          'bluetooth-classic-connected-longdwell'
+        ],
       sampleCount: 4_096,
       startSampleIndex: 0,
     });
@@ -230,12 +244,22 @@ describe('bluetooth long-dwell synthesis', () => {
     const good = {
       profile: 'bluetooth-classic-connected-longdwell' as const,
       sampleRateHz: FS,
-      bandwidthHz: SPAN,
+      bandwidthHz:
+        BLUETOOTH_LONG_DWELL_SPAN_HZ[
+          'bluetooth-classic-connected-longdwell'
+        ],
       sampleCount: 1_024,
       startSampleIndex: 0,
     };
     expect(() => synthesizeBluetoothLongDwellIq({ ...good, sampleRateHz: FS + 1 })).toThrow(RangeError);
-    expect(() => synthesizeBluetoothLongDwellIq({ ...good, bandwidthHz: SPAN - 1 })).toThrow(RangeError);
+    expect(() => synthesizeBluetoothLongDwellIq({
+      ...good,
+      bandwidthHz: good.bandwidthHz - 1,
+    })).toThrow(RangeError);
+    expect(() => synthesizeBluetoothLongDwellIq({
+      ...good,
+      profile: 'bluetooth-le-advertising-longdwell',
+    })).toThrow(/80000000/);
     expect(() => synthesizeBluetoothLongDwellIq({ ...good, sampleCount: 0 })).toThrow(RangeError);
     expect(() => synthesizeBluetoothLongDwellIq({
       ...good,

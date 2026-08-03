@@ -24,10 +24,12 @@ import { waveformCatalog } from './catalog.js';
 import {
   fixedDigitalProfileBinding,
   isFixedDigitalProfile,
+  isUnboundedCompositionProfile,
+  unboundedCompositionProfileBinding,
 } from './fixed-digital-profile-binding.js';
 
 export const ATOMIZER_MEASUREMENT_CONTRACT_ID = 'tinysa-signal-lab-atomizer-measurement' as const;
-export const ATOMIZER_MEASUREMENT_CONTRACT_VERSION = 2 as const;
+export const ATOMIZER_MEASUREMENT_CONTRACT_VERSION = 3 as const;
 export const ATOMIZER_MEASUREMENT_PROTOCOL = 'signal-lab-measurement-bridge' as const;
 
 export { MAX_MEASUREMENT_FREQUENCY_HZ } from './contracts.js';
@@ -120,7 +122,7 @@ export const iqProfileTransportSchema = z.object({
   profileId: synthesizedSignalProfileSchema,
   /**
    * Null means the profile is generated directly at the requested transport
-   * rate and has no immutable native-rate artifact.
+   * rate and has no fixed native-rate source geometry.
    */
   nativeSampleRateHz: z.number().safe().int().positive().nullable(),
   signalBandwidthHz: z.number().safe().int().positive(),
@@ -165,7 +167,7 @@ export const iqProfileTransportSchema = z.object({
     context.addIssue({
       code: 'custom',
       path: ['derivedTransportSupported'],
-      message: 'A rate-flexible generator has no native artifact to derive',
+      message: 'A rate-flexible generator has no native-rate source to derive',
     });
   }
   if (profile.nativeSampleRateHz === null && profile.nativeCarrierOffsetHz !== 0) {
@@ -236,7 +238,12 @@ export function iqProfileTransportsForCatalog(
     }
   }
   return Object.freeze(admittedCatalog.map((descriptor) => {
-    if (!isFixedDigitalProfile(descriptor.id)) {
+    const binding = isFixedDigitalProfile(descriptor.id)
+      ? fixedDigitalProfileBinding(descriptor.id)
+      : isUnboundedCompositionProfile(descriptor.id)
+        ? unboundedCompositionProfileBinding(descriptor.id)
+        : undefined;
+    if (binding === undefined) {
       return iqProfileTransportSchema.parse({
         profileId: descriptor.id,
         nativeSampleRateHz: null,
@@ -248,7 +255,6 @@ export function iqProfileTransportsForCatalog(
         derivedTransportSupported: false,
       });
     }
-    const binding = fixedDigitalProfileBinding(descriptor.id);
     return iqProfileTransportSchema.parse({
       profileId: descriptor.id,
       nativeSampleRateHz: binding.nativeSampleRateHz,
@@ -260,7 +266,9 @@ export function iqProfileTransportsForCatalog(
       replay: binding.replay,
       ...binding.replay === 'one-shot'
         ? { maxOneShotSamples: binding.captureSamples }
-        : { nativePeriodSamples: binding.nativePeriodSamples },
+        : binding.replay === 'cyclic'
+          ? { nativePeriodSamples: binding.nativePeriodSamples }
+          : {},
       derivedTransportSupported: true,
     });
   }));
@@ -935,7 +943,8 @@ export const complexIqMeasurementSchema = measurementCorrelationBaseSchema.exten
     });
   }
   if (measurement.payloadKind === 'native-canonical' && (
-    measurement.transformReceipt.operations.length !== 0
+    measurement.canonicalArtifactSha256 === null
+    || measurement.transformReceipt.operations.length !== 0
     || measurement.transformReceipt.sourceSamplesSha256 !== measurement.samplesSha256
     || measurement.transformReceipt.outputSamplesSha256 !== measurement.samplesSha256
     || measurement.nativeCarrierOffsetHz !== measurement.outputCarrierOffsetHz
@@ -943,7 +952,7 @@ export const complexIqMeasurementSchema = measurementCorrelationBaseSchema.exten
     context.addIssue({
       code: 'custom',
       path: ['payloadKind'],
-      message: 'Native-canonical payloads require identical source/output bytes, offsets, and no operations',
+      message: 'Native-canonical payloads require an artifact identity, identical source/output bytes, offsets, and no operations',
     });
   }
   if (measurement.payloadKind === 'derived-hardware-ready' && (
@@ -1182,11 +1191,11 @@ export const measurementBridgeContractDocumentSchema = z.object({
     complexIqResampling: z.literal('native-byte-identity-is-preserved-when-rate-phase-and-tune-admit-it-blackman-windowed-sinc-v1-preserves-source-nyquist-at-equal-or-upsampled-rates-and-uses-95-percent-output-nyquist-only-when-downsampling-with-an-explicit-transform-receipt'),
     complexIqFlexibleGeneration: z.literal('rate-flexible-generators-use-profile-signal-bandwidth-as-an-intrinsic-source-parameter-and-preserve-exact-elapsed-time-across-rate-changes-with-an-explicit-same-rate-fractional-delay'),
     complexIqFrequencyPlacement: z.literal('native-carrier-offset-profile-signal-center-canonical-rf-reference-output-carrier-offset-and-output-rf-tune-center-are-distinct-and-every-frequency-translation-precedes-resampling-in-the-receipt'),
-    complexIqChannel: z.literal('receiver-impairment-is-required-in-every-v2-channel-configuration-with-clean-explicit-and-every-non-clean-seeded-preset-an-explicit-post-source-transform-declared-on-the-result'),
-    complexIqAvailability: z.literal('all-42-closed-catalog-profiles-with-native-geometry-for-31-content-bound-artifacts-and-rate-flexible-generation-for-11-analytic-or-builder-profiles'),
-    complexIqReplay: z.literal('every-profile-declares-continuous-cyclic-or-one-shot-policy-cyclic-artifacts-declare-and-modularly-wrap-their-native-period-and-one-shot-limits-are-native-domain-samples-with-zero-extension-only-for-fir-support'),
+    complexIqChannel: z.literal('receiver-impairment-is-required-in-every-v3-channel-configuration-with-clean-explicit-and-every-non-clean-seeded-preset-an-explicit-post-source-transform-declared-on-the-result'),
+    complexIqAvailability: z.literal('all-44-closed-catalog-profiles-with-native-geometry-for-31-content-bound-artifacts-and-2-unbounded-compositions-and-rate-flexible-generation-for-11-analytic-or-builder-profiles'),
+    complexIqReplay: z.literal('every-profile-declares-continuous-cyclic-one-shot-or-unbounded-policy-cyclic-artifacts-declare-and-modularly-wrap-their-native-period-one-shot-limits-are-native-domain-samples-and-unbounded-native-rate-compositions-zero-extend-fir-support-before-session-origin'),
     scalarMeasurementQualification: z.literal('synthetic-visual-projection-not-a-conformance-vector'),
-    complexIqMeasurementQualification: z.literal('independent-digital-qualification-applies-only-to-exact-native-bytes-derived-output-retains-lineage-but-never-claims-byte-identity-rf-conformance-or-product-certification'),
+    complexIqMeasurementQualification: z.literal('independent-digital-qualification-applies-only-to-exact-native-artifact-bytes-unbounded-compositions-remain-standards-derived-without-canonical-artifact-and-derived-output-never-claims-byte-identity-rf-conformance-or-product-certification'),
   }).strict(),
   identityHashes: z.object({
     contractSha256: z.literal('sha256-of-utf8-json-stringify-of-the-imported-parsed-contract-document'),

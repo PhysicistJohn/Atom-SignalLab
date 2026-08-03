@@ -3,10 +3,10 @@
 Status: active standalone application and Atomizer measurement producer
 
 - Standalone API version: `2`
-- Atomizer measurement contract version: `2`
+- Atomizer measurement contract version: `3`
 - Stimulus-intent version: `1`
 
-Trio composition: [`trio-composition-v5.json`](./contracts/trio-composition-v5.json)
+Trio composition: [`trio-composition-v7.json`](./contracts/trio-composition-v7.json)
 
 Owner: this repository
 
@@ -18,7 +18,7 @@ The public source boundary is `src/contracts.ts`:
 
 - `SignalLabApi.version = 2`; only the `signal-lab:*:v2` IPC namespace is active.
 - `status()` returns immutable current state.
-- `select(profile)` accepts one of exactly 42 profile IDs.
+- `select(profile)` accepts one of exactly 44 profile IDs.
 - `configureChannel(config)` accepts the closed AWGN/Rayleigh scalar schema plus one required receiver-I/Q preset (`clean`, `awgn`, `multipath`, `carrier-offset`, `phase-noise`, `iq-imbalance`, `dc-offset`, `pa-compression`, or `composite`). Version 2 has no implicit or legacy clean state.
 - `subscribe(listener)` delivers status changes and returns explicit unsubscription.
 - `SignalLabStimulusIntent` remains independently versioned at 1 and reserved for a future Firmware-owned sink.
@@ -41,23 +41,23 @@ the view cannot mutate either repository directly.
 
 ## Atomizer measurement boundary
 
-Atomizer's `signal-lab` driver imports `AtomizerMeasurementService` (`src/measurement-service.ts`) and runs it in process, in both the desktop and browser editions. [`contracts/signal-lab-measurement-bridge-v2.json`](./contracts/signal-lab-measurement-bridge-v2.json) is the only active measurement contract. The v1 NDJSON/subprocess contract remains immutable historical evidence and is not an accepted compatibility mode. The producer is platform neutral: `src/platform-bytes.ts` supplies pure-JS SHA-256 and base64 that are byte-identical to `node:crypto`, including across JavaScript realms. The service is never a byte transport or TinySA protocol peer.
+Atomizer's `signal-lab` driver imports `AtomizerMeasurementService` (`src/measurement-service.ts`) and runs it in process, in both the desktop and browser editions. [`contracts/signal-lab-measurement-bridge-v3.json`](./contracts/signal-lab-measurement-bridge-v3.json) is the only active measurement contract. The v1 NDJSON/subprocess and v2 bridge contracts remain immutable historical evidence and are not accepted compatibility modes. The producer is platform neutral: `src/platform-bytes.ts` supplies pure-JS SHA-256 and base64 that are byte-identical to `node:crypto`, including across JavaScript realms. The service is never a byte transport or TinySA protocol peer.
 
 The in-process boundary is closed and bounded:
 
-- Construction binds measurement contract version 2, the exact parsed-contract SHA-256, the immutable all-auto default catalog SHA-256, and `generatorContractBindingSha256`. The last value is SHA-256 of the declared in-process-generator domain, one NUL byte, and the contract hash; it is a contract binding, not generator code identity. Per-session custom builder selections are configuration state and deliberately do not move the catalog identity hash; they surface through the configuration revision and `status()` instead.
+- Construction binds measurement contract version 3, the exact parsed-contract SHA-256, the immutable all-auto default catalog SHA-256, and `generatorContractBindingSha256`. The last value is SHA-256 of the declared in-process-generator domain, one NUL byte, and the contract hash; it is a contract binding, not generator code identity. Per-session custom builder selections are configuration state and deliberately do not move the catalog identity hash; they surface through the configuration revision and `status()` instead.
 - Claims are always `usbEmulated=false`, `firmwareExecuted=false`, and `rfEmitted=false`.
 - The API is direct TypeScript only: `status`, `selectProfile`, `configureChannel`, `configureCustomWaveform`, `acquireSpectrum`, `acquireDetectedPower`, `acquireIq`, and `shutdown`. There is no `dispatch` entry point and no wire-shaped request envelope; data-bearing methods parse strict direct input schemas, and a legacy envelope is rejected rather than adapted. `shutdown` closes the service; every later call rejects with `SERVICE_CLOSED`.
 - Every input and result is schema validated. Invalid input rejects before any state change; nothing is coerced, truncated, or substituted.
 - Point counts, frequencies, sample periods, sample counts, and payload sizes are hard bounded.
 - Detected-power capability declares `minimumFrequencyHz=1`, `maximumFrequencyHz=17922600000`, `frequencyStepHz=1`, and `frequencyUnit=Hz`. Every request supplies one safe-integer `centerFrequencyHz` in that range, synthesis is receiver-filtered at that exact tune, and the result returns the same integer exactly.
 - Swept-spectrum and detected-power measurements are complete, finite, unit-declared, qualified `synthetic-visual-projection`, and bound to an opaque session/configuration revision and monotonic sequence.
-- Complex-I/Q capability covers all 42 closed catalog profiles. `acquireIq` accepts safe-integer `centerHz` from 1 through 17,922,600,000, output `sampleRateHz` from 1,000,000 through 245,760,000, `captureBandwidthHz` from 1,000 through 245,760,000 with `captureBandwidthHz <= sampleRateHz`, and `sampleCount` from 1 through 65,536. Capture bandwidth must contain the separately declared profile `signalBandwidthHz`; it is an output setting and never an undeclared filter. `sampleFormat=cf32le` is required.
-- The ordered `iqProfiles` capability declares, per profile, digital-envelope reference center, native carrier offset, signal bandwidth, continuous/cyclic/one-shot replay, native sample rate or rate-flexible generation, and the exact cyclic period or one-shot native limit. The 31 fixed profiles support canonical native output and deterministic hardware-ready derivation; the 11 analytic/builder profiles generate directly at the output rate.
+- Complex-I/Q capability covers all 44 closed catalog profiles. `acquireIq` accepts safe-integer `centerHz` from 1 through 17,922,600,000, output `sampleRateHz` from 1,000,000 through 245,760,000, `captureBandwidthHz` from 1,000 through 245,760,000 with `captureBandwidthHz <= sampleRateHz`, and `sampleCount` from 1 through 65,536. Capture bandwidth must contain the separately declared profile `signalBandwidthHz`; it is an output setting and never an undeclared filter. `sampleFormat=cf32le` is required.
+- The ordered `iqProfiles` capability declares, per profile, digital-envelope reference center, native carrier offset, signal bandwidth, continuous/cyclic/one-shot/unbounded replay, native sample rate or rate-flexible generation, and the exact cyclic period or one-shot native limit where content-bounded. The 31 fixed profiles support canonical native output and deterministic hardware-ready derivation; the two Bluetooth long-dwell compositions have native 80 MHz geometry but no canonical artifact, period, or terminal capture bound; the 11 analytic/builder profiles generate directly at the output rate.
 - A complex-I/Q result is one complete canonical-base64 buffer of little-endian interleaved float32 I/Q, exactly eight bytes per complex sample, with exact byte length and SHA-256. Requested center is RF placement metadata independent of immutable digital byte identity. `profileReferenceCenterHz`, `rfReferenceCenterHz`, native/output carrier offsets, and `rfTuneCenterHz` state the complete mapping without synthesizing an absolute RF carrier.
 - Clean fixed bytes retain independent digital qualification only when exact native rate, phase, and RF tuning preserve them. Carrier translation, fractional delay, or resampling emits newly hashed `derived-hardware-ready` bytes with explicit derived lineage. Actual downsampling uses `blackman-windowed-sinc-v1` only when its 95%-of-output-Nyquist anti-alias passband contains the signal bandwidth; equal-rate fractional delay and upsampling preserve source Nyquist.
-- Every I/Q result carries a deterministic transform receipt with exact reduced rational source time, complete source support, continuous/cyclic/one-shot boundary policy, optional cyclic period, source/output hashes, carrier offsets, and ordered transform operations. Unrepresentable phases and receipt geometry outside its numeric bounds reject before source synthesis or state change.
-- Successive `acquireIq` calls preserve exact rational elapsed-time continuity, so changing output rate does not change the waveform time coordinate. Cyclic artifacts wrap their native period; one-shot artifacts enforce their native limit and zero-extend only for declared FIR support.
+- Every I/Q result carries a deterministic transform receipt with exact reduced rational source time, complete source support, continuous/cyclic/one-shot boundary policy, optional cyclic period, source/output hashes, carrier offsets, and ordered transform operations. Unbounded compositions use the existing `continuous-session-origin-zero-extended` policy and declare no source artifact or period. Unrepresentable phases and receipt geometry outside its numeric bounds reject before source synthesis or state change.
+- Successive `acquireIq` calls preserve exact rational elapsed-time continuity, so changing output rate does not change the waveform time coordinate. Cyclic artifacts wrap their native period; one-shot artifacts enforce their native limit and zero-extend only for declared FIR support; unbounded timelines zero-extend only negative derived FIR preroll before session origin.
 - Every channel configuration explicitly selects `clean` or one seeded receiver-I/Q impairment. Clean means no additional receiver transform. Every non-clean preset is applied after source/transport transforms and changes qualification to `receiver-impaired-complex-baseband`.
 - I/Q is a digital sample interface. `hardware-ready` says only that rate, carrier placement, finite geometry, and transformation are explicit; it does not qualify a DAC, reconstruction filter, amplifier, cable, antenna, radiated signal, RF conformance, or product.
 - Profile/channel changes replace the producer configuration revision. Atomizer invalidates its admitted acquisition configuration before any later acquisition.
@@ -116,11 +116,11 @@ Guarantees:
 
 ### SignalLab→Atomizer measurement edge
 
-Consumer assumption `A_A`: Atomizer constructs the in-process service with exact measurement contract v2 and its contract-binding identity, validates the complete per-profile transport capability and every semantic result/receipt invariant, binds its own source/session evidence, permits one request in flight, and treats validation or state failure as terminal without retry or fallback.
+Consumer assumption `A_A`: Atomizer constructs the in-process service with exact measurement contract v3 and its contract-binding identity, validates the complete per-profile transport capability and every semantic result/receipt invariant, binds its own source/session evidence, permits one request in flight, and treats validation or state failure as terminal without retry or fallback.
 
-Producer guarantee `G_M`: SignalLab returns bounded high-level swept-spectrum and detected-power results with exact source identity, opaque state correlation, declared units, and `synthetic-visual-projection` qualification. It additionally exposes bounded deterministic complex-I/Q for all 42 profiles, preserving immutable native-artifact identity separately from derived hardware-ready bytes and describing every transform, time coordinate, boundary policy, and receiver impairment in a reproducible receipt. It exposes no USB, firmware, serial, RF-generator, antenna, display, or touch identity or capability. Selected profile remains status-only.
+Producer guarantee `G_M`: SignalLab returns bounded high-level swept-spectrum and detected-power results with exact source identity, opaque state correlation, declared units, and `synthetic-visual-projection` qualification. It additionally exposes bounded deterministic complex-I/Q for all 44 profiles, preserving immutable native-artifact identity separately from derived hardware-ready bytes and describing every transform, time coordinate, boundary policy, and receiver impairment in a reproducible receipt. The two unbounded Bluetooth long-dwell compositions have native 80 MHz geometry but no canonical artifact, period, or terminal capture bound. It exposes no USB, firmware, serial, RF-generator, antenna, display, or touch identity or capability. Selected profile remains status-only.
 
-Trio composition v5 proves this edge active only while `G_M => A_A` and the three repositories' v5 manifests remain byte-identical.
+Trio composition v7 proves this edge active only while `G_M => A_A` and the three repositories' v7 manifests remain byte-identical.
 
 ### SignalLab→Firmware edge
 
@@ -151,7 +151,7 @@ No repository may reach into another repository's state directly or silently inf
 8. Failure never activates another profile, channel, driver, transport, or process.
 9. Complex-I/Q capability is source-declared and driver-neutral. SignalLab admits one bounded `cf32le` complex envelope for every closed profile, distinguishes native artifacts, derived transport bytes, generated output-rate bytes, and receiver-impaired bytes, and never treats RF placement metadata as artifact qualification. No current result claims DAC, antenna, RF calibration, packet decoding, protocol identity, broad conformance, continuous streaming, or NeptuneSDR support.
 10. Standalone IPC is admitted only from the exact current main frame and renderer origin; packaged execution cannot select a development renderer, request an Electron permission, open a child window, or navigate to an untrusted URL.
-11. The standalone content viewport is fixed at 520 × 709 CSS px, the measured no-scroll floor across all 42 collapsed profiles with channel and receiver-I/Q controls.
+11. The standalone content viewport is fixed at 520 × 709 CSS px, the measured no-scroll floor across all 44 collapsed profiles with channel and receiver-I/Q controls.
 
 ## Liveness and failure algebra
 
@@ -178,7 +178,7 @@ Every local API request settles exactly once as a validated new status or an exp
 
 `npm run check` must prove:
 
-- Exactly 42 descriptors with family counts `1/2/7/11/7/7/2/5`.
+- Exactly 44 descriptors with family counts `1/2/7/11/7/7/4/5`.
 - Every descriptor has a normalized non-empty source basis and valid range.
 - Every profile produces finite spectrum output.
 - Seeded AWGN is repeatable and evolves by sweep.
@@ -190,7 +190,7 @@ Every local API request settles exactly once as a validated new status or an exp
 - FM adjacent noise has no false pedestal.
 - GERAN/WLAN zero-span burst behavior is present.
 - Detected-power requests require a bounded integer-Hz tune, capability advertises the exact 1 Hz grid, results echo the admitted tune, every canonized public profile changes under an out-of-band tune, and non-canonized zero span never silently ignores frequency.
-- Status capability advertises complex-I/Q for all 42 closed profiles; deterministic generation produces finite `cf32le` samples with exact base64, byte geometry, and SHA-256 through the public service. CW/AM/FM and the five constellation references retain `analytic-complex-baseband`; every standards-labelled profile retains `standards-derived-complex-baseband`.
+- Status capability advertises complex-I/Q for all 44 closed profiles; deterministic generation produces finite `cf32le` samples with exact base64, byte geometry, and SHA-256 through the public service. CW/AM/FM and the five constellation references retain `analytic-complex-baseband`; fixed standards-linked profiles retain their independent qualification when exact-native; the two unbounded Bluetooth long-dwell compositions and standards builders retain `standards-derived-complex-baseband`.
 - I/Q tests pin output center/rate/capture-bandwidth/count bounds; per-profile native rate, signal bandwidth, reference center, carrier offset, and replay limits; direct public native bytes; arbitrary RF placement metadata; deterministic carrier translation and windowed-sinc derivation; downsampling guard behavior; exact rational time continuity across rate changes; cyclic wrap and one-shot zero extension; complete receipt geometry/hash/operation validation; and fail-closed numeric limits. Every receiver preset is deterministic, changes clean bytes materially, and is declared exactly on the result.
 - Invalid conformance promotion fails.
 - The in-process service and the public measurement contract interoperate through the exact build identity and every admitted direct service call.
@@ -198,16 +198,16 @@ Every local API request settles exactly once as a validated new status or an exp
 - Generator outputs are bit-frozen by golden SHA-256 hashes; successive acquisitions advance the time coordinate while coordinate-zero goldens stay byte-identical.
 - Exact renderer/WebContents/frame trust, strict IPC arity, permission denial, navigation denial, and production CSP are adversarially tested.
 - Electron main/preload and renderer build from this repository alone.
-- The validation-only Auto-v4 corpus pins four SHA-256-addressed competing-emission sweeps: both narrow/wide integrated-power orders, an exact deterministic tie, and a runtime-unavailable rank-0 winner with no lower-rank substitution. It remains outside the 42-profile catalog and all classifier likelihood, training, calibration, and model artifacts.
+- The validation-only Auto-v4 corpus pins four SHA-256-addressed competing-emission sweeps: both narrow/wide integrated-power orders, an exact deterministic tie, and a runtime-unavailable rank-0 winner with no lower-rank substitution. It remains outside the 44-profile catalog and all classifier likelihood, training, calibration, and model artifacts.
 
-Cross-repository release additionally requires the byte-identical trio-v5 manifest check, unchanged historical v1/v4 hashes, and real producer/consumer interoperation from `../Atom-Atomizer`. Activating the stimulus edge requires a new coordinated trio version and tests in both SignalLab and Firmware.
+Cross-repository release additionally requires the byte-identical trio-v7 manifest check, unchanged historical v1/v4/v5/v6 hashes, and real producer/consumer interoperation from `../Atom-Atomizer`. Activating the stimulus edge requires a new coordinated trio version and tests in both SignalLab and Firmware.
 
 ## Source traceability
 
 | Contract | Source |
 |---|---|
 | Public API, profile/channel/descriptor schemas | `src/contracts.ts` |
-| Atomizer measurement schemas and active contract manifest | `src/measurement-contract.ts`, `contracts/signal-lab-measurement-bridge-v2.json` |
+| Atomizer measurement schemas and active contract manifest | `src/measurement-contract.ts`, `contracts/signal-lab-measurement-bridge-v3.json` |
 | Stateful in-process measurement source and platform-neutral bytes | `src/measurement-service.ts`, `src/platform-bytes.ts` |
 | Catalog and standards clauses | `src/catalog.ts`, `src/source-provenance.ts` |
 | Versioned LTE/NR/BLE timing choices | `src/canonical-timing.ts` |

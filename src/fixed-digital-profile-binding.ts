@@ -4,7 +4,7 @@ import {
   type SynthesizedSignalProfile,
 } from './contracts.js';
 
-export interface FixedDigitalProfileBinding {
+interface NativeRateProfileBindingBase {
   /**
    * RF center of the signal represented by the I/Q profile. For an artifact
    * whose carrier is offset inside a wider capture, this differs from the
@@ -13,20 +13,39 @@ export interface FixedDigitalProfileBinding {
    * another RF center without changing its digital qualification.
    */
   readonly profileReferenceCenterHz: number;
-  /** Native sample rate of the content-addressed digital artifact. */
+  /** Native sample rate of the source complex envelope. */
   readonly nativeSampleRateHz: number;
   /** Signal/channel bandwidth fact, never an SDR capture-bandwidth setting. */
   readonly signalBandwidthHz: number;
-  /** Carrier position inside the immutable native complex-envelope artifact. */
+  /** Carrier position inside the native complex envelope. */
   readonly nativeCarrierOffsetHz: number;
-  /** Cyclic frame/PPDU replay, a single bounded packet capture, or an
-   * unbounded aperiodic composition timeline (long-dwell). */
-  readonly replay: 'cyclic' | 'one-shot' | 'unbounded';
-  /** Exact native artifact period, required for cyclic modular replay. */
-  readonly nativePeriodSamples?: number;
-  /** Exclusive sample bound for a one-shot capture. */
-  readonly captureSamples?: number;
 }
+
+export type FixedDigitalProfileBinding =
+  | Readonly<NativeRateProfileBindingBase & {
+      /** Immutable frame/PPDU artifact replayed with exact modular wrapping. */
+      replay: 'cyclic';
+      nativePeriodSamples: number;
+      captureSamples?: never;
+    }>
+  | Readonly<NativeRateProfileBindingBase & {
+      /** One immutable bounded packet capture with zero extension for FIR support. */
+      replay: 'one-shot';
+      nativePeriodSamples?: never;
+      captureSamples: number;
+    }>;
+
+export type UnboundedCompositionProfileBinding =
+  Readonly<NativeRateProfileBindingBase & {
+    /** Native-rate generated timeline with no artifact period or content bound. */
+    replay: 'unbounded';
+    nativePeriodSamples?: never;
+    captureSamples?: never;
+  }>;
+
+export type NativeRateProfileBinding =
+  | FixedDigitalProfileBinding
+  | UnboundedCompositionProfileBinding;
 
 const geran = (
   signalBandwidthHz: number,
@@ -222,18 +241,7 @@ for (const [profile, inferredBinding] of Object.entries(FIXED_DIGITAL_PROFILE_BI
   )) {
     throw new Error(`${profile} one-shot replay requires exactly one positive capture bound`);
   }
-  if (
-    Math.abs(binding.nativeCarrierOffsetHz) + binding.signalBandwidthHz / 2
-    > binding.nativeSampleRateHz / 2
-  ) {
-    throw new Error(`${profile} native artifact carrier and signal bandwidth exceed Nyquist`);
-  }
-  const rfReferenceCenterHz = binding.profileReferenceCenterHz
-    - binding.nativeCarrierOffsetHz;
-  if (rfReferenceCenterHz < MIN_MEASUREMENT_FREQUENCY_HZ
-    || rfReferenceCenterHz > MAX_MEASUREMENT_FREQUENCY_HZ) {
-    throw new Error(`${profile} canonical RF reference center is outside the admitted range`);
-  }
+  validateNativeRateBinding(profile, binding);
 }
 
 
@@ -251,15 +259,19 @@ export const UNBOUNDED_COMPOSITION_PROFILE_BINDINGS = Object.freeze({
     signalBandwidthHz: 79_000_000,
     nativeCarrierOffsetHz: 0,
     replay: 'unbounded',
-  } satisfies FixedDigitalProfileBinding),
+  } satisfies UnboundedCompositionProfileBinding),
   'bluetooth-le-advertising-longdwell': Object.freeze({
     profileReferenceCenterHz: 2_441_000_000,
     nativeSampleRateHz: 80_000_000,
-    signalBandwidthHz: 79_000_000,
+    // Primary channels 37 and 39 sit at 2402/2480 MHz. Their 2 MHz LE
+    // channel support therefore spans 2401 through 2481 MHz edge-to-edge.
+    signalBandwidthHz: 80_000_000,
     nativeCarrierOffsetHz: 0,
     replay: 'unbounded',
-  } satisfies FixedDigitalProfileBinding),
-} as const);
+  } satisfies UnboundedCompositionProfileBinding),
+} as const satisfies Partial<
+  Record<SynthesizedSignalProfile, UnboundedCompositionProfileBinding>
+>);
 
 export type UnboundedCompositionProfile =
   keyof typeof UNBOUNDED_COMPOSITION_PROFILE_BINDINGS;
@@ -272,6 +284,47 @@ export function isUnboundedCompositionProfile(
 
 export function unboundedCompositionProfileBinding(
   profile: UnboundedCompositionProfile,
-): FixedDigitalProfileBinding {
+): UnboundedCompositionProfileBinding {
   return UNBOUNDED_COMPOSITION_PROFILE_BINDINGS[profile];
+}
+
+if (Object.keys(UNBOUNDED_COMPOSITION_PROFILE_BINDINGS).length !== 2) {
+  throw new Error('Unbounded composition binding registry must contain exactly 2 profiles');
+}
+for (const [profile, inferredBinding] of Object.entries(
+  UNBOUNDED_COMPOSITION_PROFILE_BINDINGS,
+)) {
+  const binding: UnboundedCompositionProfileBinding = inferredBinding;
+  if (binding.replay !== 'unbounded'
+    || Object.hasOwn(binding, 'nativePeriodSamples')
+    || Object.hasOwn(binding, 'captureSamples')) {
+    throw new Error(`${profile} unbounded replay cannot declare a period or content bound`);
+  }
+  validateNativeRateBinding(profile, binding);
+}
+
+function validateNativeRateBinding(
+  profile: string,
+  binding: NativeRateProfileBinding,
+): void {
+  if (!Number.isSafeInteger(binding.nativeSampleRateHz)
+    || binding.nativeSampleRateHz < 1
+    || !Number.isSafeInteger(binding.signalBandwidthHz)
+    || binding.signalBandwidthHz < 1
+    || !Number.isSafeInteger(binding.profileReferenceCenterHz)
+    || !Number.isSafeInteger(binding.nativeCarrierOffsetHz)) {
+    throw new Error(`${profile} native-rate geometry must use positive safe-integer rate and bandwidth values`);
+  }
+  if (
+    Math.abs(binding.nativeCarrierOffsetHz) + binding.signalBandwidthHz / 2
+    > binding.nativeSampleRateHz / 2
+  ) {
+    throw new Error(`${profile} native carrier and signal bandwidth exceed Nyquist`);
+  }
+  const rfReferenceCenterHz = binding.profileReferenceCenterHz
+    - binding.nativeCarrierOffsetHz;
+  if (rfReferenceCenterHz < MIN_MEASUREMENT_FREQUENCY_HZ
+    || rfReferenceCenterHz > MAX_MEASUREMENT_FREQUENCY_HZ) {
+    throw new Error(`${profile} RF reference center is outside the admitted range`);
+  }
 }

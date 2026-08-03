@@ -12,8 +12,11 @@
   "files": [
     "contracts/signal-lab-measurement-bridge-v1.json",
     "contracts/signal-lab-measurement-bridge-v2.json",
+    "contracts/signal-lab-measurement-bridge-v3.json",
     "contracts/trio-composition-v4.json",
     "contracts/trio-composition-v5.json",
+    "contracts/trio-composition-v6.json",
+    "contracts/trio-composition-v7.json",
     "dist/standards/**"
   ],
   "scripts": {

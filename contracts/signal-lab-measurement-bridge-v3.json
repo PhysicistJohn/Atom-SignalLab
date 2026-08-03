@@ -1,0 +1,95 @@
+{
+  "documentType": "contract-manifest",
+  "contractId": "tinysa-signal-lab-atomizer-measurement",
+  "contractVersion": 3,
+  "status": "active",
+  "owner": "Atom-SignalLab",
+  "purpose": "high-level-synthetic-measurement-source-for-atomizer",
+  "invocation": {
+    "mode": "in-process-typescript",
+    "entryPoint": "src/measurement-service.ts",
+    "validation": "strict-zod-runtime-schemas",
+    "serialization": "none",
+    "processTransport": "none"
+  },
+  "methods": [
+    {
+      "method": "status",
+      "stateChange": false,
+      "result": "status"
+    },
+    {
+      "method": "selectProfile",
+      "stateChange": true,
+      "result": "status"
+    },
+    {
+      "method": "configureChannel",
+      "stateChange": true,
+      "result": "status"
+    },
+    {
+      "method": "configureCustomWaveform",
+      "stateChange": true,
+      "result": "status"
+    },
+    {
+      "method": "acquireSpectrum",
+      "stateChange": false,
+      "result": "swept-spectrum"
+    },
+    {
+      "method": "acquireDetectedPower",
+      "stateChange": false,
+      "result": "detected-power-timeseries"
+    },
+    {
+      "method": "acquireIq",
+      "stateChange": false,
+      "result": "complex-iq"
+    },
+    {
+      "method": "shutdown",
+      "stateChange": true,
+      "result": "void"
+    }
+  ],
+  "semantics": {
+    "invocation": "one-synchronous-schema-validated-service-call-produces-one-return-value-or-throws-without-serialization",
+    "ordering": "the-owning-atomizer-session-serializes-stateful-service-calls",
+    "retry": "none",
+    "selectedProfileVisibility": "status-only-never-copied-into-measurement-results",
+    "configurationRevision": "opaque-and-replaced-after-every-accepted-configuration-change",
+    "detectedPowerTuning": "required-safe-integer-center-hz-returned-exactly-and-receiver-filtered-at-that-tune",
+    "complexIqEncoding": "canonical-base64-of-interleaved-cf32le-with-exact-byte-geometry-and-sha256",
+    "complexIqCentering": "requested-center-hz-is-output-rf-placement-metadata-independent-of-canonical-digital-artifact-identity-and-profile-reference-center-is-retained-separately",
+    "complexIqBandwidth": "capture-bandwidth-hz-is-an-output-setting-distinct-from-the-profile-signal-bandwidth-and-never-implies-an-undeclared-digital-filter",
+    "complexIqResampling": "native-byte-identity-is-preserved-when-rate-phase-and-tune-admit-it-blackman-windowed-sinc-v1-preserves-source-nyquist-at-equal-or-upsampled-rates-and-uses-95-percent-output-nyquist-only-when-downsampling-with-an-explicit-transform-receipt",
+    "complexIqFlexibleGeneration": "rate-flexible-generators-use-profile-signal-bandwidth-as-an-intrinsic-source-parameter-and-preserve-exact-elapsed-time-across-rate-changes-with-an-explicit-same-rate-fractional-delay",
+    "complexIqFrequencyPlacement": "native-carrier-offset-profile-signal-center-canonical-rf-reference-output-carrier-offset-and-output-rf-tune-center-are-distinct-and-every-frequency-translation-precedes-resampling-in-the-receipt",
+    "complexIqChannel": "receiver-impairment-is-required-in-every-v3-channel-configuration-with-clean-explicit-and-every-non-clean-seeded-preset-an-explicit-post-source-transform-declared-on-the-result",
+    "complexIqAvailability": "all-44-closed-catalog-profiles-with-native-geometry-for-31-content-bound-artifacts-and-2-unbounded-compositions-and-rate-flexible-generation-for-11-analytic-or-builder-profiles",
+    "complexIqReplay": "every-profile-declares-continuous-cyclic-one-shot-or-unbounded-policy-cyclic-artifacts-declare-and-modularly-wrap-their-native-period-one-shot-limits-are-native-domain-samples-and-unbounded-native-rate-compositions-zero-extend-fir-support-before-session-origin",
+    "scalarMeasurementQualification": "synthetic-visual-projection-not-a-conformance-vector",
+    "complexIqMeasurementQualification": "independent-digital-qualification-applies-only-to-exact-native-artifact-bytes-unbounded-compositions-remain-standards-derived-without-canonical-artifact-and-derived-output-never-claims-byte-identity-rf-conformance-or-product-certification"
+  },
+  "identityHashes": {
+    "contractSha256": "sha256-of-utf8-json-stringify-of-the-imported-parsed-contract-document",
+    "catalogSha256": "sha256-of-immutable-all-auto-default-catalog-json",
+    "generatorContractBindingSha256": "sha256-of-utf8-domain-atomizer-in-process-generator-null-followed-by-contract-sha256-not-generator-code-identity"
+  },
+  "claims": {
+    "usbEmulated": false,
+    "firmwareExecuted": false,
+    "rfEmitted": false
+  },
+  "prohibitedIdentityFields": [
+    "usbMatch",
+    "vendorId",
+    "productId",
+    "serialPath",
+    "firmwareVersion",
+    "firmwareRevision",
+    "usbIdentityVerified"
+  ]
+}

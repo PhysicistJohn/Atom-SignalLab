@@ -1,15 +1,16 @@
 # Standards governance ledger
 
-This is the human-readable ledger for all 42 SignalLab catalog profiles. The executable authority is [`src/profile-governance.ts`](../src/profile-governance.ts), validated by [`src/profile-governance-schema.ts`](../src/profile-governance-schema.ts) and [`src/profile-governance.test.ts`](../src/profile-governance.test.ts). The digital-envelope reference center, native carrier offset, native sample rate, signal bandwidth, replay policy, and artifact binding for every qualified lane are executable in [`src/fixed-digital-profile-binding.ts`](../src/fixed-digital-profile-binding.ts).
+This is the human-readable ledger for all 44 SignalLab catalog profiles. The executable authority is [`src/profile-governance.ts`](../src/profile-governance.ts), validated by [`src/profile-governance-schema.ts`](../src/profile-governance-schema.ts) and [`src/profile-governance.test.ts`](../src/profile-governance.test.ts). The digital-envelope reference center, native carrier offset, native sample rate, signal bandwidth, replay policy, and artifact binding for every qualified lane are executable in [`src/fixed-digital-profile-binding.ts`](../src/fixed-digital-profile-binding.ts).
 
 ## Result at a glance
 
 | Category | Count | Permitted statement |
 |---|---:|---|
 | Fixed standards-linked digital artifacts | 31 | Verified standards adherence **only for the declared content-bound digital scope** |
+| Unbounded standards-derived engineering compositions | 2 | Deterministic native-rate composition from qualified packet content; no canonical artifact, hop-selection implementation, or RF conformance claim |
 | Operator-configurable builders | 3 | Standards-constrained configuration options only; no operator-selected builder output is a fixed qualified artifact |
 | Mathematical laboratory references | 8 | Standards adherence is not applicable because no unique external waveform standard governs the construction |
-| Total | 42 | Broad standards compliance and RF conformance remain unclaimed for every row |
+| Total | 44 | Broad standards compliance and RF conformance remain unclaimed for every row |
 
 All 31 positive digital claims attach only to the exact source-preserved, unnormalized, clean `cf32le` artifact bytes at the declared native sample rate, signal bandwidth, and native carrier offset. Requested RF center is separate output-placement metadata and is not part of the artifact hash; changing it alone neither qualifies nor disqualifies unchanged native bytes. Resampling, fractional delay, carrier translation, filtering, receiver impairment, any artifact-byte change, or an unadmitted evidence/standards revision is outside the exact-byte claim and must carry derived or impaired qualification instead.
 
@@ -60,9 +61,9 @@ The matrix uses these compact keys. Revisions and clauses are exact; URLs are st
 | C-NR | TS 38.101-1/-2 V19.4.0; TS 38.104 and TS 38.141-1/-2 V19.5.0; TS 38.211/38.214 V19.4.0; TS 38.213 V19.3.0, limited to the exact parameter clauses in the registry |
 | C-WLAN | IEEE 802.11-2024 clauses 16, 17, 18, 19, 21, 27, Annex E |
 
-## Complete 42-profile matrix
+## Complete 44-profile matrix
 
-`Qualified` means `digitalStandardsAdherence=verified-for-declared-digital-scope` and `digitalQualification=qualified`. `Config-only` and `N/A` have no waveform evidence. `A` is the full artifact SHA-256; `E` is the retained-evidence key defined after the matrix.
+`Qualified` means `digitalStandardsAdherence=verified-for-declared-digital-scope` and `digitalQualification=qualified`. `Engineering` means a deterministic standards-derived composition with `digitalQualification=not-qualified`; it has no canonical artifact, cyclic period, or terminal capture bound. `Config-only` and `N/A` have no waveform evidence. `A` is the full artifact SHA-256; `E` is the retained-evidence key defined after the matrix.
 
 | Profile | Governing body | Kind | Basis | State | A | E |
 |---|---|---|---|---|---|---|
@@ -100,6 +101,8 @@ The matrix uses these compact keys. Revisions and clauses are exact; URLs are st
 | `wifi6-he-tb` | IEEE SA / IEEE 802.11 WG | Fixed profile | W-TB | Qualified | `b465c7a7a56c537b17d7f2e0aa7dd996591d7e5a3b1bcdc2503bb167becdf789` | W |
 | `bluetooth-classic-connected` | Bluetooth SIG Core WG | Fixed profile | B-BR | Qualified | `ee2975f261478a52e95e454423e5d4f36ff175a515befd34d6370bea980fe158` | B |
 | `bluetooth-le-advertising` | Bluetooth SIG Core WG | Fixed profile | B-LE | Qualified | `2e139351a0deefe58a17eeff9146e720eaac5f674474c465778dce859be64f11` | B |
+| `bluetooth-classic-connected-longdwell` | Bluetooth SIG Core WG | Unbounded engineering composition | B-BR | Engineering | — | — |
+| `bluetooth-le-advertising-longdwell` | Bluetooth SIG Core WG | Unbounded engineering composition | B-LE | Engineering | — | — |
 | `ref-qpsk` | SignalLab | Mathematical reference | No unique external standard | N/A | — | — |
 | `ref-8psk` | SignalLab | Mathematical reference | No unique external standard | N/A | — | — |
 | `ref-16qam` | SignalLab | Mathematical reference | No unique external standard | N/A | — | — |
@@ -133,6 +136,7 @@ The oracles deliberately differ by applicable boundary:
 - NR full-frame lanes compare complete resource grids and OFDM samples with pinned py3gpp/NumPy; the n78 oracle covers 560 symbols, 1,834,560 resource elements/kinds, and 2,457,600 samples across both required radio frames. NR 1024-QAM additionally uses OCUDU. Content-identical n3 and narrowband lanes use their already verified source artifacts compositionally.
 - WLAN uses separately structured sample-domain decoders for all six PPDUs and a pinned live gr-ieee802-11 oracle for ERP-OFDM.
 - Bluetooth checks published Core sample data and independently reconstructs every active ideal-GFSK sample. Its adapter rejects any window that would extend beyond the hash-bound one-shot BR or LE capture.
+- Bluetooth long-dwell compositions are deterministic pure functions of absolute sample index. They reuse qualified BR/LE packet content but do not preserve the packet artifact identity: BR uses keyed-hash 625 µs slot utilization and 79-channel placement without implementing the Core hop-selection kernel; LE uses a 30 ms event grid with keyed-hash advertising delay across primary channels 37/38/39. They have no canonical artifact, period, or terminal bound. [`src/bluetooth-long-dwell-iq.test.ts`](../src/bluetooth-long-dwell-iq.test.ts) proves deterministic synthesis, stitch exactness, timing, and channel placement; it does not establish Bluetooth SIG qualification, interoperability, or RF behavior.
 
 ## Executing the tests
 
