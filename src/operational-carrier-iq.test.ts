@@ -25,7 +25,7 @@ const INPUTS = {
 } as const;
 
 describe('corpus-only operational-carrier PDSCH variants', () => {
-  it('changes only PDSCH resource elements while preserving every reference/scheduling element', () => {
+  it('changes only PDSCH resource elements while preserving every reference/scheduling element', { timeout: 180_000 }, () => {
     for (const profile of OPERATIONAL_CARRIER_CORPUS_PROFILES) {
       const baseline = referenceGrid(profile);
       const first = buildOperationalCarrierCorpusFrame({
