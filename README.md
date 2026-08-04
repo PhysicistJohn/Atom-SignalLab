@@ -72,8 +72,8 @@ The applicable technical bodies are 3GPP TSG RAN, the IEEE Standards Association
 
 - All 44 closed catalog profiles are admitted. Each of the 31 fixed standards-linked profiles declares an immutable artifact, native sample rate, signal bandwidth, digital-envelope reference center, native carrier offset, and cyclic period or one-shot limit. A clean capture retains exact native digital qualification only when rate, exact phase, and admitted RF tuning preserve those bytes. A hardware-ready derivation gets new bytes, a new digest, an explicit transform receipt, and derived lineage rather than canonical byte identity. The two Bluetooth long-dwell compositions declare unbounded native-rate replay without a canonical artifact, cyclic period, or terminal capture bound and retain `standards-derived-complex-baseband`; the three builders return `standards-derived-complex-baseband`; the eight mathematical references return `analytic-complex-baseband`.
 - The only sample format is little-endian interleaved `cf32le`, encoded as canonical base64 with an exact SHA-256 digest and exactly eight bytes per complex sample.
-- `sampleCount` is 1 through 65,536; `sampleRateHz` is 1,000,000 through 245,760,000; `centerHz` is 1 through 17,922,600,000. All are safe integers.
-- `captureBandwidthHz` is a safe integer from 1,000 through 245,760,000 Hz, may not exceed the output rate, and must contain the separately reported `signalBandwidthHz`. It is a capture/output setting, never a hidden filter. Actual downsampling is admitted only when the resampler's 95%-of-output-Nyquist passband contains the signal bandwidth; equal-rate fractional delay and upsampling preserve the full source Nyquist interval.
+- `sampleCount` is 1 through 65,536; `sampleRateHz` is 1,000,000 through 491,520,000; `centerHz` is 1 through 17,922,600,000. All are safe integers.
+- `captureBandwidthHz` is a safe integer from 1,000 through 491,520,000 Hz, may not exceed the output rate, and must contain the separately reported `signalBandwidthHz`. It is a capture/output setting, never a hidden filter. Actual downsampling is admitted only when the resampler's 95%-of-output-Nyquist passband contains the signal bandwidth; equal-rate fractional delay and upsampling preserve the full source Nyquist interval.
 - The requested `centerHz` is RF placement metadata, not part of the immutable digital byte identity and not a sampled absolute RF carrier. `profileReferenceCenterHz`, `rfReferenceCenterHz`, native/output carrier offsets, and `rfTuneCenterHz` make the mapping explicit. Bluetooth's artifact carrier offset is therefore translated to DC only when a derived output requires it; admissible exact-native placement keeps the artifact bytes unchanged.
 - Every result includes a deterministic receipt with the exact rational source-time coordinate, complete FIR/source support, continuous/cyclic/one-shot boundary policy, source and output hashes, carrier offsets, and ordered translation, resampling, fractional-delay, and receiver-impairment operations. Unbounded long-dwell profiles use `continuous-session-origin-zero-extended`, no source artifact, and no period. Fractions that cannot be represented deterministically fail before synthesis or state change.
 - Successive acquisitions advance an exact rational elapsed-time cursor for analytic, builder, cyclic fixed, and unbounded long-dwell profiles; output-rate changes do not change elapsed time. Cyclic artifacts wrap their declared native period. One-shot Bluetooth re-acquisition starts from the same bounded artifact and zero-extends only outside it for declared FIR support; unbounded long-dwell output zero-extends only negative derived FIR preroll before session origin.
@@ -86,6 +86,27 @@ The AM vector is full-carrier DSB with a 25 kHz message and 0.72 modulation inde
 The five constellation references use SignalLab-defined direct symbol-state indexing (natural, non-Gray level indexing on each square-QAM axis), a fixed 7 Msym/s rate, an RRC pulse with beta 0.35 truncated to ±8 symbols, and intrinsic deterministic complex AWGN at 40 dB SNR. Their 9.45 MHz catalog field is the nominal `7 Msym/s × (1 + 0.35)` raised-cosine support before finite-span truncation, broadband noise, and downstream receiver filtering; it is not measured, 99%-power, necessary, or regulatory occupied bandwidth. “Clean I/Q” means that no additional receiver-impairment preset is applied; it does not remove the reference generator's declared intrinsic 40 dB dither.
 
 Each fixed standards-linked acquisition preserves the hash-bound source as a separate identity. Exact clean native bytes may retain the declared digital qualification; resampling, fractional delay, carrier translation, or receiver impairment produces a separately hashed result whose qualification says what was derived. RF-center metadata alone neither qualifies nor disqualifies the bytes. Qualification applies to the digital source construction—not to the scalar spectrum renderer or to downstream RF hardware. The GERAN component fixtures begin at frozen modulator-input fields where stated; the E-UTRA/NR narrowband component fixtures omit their declared host/composite context; the WLAN artifacts stop at their declared ideal complex-chip or complex-baseband interface; and the Bluetooth artifacts use ideal analytic GFSK. Those boundaries are part of the claim, not footnotes.
+
+## Tx streaming (host tooling)
+
+`acquireIq` remains the bounded measurement boundary. Separately, SignalLab ships a host-tooling Tx sample stream under [`contracts/signal-lab-tx-stream-v1.json`](./contracts/signal-lab-tx-stream-v1.json) for feeding operator transmit hardware. It is not an instrument contract, registers no Atomizer-facing capability, and does not change `acquireIq`. Streamed bytes carry their source qualification unchanged; emission responsibility sits with the operator and their hardware, and no RF, conformance, or calibration claim is created. Full capability matrix, recipe ledger, rate planner rules, and the live Tx runbook are in [`docs/TX_STREAMING.md`](./docs/TX_STREAMING.md) and [`docs/LIVE_TX_RUNBOOK.md`](./docs/LIVE_TX_RUNBOOK.md).
+
+Build and use the CLI:
+
+```bash
+npm run build:tx-stream
+# file sink (cf32le or --format ci16le)
+node tools/tx-stream.mjs --profile gsm-900-loaded-bcch --samples 3000 --sink file:gsm.iq.cf32le
+# a natural (unbounded, seeded, scheduled) timeline recipe
+node tools/tx-stream.mjs --recipe lte-band3-operational-v1 --duration-seconds 1 --sink file:lte.iq.cf32le
+# stdout pipe, or the Neptune P210 device sink
+node tools/tx-stream.mjs --profile cw --unbounded --sink stdout
+node tools/tx-stream.mjs --profile gsm-900-loaded-bcch --rate 2083333 --samples 65536 --sink iiod --uri ip:10.0.0.250 --attenuation-db 10
+# inspect the resolved plan + rate-planner verdict without streaming
+node tools/tx-stream.mjs --profile lte-band3-fdd-20m --rate 15360000 --unbounded --sink stdout --plan-only
+```
+
+The rate planner publishes the feasibility arithmetic instead of hiding it. For the Neptune P210 (live unit, AD9361): the device sample-rate window is 2,083,333–61,440,000 samples/s, the TX RF-bandwidth ceiling is 40 MHz, and the measured host-link ceiling is about 19.3 MB/s (≈4.825 Msps of ci16le). Wideband profiles cannot stream live over that link: LTE-20M and Wi-Fi-20M are inside the device sample-rate window and may use device-loop (cyclic) transmission or file/stdout sinks, while NR-n78 (122.88 MS/s) and the 80 MHz Bluetooth long-dwell compositions exceed the device window and are file/stdout sinks only. The QEMU twin (`Atom-NeptuneSDR-Twin`) provides a dry-run IIOD target; its byte accounting is a rehearsal, not live-hardware evidence.
 
 ### Exact 3GPP evidence lane
 

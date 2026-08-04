@@ -314,7 +314,7 @@ describe('Atomizer high-level measurement source contract', () => {
       minimumSampleRateHz: 1_000_000,
       // The largest legal custom NR build (FR2, 120 kHz SCS, 400 MHz, 264 RB)
       // occupies 380.16 MHz, so the ceiling must clear it for the catalog's
-      // "all 42 available" claim to hold.
+      // "all 44 available" claim to hold.
       maximumSampleRateHz: MAX_ANALYTIC_COMPLEX_IQ_SAMPLE_RATE_HZ,
       minimumBandwidthHz: 1_000,
       maximumBandwidthHz: MAX_ANALYTIC_COMPLEX_IQ_BANDWIDTH_HZ,
@@ -1540,7 +1540,7 @@ describe('Atomizer high-level measurement source contract', () => {
     const service = deterministicService();
     // FR2 / 120 kHz SCS / 400 MHz is the widest legal NR configuration at
     // 264 RB. Its occupied bandwidth is 264 * 12 * 120 kHz = 380.16 MHz, so
-    // the complex-I/Q ceiling has to clear it for the catalog's "all 42
+    // the complex-I/Q ceiling has to clear it for the catalog's "all 44
     // available" claim to be true.
     const status = service.configureCustomWaveform({
       standard: 'nr',

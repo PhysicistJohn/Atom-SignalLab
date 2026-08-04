@@ -1,0 +1,657 @@
+{
+  "documentType": "contract-manifest",
+  "contractId": "signal-lab-tx-stream",
+  "contractVersion": 1,
+  "status": "active",
+  "owner": "Atom-SignalLab",
+  "scope": "host-tooling-tx-sample-stream",
+  "relationToMeasurementBridge": {
+    "independentSurface": "signal-lab-tx-stream-v1 is a separately versioned SignalLab-owned host-tooling surface; contracts/signal-lab-measurement-bridge-v1/v2/v3.json and contracts/trio-composition-v4..v7.json are unchanged and remain byte-frozen",
+    "measurementEdgeUnchanged": "acquireIq remains a bounded single-buffer measurement acquisition of at most 65,536 samples with one synchronous call per result; no streaming method exists on the measurement service",
+    "trioLivenessScoping": "This contract reads trio-composition-v7 liveness item 3 (no SignalLab child process, framing loop, pipe, or shutdown acknowledgement exists) as governing the in-process measurement service admitted over the SignalLab-to-Atomizer edge; the Tx stream device transport introduced by this contract is an operator-launched host-tool subprocess outside trio composition, with bounded SIGTERM-then-SIGKILL teardown and idempotent dispose",
+    "driverEvolutionIntact": "trio-composition-v7 compatibility.driverEvolution requires a new instrument/API contract version for complex-IQ chunking, backpressure, or long-lived sample streaming; that requirement remains intact for any Atomizer-facing instrument surface; this contract is host tooling, not an instrument or API contract, registers no driver, and adds no Atomizer-facing capability",
+    "stimulusSinkUnchanged": "streaming does not activate the reserved SignalLab-to-Firmware stimulus sink and does not change firmwareStimulusSinkStatus"
+  },
+  "streamModel": {
+    "transport": "chunked-pull-single-chunk-in-flight",
+    "chunkSamplesMax": 65536,
+    "sampleFormatSource": "cf32le",
+    "continuity": "every output sample is a pure function of the plan and its absolute output sample coordinate; any partition of a sample range into consecutive chunks yields byte-identical concatenation and a stream resumed from any disclosed coordinate reproduces the tail exactly",
+    "cursor": "absolute output sample index; derived native coordinates are exact rationals reduced in BigInt with a 40-digit fail-closed representability probe at every chunk boundary before synthesis",
+    "backpressure": "the producer generates the next chunk only after the sink acknowledges the previous one; no unbounded internal queue exists",
+    "overrunUnderrun": "sinks report device counters where available; device underrun detection on libiio 0.25 clients is a client-exit-and-stderr heuristic and is disclosed as such until device-side counters are probed",
+    "cancellation": "explicit cancel or process signal; bounded teardown; the manifest records completed, terminated, or faulted",
+    "failureAlgebra": {
+      "invalidInput": "reject-before-any-state-or-synthesis",
+      "oneShotProfileStreamRequest": "reject-with-guidance-to-longdwell-equivalent",
+      "derivedRateBelowAntiAliasGuard": "reject-before-synthesis",
+      "rateAboveSinkSustainedCapacity": "explicit-warning-then-reject-unless-device-loop-or-file-sink",
+      "sinkWriteFailure": "stop-at-first-failure-and-report-faulted",
+      "cursorBoundExceeded": "reject-before-synthesis"
+    }
+  },
+  "sampleFormats": [
+    "cf32le",
+    "ci16le"
+  ],
+  "ci16leConvention": {
+    "layout": "interleaved little-endian int16 I/Q",
+    "scale": 32768,
+    "rounding": "round-half-away-from-zero",
+    "clip": [
+      -32767,
+      32767
+    ],
+    "nonFiniteInput": "fail-closed-refusal",
+    "disclosure": "The Neptune P210 TX DAC scan format is le:S16/16>>0 per the live unit diagnostic (Atom-NeptuneSDR-Firmware/docs/live-unit/extracted/vendor-diagnostic-report.txt, TX output channels voltage0/voltage1); host quantization is full 16-bit. le:S12/16>>0 with full-scale code 2048 is the RX-direction ADC format and is not the TX convention. Emitted amplitude is controlled only via the hardwaregain attribute; no amplitude verification exists for this surface yet. The live Tx runbook plans an RX-loopback amplitude gate; until that gate executes and records evidence, emitted amplitude must never be inferred from this convention."
+  },
+  "qualificationPassthrough": {
+    "vocabulary": [
+      "analytic-complex-baseband",
+      "standards-derived-complex-baseband",
+      "reference-generated-digital-baseband",
+      "independently-verified-digital-baseband",
+      "derived-from-independently-verified-digital-baseband"
+    ],
+    "payloadKinds": [
+      "native-canonical",
+      "derived-hardware-ready",
+      "generated-at-output-rate"
+    ],
+    "rule": "streamed bytes carry the source qualification of their profile or recipe at the chosen rate and phase unchanged; chunk receipts declare the same payload-kind lineage as the measurement bridge and content-bound qualifications apply only to exact native untransformed chunks",
+    "hardwareReadyLimitation": "hardware-ready describes deterministic output sample geometry only and never claims DAC behavior, analog reconstruction, antenna coupling, calibrated RF emission, RF conformance, product qualification, or certification",
+    "sourceCleanDisclosure": "streamed recipe and profile bytes are source-clean: no propagation channel and no receiver impairment is applied, unlike classifier corpus rows which carry the propagation channel"
+  },
+  "nonClaims": [
+    "blanket compliance of SignalLab, an entire technology family, or an arbitrary generated configuration",
+    "calibrated output level, EVM, frequency error, spectral mask, occupied bandwidth, ACLR, spurious emissions, receiver performance, or any other conducted-RF requirement",
+    "radiated/OTA behavior",
+    "MAC channel access or a complete network schedule beyond fields explicitly present in a fixed artifact",
+    "interoperability, operator acceptance, regulatory authorization, Wi-Fi Alliance certification, Bluetooth SIG product qualification, or 3GPP device certification",
+    "transfer of a passing result to changed bytes, settings, code, dependencies, standards revisions, or hardware",
+    "streaming creates no standards-compliance or RF-conformance claim; standardsCompliance remains not-claimed and rfConformance remains not-qualified",
+    "device-loop (cyclic) transmission is waveform repetition at the DAC, not a new qualified artifact",
+    "streaming does not activate the reserved SignalLab-to-Firmware stimulus sink and does not change firmwareStimulusSinkStatus"
+  ],
+  "emissionResponsibility": "operator-and-hardware",
+  "customProfileStreaming": {
+    "descriptorResolution": "custom-lte, custom-nr, and custom-wifi plans resolve geometry through the pure buildCustomWaveformDescriptor(standard, selections) path and reject illegal pins before any synthesis",
+    "moduleStateDisclosure": "custom-profile synthesis installs the plan's validated selections into the builder's module state for the duration of each synthesized window (descriptor resolution and generator dispatch both read that state) and restores the prior state immediately afterwards; windows are synthesized synchronously, so interleaved streams each render their own configuration; other same-process consumers of the custom descriptor surfaces observe the installed selections only while a window is being synthesized"
+  },
+  "recipeDisclosureRequirements": [
+    "every scheduled recipe states that transitions are sample-domain hard edges",
+    "every scheduled recipe states that no power ramp is modeled, including the absent GSM power-time template and the absent Wi-Fi TX ramp",
+    "every scheduled recipe states that wideband splatter is expected at schedule edges",
+    "every scheduled recipe states that the stream is not representative of a conformant transmitter's spectrum",
+    "every recipe states what is standards-consistent, what is engineering choice, what is explicitly absent, and that no canonical artifact exists because the timeline is unbounded"
+  ],
+  "p210DeviceEnvelope": {
+    "device": "neptune-p210",
+    "evidence": "Atom-NeptuneSDR-Firmware/docs/live-unit/extracted/vendor-diagnostic-report.txt and docs/live-unit/FINDINGS.md (live unit, 2026-08-02); unit failure history: Atom-Classifier/docs/ota-results.md (2026-08-02)",
+    "txScanFormat": "le:S16/16>>0",
+    "rxScanFormat": "le:S12/16>>0",
+    "txScanChannelsExpected": [
+      "voltage0",
+      "voltage1"
+    ],
+    "sampleRateHzRange": [
+      2083333,
+      61440000
+    ],
+    "txRfBandwidthHzMax": 40000000,
+    "rxRfBandwidthHzMax": 56000000,
+    "tuneHzRangeLive": [
+      46875000,
+      6000000000
+    ],
+    "ensmModeObserved": [
+      "sleep",
+      "wait",
+      "alert",
+      "fdd",
+      "pinctrl",
+      "pinctrl_fdd_indep"
+    ],
+    "ensmModeAdmittedForStreaming": [
+      "fdd"
+    ],
+    "txLevelControl": {
+      "attribute": "hardwaregain",
+      "liveValueDb": -10,
+      "attenuationRangeDb": [
+        0,
+        89.75
+      ],
+      "rfPortSelect": [
+        "A",
+        "B"
+      ]
+    },
+    "linkSustainedCeilingBytesPerSecond": {
+      "value": 19300000,
+      "provenance": "RX-direction measurement over the routed network path; TX direction re-measured in live preflight before reliance",
+      "ci16CeilingSamplesPerSecond": 4825000
+    },
+    "deviceLoop": {
+      "clientSupport": "iio_writedev 0.25 --cyclic creates a cyclic device buffer and loops until terminated",
+      "boardSupport": "not yet probed on this unit; capability-gated, and nothing downstream depends on it",
+      "nativeRateCeilingHz": 61440000,
+      "bufferMemoryCapBytes": {
+        "value": 268435456,
+        "provenance": "board CMA total 256 MiB per live diagnostic dmesg; used as a conservative ceiling for one cyclic period in ci16le"
+      }
+    },
+    "pllLockObservability": "No lock-status attribute exists on this firmware, and this surface performs no tuning verification; the RX shift-test procedure documented in Atom-Classifier/docs/ota-results.md (2026-08-02) must precede any capture relied upon for tuning sanity.",
+    "knownUnitFailure": "this unit has a documented latching stuck-RX-LO failure (readbacks accept, spectrum parked); RX verification captures require the tune-shift health gate first and recovery is a cold boot"
+  },
+  "profileCapability": [
+    {
+      "profileId": "cw",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 2000,
+      "profileReferenceCenterHz": 98000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "am",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 52000,
+      "profileReferenceCenterHz": 98000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "fm",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 200000,
+      "profileReferenceCenterHz": 98000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "gsm-900-loaded-bcch",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1300000,
+      "signalBandwidthHz": 200000,
+      "profileReferenceCenterHz": 947400000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "gsm-normal-burst",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1300000,
+      "signalBandwidthHz": 200000,
+      "profileReferenceCenterHz": 947400000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "gsm-qpsk-higher-symbol-rate-burst",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1300000,
+      "signalBandwidthHz": 325000,
+      "profileReferenceCenterHz": 947400000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "gsm-aqpsk-normal-burst",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1300000,
+      "signalBandwidthHz": 250000,
+      "profileReferenceCenterHz": 947400000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "gsm-8psk-normal-burst",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1300000,
+      "signalBandwidthHz": 250000,
+      "profileReferenceCenterHz": 947400000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "gsm-16qam-higher-symbol-rate-burst",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1300000,
+      "signalBandwidthHz": 325000,
+      "profileReferenceCenterHz": 947400000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "gsm-32qam-higher-symbol-rate-burst",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1300000,
+      "signalBandwidthHz": 325000,
+      "profileReferenceCenterHz": 947400000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "lte-band3-fdd-20m",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 30720000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 21052632
+    },
+    {
+      "profileId": "lte-band38-tdd-10m",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 15360000,
+      "signalBandwidthHz": 10000000,
+      "profileReferenceCenterHz": 2595000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 10526316
+    },
+    {
+      "profileId": "lte-etm1.1",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 15360000,
+      "signalBandwidthHz": 10000000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 10526316
+    },
+    {
+      "profileId": "lte-etm3.1",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 15360000,
+      "signalBandwidthHz": 10000000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 10526316
+    },
+    {
+      "profileId": "lte-etm3.1a",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 15360000,
+      "signalBandwidthHz": 10000000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 10526316
+    },
+    {
+      "profileId": "lte-etm3.1b",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 15360000,
+      "signalBandwidthHz": 10000000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 10526316
+    },
+    {
+      "profileId": "lte-ntm",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1920000,
+      "signalBandwidthHz": 180000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "lte-nbiot-guard-isolated-component",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1920000,
+      "signalBandwidthHz": 180000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "lte-nbiot-inband-isolated-component",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1920000,
+      "signalBandwidthHz": 180000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "nr-n3-fdd-20m",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 30720000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 1840000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 21052632
+    },
+    {
+      "profileId": "nr-n78-tdd-100m",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 122880000,
+      "signalBandwidthHz": 100000000,
+      "profileReferenceCenterHz": 3500010000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 105263158
+    },
+    {
+      "profileId": "nr-fr1-tm1.1",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 30720000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 1842500000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 21052632
+    },
+    {
+      "profileId": "nr-fr1-tm3.1",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 30720000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 1842500000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 21052632
+    },
+    {
+      "profileId": "nr-fr1-tm3.1a",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 30720000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 1842500000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 21052632
+    },
+    {
+      "profileId": "nr-fr1-tm3.1b",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 30720000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 1842500000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 21052632
+    },
+    {
+      "profileId": "nr-nbiot-inband-isolated-component",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 1920000,
+      "signalBandwidthHz": 180000,
+      "profileReferenceCenterHz": 3500010000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 1000000
+    },
+    {
+      "profileId": "wifi-hr-dsss-11m",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 11000000,
+      "signalBandwidthHz": 11000000,
+      "profileReferenceCenterHz": 2437000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 11000000
+    },
+    {
+      "profileId": "wifi-ofdm-20m",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 20000000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 2437000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 20000000
+    },
+    {
+      "profileId": "wifi6-he-su",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 20000000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 5180000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 20000000
+    },
+    {
+      "profileId": "wifi6-he-er-su",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 20000000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 5180000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 20000000
+    },
+    {
+      "profileId": "wifi6-he-mu",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 20000000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 5180000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 20000000
+    },
+    {
+      "profileId": "wifi6-he-tb",
+      "replay": "cyclic",
+      "nativeSampleRateHz": 20000000,
+      "signalBandwidthHz": 20000000,
+      "profileReferenceCenterHz": 5180000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 20000000
+    },
+    {
+      "profileId": "bluetooth-classic-connected",
+      "replay": "one-shot",
+      "nativeSampleRateHz": 80000000,
+      "signalBandwidthHz": 1000000,
+      "profileReferenceCenterHz": 2410000000,
+      "nativeCarrierOffsetHz": -31000000,
+      "streamable": false,
+      "refusal": {
+        "code": "TX_STREAM_ONE_SHOT_NOT_STREAMABLE",
+        "guidance": "stream the matching bluetooth longdwell composition profile instead"
+      }
+    },
+    {
+      "profileId": "bluetooth-le-advertising",
+      "replay": "one-shot",
+      "nativeSampleRateHz": 80000000,
+      "signalBandwidthHz": 1000000,
+      "profileReferenceCenterHz": 2426000000,
+      "nativeCarrierOffsetHz": -15000000,
+      "streamable": false,
+      "refusal": {
+        "code": "TX_STREAM_ONE_SHOT_NOT_STREAMABLE",
+        "guidance": "stream the matching bluetooth longdwell composition profile instead"
+      }
+    },
+    {
+      "profileId": "bluetooth-classic-connected-longdwell",
+      "replay": "unbounded",
+      "nativeSampleRateHz": 80000000,
+      "signalBandwidthHz": 79000000,
+      "profileReferenceCenterHz": 2441000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 80000000
+    },
+    {
+      "profileId": "bluetooth-le-advertising-longdwell",
+      "replay": "unbounded",
+      "nativeSampleRateHz": 80000000,
+      "signalBandwidthHz": 80000000,
+      "profileReferenceCenterHz": 2441000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 80000000
+    },
+    {
+      "profileId": "ref-qpsk",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 9450000,
+      "profileReferenceCenterHz": 100000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 9450000
+    },
+    {
+      "profileId": "ref-8psk",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 9450000,
+      "profileReferenceCenterHz": 100000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 9450000
+    },
+    {
+      "profileId": "ref-16qam",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 9450000,
+      "profileReferenceCenterHz": 100000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 9450000
+    },
+    {
+      "profileId": "ref-64qam",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 9450000,
+      "profileReferenceCenterHz": 100000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 9450000
+    },
+    {
+      "profileId": "ref-256qam",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 9450000,
+      "profileReferenceCenterHz": 100000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 9450000
+    },
+    {
+      "profileId": "custom-lte",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 9000000,
+      "profileReferenceCenterHz": 1842500000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 9000000
+    },
+    {
+      "profileId": "custom-nr",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 58320000,
+      "profileReferenceCenterHz": 3500000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 58320000
+    },
+    {
+      "profileId": "custom-wifi",
+      "replay": "continuous",
+      "nativeSampleRateHz": null,
+      "signalBandwidthHz": 77812500,
+      "profileReferenceCenterHz": 5180000000,
+      "nativeCarrierOffsetHz": 0,
+      "streamable": true,
+      "minStreamRateHz": 77812500
+    }
+  ],
+  "recipes": [
+    {
+      "recipeId": "gsm-900-xcch-cycle-v1",
+      "recipeVersion": 1,
+      "sampleRateHz": 1300000,
+      "signalBandwidthHz": 200000,
+      "qualification": "standards-derived-complex-baseband",
+      "generator": "geran-corpus-iq pure analytic entry point",
+      "schedule": "corpus schedule as-is: TS0 seeded xCCH 4-frame block cycle plus fixed dummy bursts TS1-7; period 4 frames = 24000 samples; content rotates per cycle. The pinned 1.3 MHz rate is below the P210 device-window floor (2083333 Hz), so this recipe is file/stdio-only; device streaming uses the gsm-900-loaded-bcch profile upsampled into the device window",
+      "streamableOverLink": false
+    },
+    {
+      "recipeId": "lte-band3-operational-v1",
+      "recipeVersion": 1,
+      "sampleRateHz": 30720000,
+      "signalBandwidthHz": 20000000,
+      "qualification": "standards-derived-complex-baseband",
+      "generator": "operational-carrier-iq",
+      "schedule": "continuous 10 ms frames; PDSCH content rotates per absolute frame ordinal",
+      "streamableOverLink": false
+    },
+    {
+      "recipeId": "nr-n78-tdd-pattern-v1",
+      "recipeVersion": 1,
+      "sampleRateHz": 122880000,
+      "signalBandwidthHz": 100000000,
+      "qualification": "standards-derived-complex-baseband",
+      "generator": "operational-carrier-iq",
+      "schedule": "continuous 20 ms artifact frames (4x the 5 ms TDD pattern); content rotates per absolute frame ordinal; TDD pattern phase from the absolute coordinate",
+      "streamableOverLink": false
+    },
+    {
+      "recipeId": "wifi-ofdm-ppdu-stream-v1",
+      "recipeVersion": 1,
+      "sampleRateHz": 20000000,
+      "signalBandwidthHz": 20000000,
+      "qualification": "standards-derived-complex-baseband",
+      "generator": "wlan-corpus-iq",
+      "schedule": "absolute-PPDU-ordinal schedule: PPDU k at prevEnd + DIFS(680 samples) + backoff(k)*slot(180 samples) with seeded backoff; not a MAC: no ACK, CSMA, or contention resolution",
+      "streamableOverLink": false
+    },
+    {
+      "recipeId": "fm-broadcast-mpx-v1",
+      "recipeVersion": 1,
+      "sampleRateHz": 20000000,
+      "signalBandwidthHz": 256000,
+      "qualification": "standards-derived-complex-baseband",
+      "generator": "broadcast-corpus-iq",
+      "schedule": "continuous closed-form FM-MPX stereo composite, 256 kHz Carson bandwidth; any sample independently evaluable",
+      "streamableOverLink": false
+    },
+    {
+      "recipeId": "am-voice-v1",
+      "recipeVersion": 1,
+      "sampleRateHz": 20000000,
+      "signalBandwidthHz": 10000,
+      "qualification": "standards-derived-complex-baseband",
+      "generator": "broadcast-corpus-iq",
+      "schedule": "continuous voiced full-carrier AM, 10 kHz bandwidth; any sample independently evaluable",
+      "streamableOverLink": false
+    }
+  ]
+}

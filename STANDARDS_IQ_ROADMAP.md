@@ -18,11 +18,13 @@ versioned driver boundary. Direct imports share the view; they do not create a
 second bridge, hidden state channel, or cross-repository mutation path.
 
 Complex-I/Q is likewise a driver-neutral Atomizer acquisition shape rather than
-a SignalLab special case. SignalLab measurement contract v2 returns one bounded,
-complete `cf32le` buffer for any of the 42 profiles and advertises an ordered
+a SignalLab special case. SignalLab measurement contract v3 returns one bounded,
+complete `cf32le` buffer for any of the 44 profiles and advertises an ordered
 per-profile transport record. Each fixed record declares its digital-envelope
 reference center, native carrier offset, native sample rate, signal bandwidth,
-and cyclic period or one-shot limit. The 11 analytic/builder records declare
+and cyclic period or one-shot limit; the two unbounded Bluetooth long-dwell
+composition records declare native 80 MHz geometry with no canonical artifact,
+cyclic period, or one-shot limit. The 11 analytic/builder records declare
 state-free continuous generation at the requested output rate.
 
 `captureBandwidthHz` is distinct from the profile's `signalBandwidthHz` and
@@ -33,8 +35,15 @@ receipt. Downsampling uses an explicit Blackman-windowed sinc only when its
 95%-of-output-Nyquist passband contains the signal bandwidth; equal-rate
 fractional delay and upsampling preserve source Nyquist. Requested RF center is
 placement metadata and not artifact identity. Chunking, continuous streaming,
-backpressure, cancellation, and overrun reporting still require a later
-instrument streaming contract.
+backpressure, cancellation, and overrun reporting on the Atomizer measurement
+edge still require a later Atomizer-facing instrument streaming contract
+(streaming v2 and a new trio version). SignalLab's separately versioned
+`signal-lab-tx-stream-v1` surface is a host-tooling sample-stream boundary for
+operator transmit hardware; it does not change `acquireIq`, registers no
+Atomizer-facing capability, and is not an instrument contract. Streaming creates
+no RF emission, conformance, or calibration claim; emission responsibility sits
+with the operator and their hardware, and `standardsCompliance` remains
+`not-claimed` while `rfConformance` remains `not-qualified`.
 
 The provider-runtime LTE artifact lane is a separate generation and promotion
 path. It does not silently replace, qualify, or promote an `acquireIq` catalog
@@ -49,17 +58,18 @@ profile.
 | LTE / E-UTRA catalog | Yes | Standards-derived visual projection | 9 immutable fixed artifacts plus one builder; fixed native bytes are independently verified for declared scope |
 | 5G NR | Yes | Standards-derived visual projection | 7 immutable fixed artifacts plus one builder; fixed native bytes are independently verified for declared scope |
 | WLAN / Wi-Fi | Yes | Standards-derived visual projection | 6 immutable fixed artifacts plus one builder; fixed native bytes are independently verified for declared scope |
-| Bluetooth | Yes | Standards-derived visual projection | 2 immutable one-shot fixed artifacts with explicit native carrier offsets and limits |
+| Bluetooth | Yes | Standards-derived visual projection | 2 immutable one-shot fixed artifacts with explicit native carrier offsets and limits, plus 2 unbounded long-dwell engineering compositions (native 80 MHz, no canonical artifact) |
 | Fixed LTE E-TM 1.1 artifact lane | Not a catalog replacement | Not applicable | Content-addressed one-frame `cf64le` artifact; provider qualification remains `reference-generated` |
 
-The current `acquireIq` producer therefore has three source categories: 31
-content-bound fixed digital artifacts, three standards-constrained builders,
-and eight mathematical references. Independent digital qualification attaches
-only to exact clean native artifact bytes. Resampling, fractional delay, carrier
-translation, or receiver impairment produces a separately hashed derived result
-and cannot inherit exact-byte qualification. No category implies packet
-decoding, RF calibration, antenna qualification, broad technology compliance,
-or product certification.
+The current `acquireIq` producer therefore has four source categories: 31
+content-bound fixed digital artifacts, 2 unbounded composition timelines
+without a canonical artifact, three standards-constrained builders, and eight
+mathematical references (31 + 2 + 3 + 8 = 44). Independent digital
+qualification attaches only to exact clean native artifact bytes. Resampling,
+fractional delay, carrier translation, or receiver impairment produces a
+separately hashed derived result and cannot inherit exact-byte qualification.
+No category implies packet decoding, RF calibration, antenna qualification,
+broad technology compliance, or product certification.
 
 The fixed standards preset `lte-etm-1-1-10mhz-fdd` is revision `2.0.0`: LTE
 E-TM 1.1, 10 MHz FDD, 50 resource blocks, 15 kHz subcarrier spacing, normal
@@ -284,7 +294,11 @@ without it.
    its own complete test campaign passes.
 5. Add incoming I/Q hardware through a new Atomizer driver using the same
    complete-buffer contract when its limits fit; design streaming v2 before
-   advertising continuous acquisition.
+   advertising continuous acquisition. SignalLab's host-side
+   `signal-lab-tx-stream-v1` contract and engine are delivered as host tooling
+   for operator transmit hardware; they are not an Atomizer-facing
+   continuous-acquisition capability, which still requires streaming v2 and a
+   new trio version.
 6. Automate the explicit independent and external evidence lanes in CI without
    treating CI success as broad standards or regulatory certification.
 
